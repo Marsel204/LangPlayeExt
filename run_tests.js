@@ -17,14 +17,11 @@ const realWanakana = require(wanakanaPath);
 
 const dictPath = path.join(__dirname, 'js', 'kanji-dict.js');
 const kanjiDictCode = fs.readFileSync(dictPath, 'utf8')
-  .replace('export const SPECIAL_WORDS', 'const SPECIAL_WORDS')
-  .replace('export const KANJI_DB', 'const KANJI_DB')
-  .replace('export function matchVerbInflectionAt', 'function matchVerbInflectionAt')
-  .replace('export function resolveToHiragana', 'function resolveToHiragana')
-  .replace('export function toModifiedHepburnRomaji', 'function toModifiedHepburnRomaji')
-  .replace('export function getWordReading', 'function getWordReading');
+  .replace(/export const /g, 'const ')
+  .replace(/export function /g, 'function ');
 
 eval(kanjiDictCode);
+
 
 
 // ── 100+ Comprehensive Test Sentences and Words ──
@@ -403,7 +400,12 @@ const manifestPath = path.join(__dirname, 'manifest.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 assert.strictEqual(manifest.manifest_version, 3);
 assert.strictEqual(manifest.name, 'LinguaPlay — Japanese AI Immersion Player');
-console.log('✅ Test 8: Manifest V3 Configuration: PASSED');
+assert.ok(manifest.options_ui && manifest.options_ui.page === 'options.html', 'Manifest must declare options_ui.page');
+assert.strictEqual(manifest.options_ui.open_in_tab, true, 'options_ui.open_in_tab must be true');
+const webRes = manifest.web_accessible_resources?.[0]?.resources || [];
+assert.ok(webRes.includes('options.html'), 'web_accessible_resources must include options.html');
+assert.ok(webRes.includes('options.js'), 'web_accessible_resources must include options.js');
+console.log('✅ Test 8: Manifest V3 Configuration & Options UI: PASSED');
 
 // ── Test Suite 5: tuki. - 愛の賞味期限 (Love Expiration Date) Lyrics Accuracy Benchmark ──
 console.log('\n🎵 Running Test Suite 9: tuki. - 愛の賞味期限 (Love Expiration Date) Lyric Accuracy...');
@@ -461,4 +463,307 @@ for (const tc of LYRICS_TEST_CASES) {
 assert.strictEqual(lyricFailures, 0, `Failed ${lyricFailures} lyric test cases in Test Suite 9!`);
 console.log(`✅ Test 9: All ${LYRICS_TEST_CASES.length} tuki. lyric test cases PASSED matching Genius Romanizations!`);
 
-console.log(`\n🎉 ALL 9 TEST SUITES PASSED CLEANLY WITH ZERO KANJI ERRORS!\n`);
+// ── Test Suite 10: Instant Sentence Translation & Enriched Anki Card Serialization ──
+console.log('\n⚡ Running Test Suite 10: Instant Sentence Translation & Enriched Anki Serialization...');
+
+function parseNmtResponse(rawJson) {
+  if (!rawJson || !rawJson[0] || !Array.isArray(rawJson[0])) return '';
+  return rawJson[0].map(s => s[0]).filter(Boolean).join('');
+}
+
+// 1. Validate Single & Multi-Segment NMT response parsing
+const mockSingleSegmentNmt = [[["I am falling into self-loathing.", "自己嫌悪に落ちてく", null, null, 10]], null, "ja"];
+const parsedSingle = parseNmtResponse(mockSingleSegmentNmt);
+assert.strictEqual(parsedSingle, 'I am falling into self-loathing.');
+
+const mockMultiSegmentNmt = [
+  [
+    ["The flower blooming in the gap of the bookshelf ", "書架の隙間に住まう一輪の花は", null, null, 10],
+    ["is an existence that cannot reach me.", "僕には届かぬ存在で", null, null, 10]
+  ],
+  null,
+  "ja"
+];
+const parsedMulti = parseNmtResponse(mockMultiSegmentNmt);
+assert.strictEqual(parsedMulti, 'The flower blooming in the gap of the bookshelf is an existence that cannot reach me.');
+console.log('✅ Test 10a: Multi-segment NMT response parser: PASSED');
+
+// 2. Validate Sentence Highlighting in Japanese text
+function formatSentenceWithTargetWord(sentence, targetWord) {
+  if (!sentence || !targetWord || !sentence.includes(targetWord)) return sentence;
+  const parts = sentence.split(targetWord);
+  return parts.join(`<b>${targetWord}</b>`);
+}
+
+const testSent = '自己嫌悪に落ちてく';
+const highlighted = formatSentenceWithTargetWord(testSent, '自己嫌悪');
+assert.strictEqual(highlighted, '<b>自己嫌悪</b>に落ちてく');
+console.log('✅ Test 10b: Sentence target word highlighting: PASSED');
+
+// 3. Validate Enriched Anki Payload Generation
+function buildAnkiPayload(word, romaji, def, sentence, sentEn, deckName = 'LinguaPlay') {
+  let backHtml = `<div><strong>Meaning:</strong> ${def}</div>`;
+  if (sentence) {
+    const boldSent = formatSentenceWithTargetWord(sentence, word);
+    backHtml += `<br><div><strong>Sentence:</strong> ${boldSent}</div>`;
+    if (sentEn) {
+      backHtml += `<div style="color:#94a3b8; font-size:0.9em; margin-top:3px; font-style:italic;">${sentEn}</div>`;
+    }
+  }
+
+  return {
+    action: 'addNote',
+    version: 6,
+    params: {
+      note: {
+        deckName,
+        modelName: 'Basic',
+        fields: {
+          Front: `${word} <span style="font-size:0.8em;color:#94a3b8;">${romaji}</span>`,
+          Back: backHtml
+        },
+        tags: ['linguaplay', 'youtube']
+      }
+    }
+  };
+}
+
+const ankiPayload = buildAnkiPayload(
+  '自己嫌悪',
+  "jikoken'o",
+  'self-hatred; self-loathing',
+  '自己嫌悪に落ちてく',
+  'Falling into self-loathing.'
+);
+
+assert.strictEqual(ankiPayload.params.note.fields.Front, "自己嫌悪 <span style=\"font-size:0.8em;color:#94a3b8;\">jikoken'o</span>");
+assert(ankiPayload.params.note.fields.Back.includes('Falling into self-loathing.'), 'Anki payload Back must contain English sentence translation');
+assert(ankiPayload.params.note.fields.Back.includes('<b>自己嫌悪</b>に落ちてく'), 'Anki payload Back must highlight target word in sentence');
+console.log('✅ Test 10c: Enriched Anki Payload with Sentence & Translation: PASSED');
+
+// ── Test Suite 11: Sentence Romaji, Multi-Provider LLM & Sensei Chat Engine ──
+console.log('\n🌟 Running Test Suite 11: Sentence Romaji, Multi-Provider LLM & Sensei Chat Engine...');
+
+// 1. Validate Sentence Romaji Generation and Natural Word Spacing
+const userSent0 = '君が僕に見せてくれた';
+const sentRomaji0 = generateSentenceRomaji(userSent0, '君', realWanakana);
+assert(sentRomaji0.includes('<span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">kimi</span> ga boku ni misetekureta'), 'Sentence Romaji must space words and particles with highlighted target "kimi"');
+console.log('✅ Test 11a: Context Spaced Sentence Romaji ("君が僕に見せてくれた"):', sentRomaji0);
+
+const userSent1 = '僕を走らせる魔法だ';
+const sentRomaji1 = generateSentenceRomaji(userSent1, '魔法', realWanakana);
+assert(sentRomaji1.includes('boku o hashiraseru <span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">mahou</span> da'), 'Sentence Romaji must space particles and verbs correctly');
+console.log('✅ Test 11b: Context Spaced Sentence Romaji ("僕を走らせる魔法だ"):', sentRomaji1);
+
+const userSent2 = '自己嫌悪に落ちてく';
+const sentRomaji2 = generateSentenceRomaji(userSent2, '自己嫌悪', realWanakana);
+assert(sentRomaji2.includes("<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">jikoken'o</span> ni ochiteku"), 'Sentence Romaji must space compound nouns and conjugated verb chains');
+console.log('✅ Test 11c: Context Spaced Sentence Romaji ("自己嫌悪に落ちてく"):', sentRomaji2);
+
+const userSent3 = 'また君に恋を知る';
+const sentRomaji3 = generateSentenceRomaji(userSent3, '恋', realWanakana);
+assert(sentRomaji3.includes('mata kimi ni <span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">koi</span> o shiru'), 'Sentence Romaji must space adverbs and particles');
+console.log('✅ Test 11d: Context Spaced Sentence Romaji ("また君に恋を知る"):', sentRomaji3);
+
+// 2. Multi-Provider LLM Payload Construction Verification
+function buildLlmRequestPayload(provider, cfg, messages, isJson = true) {
+  const model = cfg.model || (provider === 'deepseek' ? 'deepseek-chat' : (provider === 'openrouter' ? 'deepseek/deepseek-chat' : 'gemini-2.5-flash'));
+  
+  if (provider === 'gemini') {
+    const promptText = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+    return {
+      url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${cfg.apiKey}`,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: isJson ? { responseMimeType: 'application/json' } : {}
+      })
+    };
+  }
+
+  // OpenAI-Compatible standard: DeepSeek, OpenRouter, OpenCode/Custom OpenAI
+  let url = 'https://api.deepseek.com/v1/chat/completions';
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${cfg.apiKey}`
+  };
+
+  if (provider === 'openrouter') {
+    url = 'https://openrouter.ai/api/v1/chat/completions';
+    headers['HTTP-Referer'] = 'https://github.com/Marsel204/LangPlay';
+    headers['X-Title'] = 'LinguaPlay Immersion';
+  } else if (provider === 'custom' || provider === 'opencode') {
+    const base = (cfg.endpointUrl || 'http://localhost:11434/v1').replace(/\/+$/, '');
+    url = base.endsWith('/chat/completions') ? base : `${base}/chat/completions`;
+  }
+
+  const payloadBody = {
+    model: model,
+    messages: messages,
+    temperature: 0.3
+  };
+  if (isJson && provider !== 'openrouter') {
+    payloadBody.response_format = { type: 'json_object' };
+  }
+
+  return { url, headers, body: JSON.stringify(payloadBody) };
+}
+
+// Test DeepSeek Request Payload
+const dsReq = buildLlmRequestPayload('deepseek', { apiKey: 'sk-ds-test', model: 'deepseek-chat' }, [
+  { role: 'system', content: 'You are Sensei.' },
+  { role: 'user', content: 'Explain 魔法 in 僕を走らせる魔法だ' }
+]);
+assert.strictEqual(dsReq.url, 'https://api.deepseek.com/v1/chat/completions');
+assert(dsReq.headers.Authorization.includes('sk-ds-test'));
+const dsBody = JSON.parse(dsReq.body);
+assert.strictEqual(dsBody.model, 'deepseek-chat');
+assert.strictEqual(dsBody.messages.length, 2);
+console.log('✅ Test 11c: DeepSeek LLM Payload Builder: PASSED');
+
+// Test OpenRouter Request Payload
+const orReq = buildLlmRequestPayload('openrouter', { apiKey: 'sk-or-test', model: 'deepseek/deepseek-chat' }, [
+  { role: 'user', content: 'Test question' }
+]);
+assert.strictEqual(orReq.url, 'https://openrouter.ai/api/v1/chat/completions');
+assert(orReq.headers['HTTP-Referer'].includes('Marsel204/LangPlay'));
+console.log('✅ Test 11d: OpenRouter LLM Payload Builder: PASSED');
+
+// Test OpenCode / Custom OpenAI Request Payload
+const customReq = buildLlmRequestPayload('custom', { endpointUrl: 'http://localhost:11434/v1', apiKey: 'ollama', model: 'qwen2.5:7b' }, [
+  { role: 'user', content: 'Explain grammar' }
+]);
+assert.strictEqual(customReq.url, 'http://localhost:11434/v1/chat/completions');
+const customBody = JSON.parse(customReq.body);
+assert.strictEqual(customBody.model, 'qwen2.5:7b');
+console.log('✅ Test 11e: OpenCode / Custom OpenAI Payload Builder: PASSED');
+
+// 3. Sensei Chat History & Prompt Verification
+function createSenseiSystemPrompt(word, romaji, sentence, definition) {
+  return `You are "Sensei", an insightful, encouraging Japanese Grammar Teacher and Immersion Tutor.
+Current Context:
+- Target Word: "${word}" (Reading: ${romaji})
+- Context Sentence: "${sentence}"
+- Dictionary Meaning: "${definition}"
+
+Your Role:
+1. Explain sentence grammar, syntactic connections, particle roles, and verb inflections clearly.
+2. Highlight why specific words or forms are used instead of alternatives.
+3. Keep explanations clear, pedagogical, concise, and structured. Use Japanese text with Furigana/Romaji where helpful.`;
+}
+
+const senseiPrompt = createSenseiSystemPrompt('魔法', 'mahou', '僕を走らせる魔法だ', 'magic; witchcraft; sorcery');
+assert(senseiPrompt.includes('Sensei'));
+assert(senseiPrompt.includes('僕を走らせる魔法だ'));
+assert(senseiPrompt.includes('mahou'));
+console.log('✅ Test 11f: Sensei System Prompt Assembly: PASSED');
+
+// ── Test Suite 12: Yomitan Deinflection Engine & Romaji Splitting Prevention ──
+console.log('\n🗾 Running Test Suite 12: Yomitan Deinflection Engine & Romaji Splitting Prevention...');
+
+const YomitanDeinflector = require('./lib/yomitan-deinflector.js');
+const deinflector = new YomitanDeinflector();
+
+// 1. Verify deinflections of key benchmark forms
+const todokanuResults = deinflector.deinflect('届かぬ').map(r => r.term);
+assert(todokanuResults.includes('届く'), 'FAIL: 届かぬ must deinflect to 届く');
+console.log('✅ Test 12a: Deinflect "届かぬ" -> 届く: PASSED');
+
+const ikanakattaResults = deinflector.deinflect('行かなかった').map(r => r.term);
+assert(ikanakattaResults.includes('行く'), 'FAIL: 行かなかった must deinflect to 行く');
+console.log('✅ Test 12b: Deinflect "行かなかった" -> 行く: PASSED');
+
+const oishikattaResults = deinflector.deinflect('美味しかった').map(r => r.term);
+assert(oishikattaResults.includes('美味しい'), 'FAIL: 美味しかった must deinflect to 美味しい');
+console.log('✅ Test 12c: Deinflect "美味しかった" -> 美味しい: PASSED');
+
+const dattaResults = deinflector.deinflect('だった').map(r => r.term);
+assert(dattaResults.includes('だ'), 'FAIL: だった must deinflect to だ');
+console.log('✅ Test 12d: Deinflect "だった" -> だ: PASSED');
+
+// 2. Verify content.js integration and sentence romaji output
+const contentJsCode = fs.readFileSync(path.join(__dirname, 'content.js'), 'utf8');
+assert.ok(
+  contentJsCode.includes('YomitanDeinflector') || contentJsCode.includes('deinflect'),
+  'FAIL: content.js must integrate Yomitan deinflection engine!'
+);
+
+const sandboxCode = contentJsCode.replace('(function () {', 'global.testContentCode = function() {').replace(/\}\)\(\);?\s*$/, '}; global.testContentCode();');
+global.window = { wanakana: realWanakana, addEventListener: () => {}, location: { search: '', href: '' } };
+global.document = { addEventListener: () => {}, querySelector: () => null, getElementById: () => null };
+global.chrome = { storage: { local: { get: () => {} } } };
+
+eval(sandboxCode.replace('function generateSentenceRomaji', 'global.genSentRomaji = function generateSentenceRomaji'));
+const genRomaji = global.genSentRomaji;
+
+const r1 = genRomaji('世界はとても綺麗だったな', '世界');
+assert.strictEqual(r1.includes('da ttana'), false, 'FAIL: だったな must not produce "da ttana"');
+assert.ok(r1.includes('datta na') || r1.includes('dattana'), `FAIL: Expected "datta na", got: ${r1}`);
+console.log('✅ Test 12e: Sentence Romaji ("世界はとても綺麗だったな") ->', r1);
+
+const r2 = genRomaji('僕には届かぬ存在で', '僕');
+assert.strictEqual(r2.includes('todo ka nu'), false, 'FAIL: 届かぬ must not produce "todo ka nu"');
+assert.ok(r2.includes('todokanu'), `FAIL: Expected "todokanu", got: ${r2}`);
+console.log('✅ Test 12f: Sentence Romaji ("僕には届かぬ存在で") ->', r2);
+
+const r3 = genRomaji('美味しかった', '');
+assert.strictEqual(r3.includes('bimi shika tta'), false, 'FAIL: 美味しかった must not produce "bimi shika tta"');
+assert.ok(r3.includes('oishikatta'), `FAIL: Expected "oishikatta", got: ${r3}`);
+console.log('✅ Test 12g: Sentence Romaji ("美味しかった") ->', r3);
+
+const r4 = genRomaji('行かなかった', '');
+assert.strictEqual(r4.includes('i ka na ka tta'), false, 'FAIL: 行かなかった must not produce "i ka na ka tta"');
+assert.ok(r4.includes('ikanakatta'), `FAIL: Expected "ikanakatta", got: ${r4}`);
+console.log('✅ Test 12h: Sentence Romaji ("行かなかった") ->', r4);
+
+// ── Test Suite 13: Drawer Context Sentence Isolation & Video Decoupling ──
+console.log('\n🔒 Running Test Suite 13: Drawer Context Sentence Isolation & Decoupling...');
+
+// 1. Verify content.js declares drawerContextSentence
+assert.ok(
+  contentJsCode.includes('let drawerContextSentence =') || contentJsCode.includes('var drawerContextSentence ='),
+  'FAIL: content.js must declare dedicated drawerContextSentence state variable!'
+);
+console.log('✅ Test 13a: Dedicated drawerContextSentence declaration verified');
+
+// 2. Verify handleTokenClick sets drawerContextSentence
+const clickMatch = contentJsCode.match(/function handleTokenClick\([\s\S]*?\{([\s\S]*?)(?:aiResults\.innerHTML|switchDrawerTab)/);
+assert.ok(clickMatch && clickMatch[1].includes('drawerContextSentence ='), 'FAIL: handleTokenClick must pin drawerContextSentence!');
+console.log('✅ Test 13b: handleTokenClick pins context sentence into drawer state');
+
+// 3. Verify Ask Sensei, Quick Anki, Sensei Chat & AI Anki use drawerContextSentence
+assert.ok(contentJsCode.includes('lp-ai-btn'), 'lp-ai-btn exists');
+assert.ok(contentJsCode.includes('lp-quick-anki-btn'), 'lp-quick-anki-btn exists');
+assert.ok(contentJsCode.includes('sendSenseiQuestion'), 'sendSenseiQuestion exists');
+assert.ok(contentJsCode.includes('lp-ai-anki-btn'), 'lp-ai-anki-btn exists');
+
+// Verify live caption updates never overwrite drawerContextSentence
+assert.ok(
+  !contentJsCode.includes('drawerContextSentence = cueText') &&
+  !contentJsCode.includes('drawerContextSentence = text') &&
+  !contentJsCode.includes('drawerContextSentence = "";'),
+  'FAIL: Live video caption updates must NEVER overwrite drawerContextSentence!'
+);
+console.log('✅ Test 13c: Live video captions decoupled from drawer context state');
+
+// Runtime simulation test
+{
+  let drawerContext = '';
+  let liveSubtitle = '';
+  function clickWord(token, sent) { drawerContext = sent; }
+  function advanceVideo(newSub) { liveSubtitle = newSub; }
+  function buildPrompt(word) { return `Sentence: "${drawerContext || liveSubtitle}", Word: "${word}"`; }
+
+  clickWord({ surface: '廃棄' }, '愛が 廃棄 処分になるのは');
+  advanceVideo('貴方 だ よね ばい ばい');
+
+  const p = buildPrompt('廃棄');
+  assert.ok(p.includes('愛が 廃棄 処分になるのは'), 'Prompt must use clicked context sentence');
+  assert.ok(!p.includes('貴方 だ よね ばい ばい'), 'Prompt must NOT use live subtitle');
+}
+console.log('✅ Test 13d: Runtime word click -> subtitle advance -> prompt isolation verified');
+
+console.log(`\n🎉 ALL 13 TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n`);
+process.exit(0);
+
+

@@ -1,7 +1,14 @@
-import json, re
+import json, re, os
 
-with open('extension/js/kanji-dict.js', 'r', encoding='utf-8') as f:
+dict_file = 'extension/js/kanji-dict.js' if os.path.exists('extension/js/kanji-dict.js') else 'js/kanji-dict.js'
+rules_file = 'extension/lib/deinflect-rules.json' if os.path.exists('extension/lib/deinflect-rules.json') else 'lib/deinflect-rules.json'
+out_file = 'extension/content.js' if os.path.exists('extension/manifest.json') else 'content.js'
+
+with open(dict_file, 'r', encoding='utf-8') as f:
     dict_content = f.read()
+
+with open(rules_file, 'r', encoding='utf-8') as f:
+    deinflect_rules_json = f.read()
 
 m_spec = re.search(r'export const SPECIAL_WORDS = ({.*?});', dict_content, re.DOTALL)
 m_db = re.search(r'export const KANJI_DB = ({.*?});', dict_content, re.DOTALL)
@@ -23,6 +30,90 @@ content_code = """/**
   const SPECIAL_WORDS = """ + special_words_code + """;
 
   const KANJI_DB = """ + kanji_db_code + """;
+
+  // ── Yomitan Deinflection Engine (<0.1ms rule-driven state transitions) ──
+  const YOMITAN_DEINFLECT_RULES = """ + deinflect_rules_json + """;
+
+  class YomitanDeinflector {
+    constructor(rules) {
+      this.reasons = rules || YOMITAN_DEINFLECT_RULES;
+    }
+
+    deinflect(source) {
+      if (!source || typeof source !== 'string') return [];
+      const results = [{ term: source, rules: 0, reasons: [] }];
+      for (let i = 0; i < results.length; ++i) {
+        const { rules, term, reasons } = results[i];
+        for (let r = 0; r < this.reasons.length; r++) {
+          const reasonEntry = this.reasons[r];
+          const reasonName = reasonEntry[0];
+          const variants = reasonEntry[1];
+          for (let v = 0; v < variants.length; v++) {
+            const [kanaIn, kanaOut, rulesIn, rulesOut] = variants[v];
+            if (
+              (rules !== 0 && (rules & rulesIn) === 0) ||
+              !term.endsWith(kanaIn) ||
+              (term.length - kanaIn.length + kanaOut.length) <= 0
+            ) {
+              continue;
+            }
+
+            const deinflectedTerm = term.substring(0, term.length - kanaIn.length) + kanaOut;
+            results.push({
+              term: deinflectedTerm,
+              rules: rulesOut,
+              reasons: [reasonName, ...reasons]
+            });
+          }
+        }
+      }
+      return results;
+    }
+  }
+
+  const yomitanDeinflector = new YomitanDeinflector();
+
+  function resolveDeinflectedReading(word) {
+    if (!word || !word.trim()) return null;
+    const w = word.trim();
+    if (SPECIAL_WORDS[w]) return SPECIAL_WORDS[w];
+    const deinflections = yomitanDeinflector.deinflect(w);
+    for (let dIdx = 0; dIdx < deinflections.length; dIdx++) {
+      const { term } = deinflections[dIdx];
+      if (SPECIAL_WORDS[term]) {
+        const baseReading = SPECIAL_WORDS[term];
+        if (term.endsWith('い') && baseReading.endsWith('い')) {
+          const stemReading = baseReading.slice(0, -1);
+          const stemWord = term.slice(0, -1);
+          if (w.startsWith(stemWord)) {
+            return stemReading + w.slice(stemWord.length);
+          }
+        }
+        if (term.endsWith('る') && baseReading.endsWith('る')) {
+          const stemReading = baseReading.slice(0, -1);
+          const stemWord = term.slice(0, -1);
+          if (w.startsWith(stemWord)) {
+            return stemReading + w.slice(stemWord.length);
+          }
+        }
+      }
+      const firstChar = term[0];
+      const dbEntry = KANJI_DB[firstChar];
+      if (dbEntry && dbEntry[1]) {
+        const okuri = term.slice(1);
+        for (let kIdx = 0; kIdx < dbEntry[1].length; kIdx++) {
+          const kun = dbEntry[1][kIdx];
+          if (kun.includes('.')) {
+            const [stemReading, okuriReading] = kun.split('.');
+            if (okuri === okuriReading) {
+              return stemReading + w.slice(1);
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
 
   /**
    * Matches verb/adjective inflections and Onbin shifts (Godan, Ichidan, Kuru, Suru).
@@ -103,6 +194,8 @@ content_code = """/**
     if (!word || !word.trim()) return '';
     const w = word.trim();
     if (SPECIAL_WORDS[w]) return SPECIAL_WORDS[w];
+    const deinf = resolveDeinflectedReading(w);
+    if (deinf) return deinf;
 
     const isKanji = (c) => c >= 0x4E00 && c <= 0x9FAF;
     const isKatakana = (c) => c >= 0x30A1 && c <= 0x30F6;
@@ -225,6 +318,196 @@ content_code = """/**
     return { furigana: hira, romaji };
   }
 
+  const COPULAS = new Set([
+    'だった', 'でした', 'だろう', 'でしょう', 'だ', 'です',
+    'じゃない', 'じゃなかった', 'ではない', 'ではなかった'
+  ]);
+
+  const PARTICLES = new Set([
+    'は', 'が', 'を', 'に', 'で', 'へ', 'と', 'も', 'の', 'か', 'よ', 'ね', 'な', 'ぞ', 'ぜ', 'さ',
+    'より', 'から', 'まで', 'だけ', 'ほど', 'ばかり', 'など', 'くらい', 'ぐらい',
+    'けれど', 'けれども', 'けど', 'のに', 'ので', 'ても', 'でも', 'なら', 'って'
+  ]);
+
+  const COMMON_WORDS = new Set([
+    'また', 'もっと', 'ずっと', 'いつも', 'きっと', 'たぶん', 'とても', 'たくさん',
+    'ちょっと', 'すぐ', 'もう', '僕', '君', '私', '俺', 'これ', 'それ', 'あれ', 'どれ',
+    'ここ', 'そこ', 'あそこ', 'どこ', 'どう', 'そう', 'こう', 'なぜ', 'どうして'
+  ]);
+
+  function segmentJapaneseSentence(text) {
+    if (!text || !text.trim()) return [];
+    const clean = text.trim();
+    const rawTokens = [];
+    let i = 0;
+
+    while (i < clean.length) {
+      if (/\\s/.test(clean[i])) { i++; continue; }
+      if (/[、。！？，．…〜「」『』（）,.!?]/.test(clean[i])) {
+        rawTokens.push({ text: clean[i], isPunct: true });
+        i++;
+        continue;
+      }
+
+      // 1. Check longest match in SPECIAL_WORDS, COMMON_WORDS, or COPULAS
+      let matchedPrefix = null;
+      for (let len = Math.min(12, clean.length - i); len >= 2; len--) {
+        const sub = clean.slice(i, i + len);
+        if (SPECIAL_WORDS[sub] || COMMON_WORDS.has(sub) || COPULAS.has(sub)) {
+          matchedPrefix = sub;
+          break;
+        }
+      }
+      if (matchedPrefix) {
+        const isCop = COPULAS.has(matchedPrefix);
+        rawTokens.push({ text: matchedPrefix, isSpecial: !isCop, isCopula: isCop });
+        i += matchedPrefix.length;
+        continue;
+      }
+
+      // 2. Check if candidate starting at i can be deinflected as a verb/adjective
+      let matchedVerb = null;
+      for (let len = Math.min(12, clean.length - i); len >= 2; len--) {
+        const candidate = clean.slice(i, i + len);
+        if (resolveDeinflectedReading(candidate)) {
+          matchedVerb = candidate;
+          break;
+        }
+      }
+      if (matchedVerb) {
+        rawTokens.push({ text: matchedVerb, isVerb: true });
+        i += matchedVerb.length;
+        continue;
+      }
+
+      // 3. Kanji word (run of Kanji)
+      if (/[\\u4E00-\\u9FAF]/.test(clean[i])) {
+        let wordEnd = i + 1;
+        while (wordEnd < clean.length && /[\\u4E00-\\u9FAF]/.test(clean[wordEnd])) {
+          wordEnd++;
+        }
+        rawTokens.push({ text: clean.slice(i, wordEnd), isKanjiWord: true });
+        i = wordEnd;
+        continue;
+      }
+
+      // 4. Copulas / Particles
+      let matchedPart = null;
+      for (let pLen = Math.min(6, clean.length - i); pLen >= 1; pLen--) {
+        const sub = clean.slice(i, i + pLen);
+        if (COPULAS.has(sub) || PARTICLES.has(sub)) {
+          matchedPart = sub;
+          break;
+        }
+      }
+      if (matchedPart) {
+        const isCop = COPULAS.has(matchedPart);
+        rawTokens.push({ text: matchedPart, isParticle: !isCop, isCopula: isCop });
+        i += matchedPart.length;
+        continue;
+      }
+
+      // 5. Standalone Kana word
+      let kanaEnd = i + 1;
+      while (kanaEnd < clean.length && /[\\u3040-\\u309F\\u30A0-\\u30FF]/.test(clean[kanaEnd])) {
+        if (/[、。！？，．…〜「」『』（）,.!?\\s]/.test(clean[kanaEnd]) || /[\\u4E00-\\u9FAF]/.test(clean[kanaEnd])) break;
+        let isPart = false;
+        for (let pLen = Math.min(6, clean.length - kanaEnd); pLen >= 1; pLen--) {
+          const sub = clean.slice(kanaEnd, kanaEnd + pLen);
+          if (PARTICLES.has(sub) || COPULAS.has(sub)) { isPart = true; break; }
+        }
+        if (isPart) break;
+        kanaEnd++;
+      }
+      rawTokens.push({ text: clean.slice(i, kanaEnd), isKana: true });
+      i = kanaEnd;
+    }
+
+    // Sokuon safety binder: merge any leading 'っ' token into preceding token
+    const boundTokens = [];
+    for (let idx = 0; idx < rawTokens.length; idx++) {
+      const tok = rawTokens[idx];
+      if (tok.text.startsWith('っ') && boundTokens.length > 0 && !boundTokens[boundTokens.length - 1].isPunct) {
+        boundTokens[boundTokens.length - 1].text += tok.text;
+      } else {
+        boundTokens.push(tok);
+      }
+    }
+
+    return boundTokens;
+  }
+
+  function generateSentenceRomaji(sentenceText, targetWord) {
+    if (!sentenceText || !sentenceText.trim()) return '';
+    const clean = sentenceText.trim();
+    const tokens = segmentJapaneseSentence(clean);
+
+    const targetClean = targetWord ? targetWord.trim() : '';
+    const targetHira = targetClean ? resolveToHiragana(targetClean) : '';
+    const targetRomaji = targetClean ? toModifiedHepburnRomaji(targetHira, targetClean) : '';
+
+    const romajiTokens = [];
+
+    for (let idx = 0; idx < tokens.length; idx++) {
+      const tok = tokens[idx];
+      if (tok.isPunct) {
+        if (romajiTokens.length > 0) {
+          const last = romajiTokens[romajiTokens.length - 1];
+          if (/[、,]/.test(tok.text)) romajiTokens[romajiTokens.length - 1] = last + ',';
+          else if (/[。.]/.test(tok.text)) romajiTokens[romajiTokens.length - 1] = last + '.';
+          else if (/[！!]/.test(tok.text)) romajiTokens[romajiTokens.length - 1] = last + '!';
+          else if (/[？?]/.test(tok.text)) romajiTokens[romajiTokens.length - 1] = last + '?';
+          else romajiTokens.push(tok.text);
+        } else {
+          romajiTokens.push(tok.text);
+        }
+        continue;
+      }
+
+      let tokRomaji = '';
+      if (tok.isParticle) {
+        if (tok.text === 'は') tokRomaji = 'wa';
+        else if (tok.text === 'へ') tokRomaji = 'e';
+        else if (tok.text === 'を') tokRomaji = 'o';
+        else tokRomaji = toModifiedHepburnRomaji(tok.text, tok.text);
+      } else {
+        const hira = resolveToHiragana(tok.text);
+        tokRomaji = toModifiedHepburnRomaji(hira, tok.text);
+      }
+
+      // Check target highlight
+      let isTarget = false;
+      if (targetClean) {
+        if (tok.text === targetClean || (targetClean.length >= 2 && tok.text.includes(targetClean)) || (tok.text.length >= 2 && targetClean.includes(tok.text))) {
+          isTarget = true;
+        }
+      }
+
+      if (isTarget) {
+        if (targetRomaji && tokRomaji.includes(targetRomaji) && tokRomaji !== targetRomaji) {
+          const highlighted = tokRomaji.replace(targetRomaji, `<span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">${targetRomaji}</span>`);
+          romajiTokens.push(highlighted);
+        } else {
+          romajiTokens.push(`<span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">${tokRomaji}</span>`);
+        }
+      } else {
+        romajiTokens.push(tokRomaji);
+      }
+
+      // Sokuon safety check on romaji token level: merge floating double consonants with preceding token
+      if (romajiTokens.length >= 2) {
+        const lastIdx = romajiTokens.length - 1;
+        const currentTok = romajiTokens[lastIdx];
+        if (/^(tt|kk|pp|ss|cc|hh|mm|nn|rr|ww|yy|zz)/i.test(currentTok)) {
+          romajiTokens[lastIdx - 1] += currentTok;
+          romajiTokens.pop();
+        }
+      }
+    }
+
+    return romajiTokens.join(' ');
+  }
+
 
   // ── Offline JDICT Dictionary Subset (<10ms instant lookup) ──
   const JDICT = {
@@ -232,6 +515,7 @@ content_code = """/**
     'これ': 'this', 'それ': 'that', 'あれ': 'that (over there)', 'どれ': 'which one', 'ここ': 'here', 'そこ': 'there', 'あそこ': 'over there', 'どこ': 'where',
     '自己': 'self; oneself', '嫌悪': 'disgust; hate; abhorrence', '自己嫌悪': 'self-hatred; self-disgust',
     '綺麗': 'beautiful; pretty; lovely; clean', '世界': 'world; universe; society',
+    '美味しい': 'delicious; tasty', '美味しかった': 'was delicious', '届く': 'to reach; to arrive; to deliver', '届かぬ': 'unreachable; cannot reach',
     'は': '(topic marker)', 'が': '(subject marker)', 'を': '(object marker)', 'に': 'to; at; in', 'で': 'at; by; with', 'へ': 'towards', 'も': 'also; too',
     'の': '(possessive; of)', 'と': 'and; with; quotation', 'か': '(question marker)', 'よ': '(emphasis)', 'ね': '(confirmation; right?)', 'より': 'than; from',
     'から': 'from; since; because', 'まで': 'until; even', 'だけ': 'only; just', 'しか': 'only; but (with negative)', 'けど': 'but; however',
@@ -260,6 +544,9 @@ content_code = """/**
   let readingMode = 'furigana';
   let currentVideoId = null;
   let lastAiData = null;
+  let senseiChatHistory = [];
+  let drawerContextSentence = '';
+  let drawerActiveWord = '';
   let activeLiveSentence = '';
   let isPanelCollapsed = true;
 
@@ -675,6 +962,88 @@ content_code = """/**
     });
   }
 
+  // ── High-Speed Instant Sentence Translation Cache & Fetcher (Client-Side) ──
+  const sentenceTranslationCache = new Map();
+
+  async function fetchSentenceTranslation(sentence) {
+    if (!sentence || !sentence.trim()) return '';
+    const clean = sentence.trim();
+    if (sentenceTranslationCache.has(clean)) {
+      return sentenceTranslationCache.get(clean);
+    }
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&q=${encodeURIComponent(clean)}`, {
+        signal: AbortSignal.timeout(4000)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        let translation = '';
+        if (data && data[0] && Array.isArray(data[0])) {
+          translation = data[0].map(segment => segment[0]).filter(Boolean).join('');
+        }
+        if (translation) {
+          sentenceTranslationCache.set(clean, translation);
+          return translation;
+        }
+      }
+    } catch (e) {
+      console.warn('[LinguaPlay] Sentence translation fetch error:', e);
+    }
+    return '';
+  }
+
+  // ── Switch Drawer Navigation Tab (Breakdown vs Sensei Chatbot) ──
+  function switchDrawerTab(tab) {
+    const tabBreakdownBtn = document.getElementById('lp-tab-breakdown-btn');
+    const tabChatBtn = document.getElementById('lp-tab-chat-btn');
+    const viewBreakdown = document.getElementById('lp-view-breakdown');
+    const viewChat = document.getElementById('lp-view-chat');
+
+    if (tab === 'chat') {
+      if (viewBreakdown) viewBreakdown.style.display = 'none';
+      if (viewChat) viewChat.style.display = 'block';
+      if (tabChatBtn) tabChatBtn.classList.add('active');
+      if (tabBreakdownBtn) tabBreakdownBtn.classList.remove('active');
+
+      const sentJpEl = document.getElementById('lp-sentence-jp');
+      const sentRomajiEl = document.getElementById('lp-sentence-romaji');
+      const sentEnEl = document.getElementById('lp-sentence-en');
+      const sentSpeedEl = document.getElementById('lp-sentence-speed');
+      const chatContextEl = document.getElementById('lp-chat-context-sentence');
+      const chatRomajiEl = document.getElementById('lp-chat-sentence-romaji');
+      const chatEnEl = document.getElementById('lp-chat-sentence-en');
+      const chatBadgeEl = document.getElementById('lp-sensei-provider-badge');
+
+      if (chatContextEl) {
+        if (sentJpEl && sentJpEl.innerHTML) {
+          chatContextEl.innerHTML = sentJpEl.innerHTML;
+        } else {
+          chatContextEl.textContent = drawerContextSentence || activeLiveSentence || '';
+        }
+      }
+      if (chatRomajiEl && sentRomajiEl) {
+        chatRomajiEl.innerHTML = sentRomajiEl.innerHTML;
+        chatRomajiEl.style.display = sentRomajiEl.style.display;
+      }
+      if (chatEnEl && sentEnEl) {
+        chatEnEl.innerHTML = sentEnEl.innerHTML;
+      }
+      if (chatBadgeEl && (!chatBadgeEl.textContent || chatBadgeEl.textContent === 'Instant')) {
+        chatBadgeEl.textContent = sentSpeedEl ? sentSpeedEl.textContent : 'Instant';
+      }
+
+      const chatInputEl = document.getElementById('lp-chat-input');
+      if (chatInputEl) {
+        setTimeout(() => chatInputEl.focus(), 50);
+      }
+    } else {
+      if (viewBreakdown) viewBreakdown.style.display = 'block';
+      if (viewChat) viewChat.style.display = 'none';
+      if (tabBreakdownBtn) tabBreakdownBtn.classList.add('active');
+      if (tabChatBtn) tabChatBtn.classList.remove('active');
+    }
+  }
+
   // ── Handle Word Click (Non-Interrupting & Side-Panel Integration) ──
   function handleTokenClick(token, sentenceContext) {
     let drawer = document.getElementById('linguaplay-yt-drawer');
@@ -700,6 +1069,21 @@ content_code = """/**
     const aiResults = document.getElementById('lp-ai-results');
     const aiLoading = document.getElementById('lp-ai-loading');
     const aiAnkiBtn = document.getElementById('lp-ai-anki-btn');
+    const chatBox = document.getElementById('lp-sensei-chat-box');
+    const chatMessages = document.getElementById('lp-chat-messages');
+    const chatInput = document.getElementById('lp-chat-input');
+
+    const sentenceWrap = document.getElementById('lp-sentence-wrapper');
+    const sentJpEl = document.getElementById('lp-sentence-jp');
+    const sentRomajiEl = document.getElementById('lp-sentence-romaji');
+    const sentEnEl = document.getElementById('lp-sentence-en');
+    const sentSpeedEl = document.getElementById('lp-sentence-speed');
+
+    const chatSentenceWrap = document.getElementById('lp-chat-sentence-wrapper');
+    const chatContextEl = document.getElementById('lp-chat-context-sentence');
+    const chatRomajiEl = document.getElementById('lp-chat-sentence-romaji');
+    const chatEnEl = document.getElementById('lp-chat-sentence-en');
+    const chatBadgeEl = document.getElementById('lp-sensei-provider-badge');
 
     const readingData = getWordReading(token.surface);
     const displayReading = readingData.romaji && readingData.furigana !== readingData.romaji
@@ -708,14 +1092,88 @@ content_code = """/**
 
     wordEl.textContent = token.surface;
     romajiEl.textContent = displayReading;
-    posEl.textContent = `Base form: ${token.baseForm}`;
-    activeLiveSentence = sentenceContext || token.surface;
+    if (token.baseForm && token.baseForm !== token.surface) {
+      posEl.textContent = `(Base: ${token.baseForm})`;
+      posEl.style.display = 'inline';
+    } else {
+      posEl.textContent = '';
+      posEl.style.display = 'none';
+    }
+    drawerActiveWord = token.surface || '';
+    drawerContextSentence = (sentenceContext || token.surface || '').trim();
+
+    // Instant Sentence Context & Romaji Rendering
+    if (sentenceWrap && sentJpEl && sentEnEl) {
+      const activeText = drawerContextSentence;
+      if (activeText) {
+        sentenceWrap.style.display = 'block';
+        if (chatSentenceWrap) chatSentenceWrap.style.display = 'block';
+
+        if (token.surface && activeText.includes(token.surface)) {
+          const parts = activeText.split(token.surface);
+          const highlightedJp = parts.join(`<span style="color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;">${token.surface}</span>`);
+          sentJpEl.innerHTML = highlightedJp;
+          if (chatContextEl) chatContextEl.innerHTML = highlightedJp;
+        } else {
+          sentJpEl.textContent = activeText;
+          if (chatContextEl) chatContextEl.textContent = activeText;
+        }
+
+        if (sentRomajiEl) {
+          const romajiHtml = generateSentenceRomaji(activeText, token.surface);
+          sentRomajiEl.innerHTML = romajiHtml;
+          sentRomajiEl.style.display = romajiHtml ? 'block' : 'none';
+          if (chatRomajiEl) {
+            chatRomajiEl.innerHTML = romajiHtml;
+            chatRomajiEl.style.display = romajiHtml ? 'block' : 'none';
+          }
+        }
+
+        if (sentenceTranslationCache.has(activeText)) {
+          const trans = sentenceTranslationCache.get(activeText);
+          sentEnEl.textContent = trans;
+          if (chatEnEl) chatEnEl.textContent = trans;
+          if (sentSpeedEl) sentSpeedEl.textContent = '0ms (Cached)';
+          if (chatBadgeEl && (!chatBadgeEl.textContent || chatBadgeEl.textContent === 'Instant')) chatBadgeEl.textContent = '0ms (Cached)';
+        } else {
+          sentEnEl.innerHTML = '<span style="opacity:0.6; font-size:12px;">⚡ Translating sentence...</span>';
+          if (chatEnEl) chatEnEl.innerHTML = '<span style="opacity:0.6; font-size:12px;">⚡ Translating sentence...</span>';
+          if (sentSpeedEl) sentSpeedEl.textContent = 'Translating...';
+          const targetSentence = activeText;
+          fetchSentenceTranslation(targetSentence).then(trans => {
+            if (drawerContextSentence.trim() === targetSentence) {
+              if (trans) {
+                sentEnEl.textContent = trans;
+                if (chatEnEl) chatEnEl.textContent = trans;
+                if (sentSpeedEl) sentSpeedEl.textContent = 'Instant';
+                if (chatBadgeEl && (!chatBadgeEl.textContent || chatBadgeEl.textContent === 'Instant')) chatBadgeEl.textContent = 'Instant';
+              } else {
+                sentEnEl.textContent = 'Sentence translation unavailable';
+                if (chatEnEl) chatEnEl.textContent = 'Sentence translation unavailable';
+                if (sentSpeedEl) sentSpeedEl.textContent = '';
+              }
+            }
+          });
+        }
+      } else {
+        sentenceWrap.style.display = 'none';
+        if (chatSentenceWrap) chatSentenceWrap.style.display = 'none';
+      }
+    }
 
     aiResults.innerHTML = '';
     aiResults.style.display = 'none';
     aiLoading.style.display = 'none';
     aiAnkiBtn.style.display = 'none';
+    if (chatBox) chatBox.style.display = 'none';
+    if (chatMessages) chatMessages.innerHTML = '';
+    if (chatInput) chatInput.value = '';
+    senseiChatHistory = [];
     lastAiData = null;
+
+    if (typeof switchDrawerTab === 'function') {
+      switchDrawerTab('breakdown');
+    }
 
     const local = JDICT[token.baseForm] || JDICT[token.surface];
     if (local) {
@@ -725,7 +1183,11 @@ content_code = """/**
       fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&q=${encodeURIComponent(token.baseForm)}`)
         .then(r => r.json())
         .then(d => {
-          defEl.textContent = d[0]?.[0]?.[0] || 'No definition found';
+          let trans = '';
+          if (d && d[0] && Array.isArray(d[0])) {
+            trans = d[0].map(s => s[0]).filter(Boolean).join('');
+          }
+          defEl.textContent = trans || 'No definition found';
         })
         .catch(() => {
           defEl.textContent = 'Click Ask Antigravity AI below for deep analysis.';
@@ -739,81 +1201,57 @@ content_code = """/**
   // ── Render Full Structured Pedagogical AI Breakdown (Horizontal Gloss) ──
   function renderPedagogicalBreakdown(aiJson, providerTitle) {
     const data = aiJson.data || aiJson;
-    const target = data.target_word || {};
-    const meaning = data.contextual_meaning || target.meaning || data.meaning || 'No meaning provided';
-    const jlpt = target.jlpt_level || data.jlpt_level || 'N/A';
-    const pos = target.pos || data.pos || 'Word';
-    const formality = target.formality ? ` • ${target.formality}` : '';
-    
-    const sentenceFit = data.sentence_fit || {};
-    const phraseConn = sentenceFit.phrase_connection || '';
-    const sentenceRole = sentenceFit.role_in_sentence || data.grammar_role || '';
-    const nuance = sentenceFit.context_nuance || data.nuance || '';
-    
-    const conj = data.conjugation;
-    const sentTrans = data.sentence_translation || {};
     const wordByWord = data.word_by_word || data.sentence_breakdown || [];
+
+    // Helper to resolve clean Romaji for each horizontal gloss card
+    function getCardRomaji(w) {
+      if (w.romaji && typeof w.romaji === 'string' && w.romaji.trim()) {
+        return w.romaji.trim();
+      }
+      if (w.word === 'は' || (w.reading === 'は' && (w.role || '').toLowerCase().includes('topic'))) {
+        return 'wa';
+      }
+      if (w.word === 'へ' || (w.reading === 'へ' && (w.role || '').toLowerCase().includes('direction'))) {
+        return 'e';
+      }
+      if (w.word === 'を' || w.reading === 'を') {
+        return 'o';
+      }
+      const raw = w.reading || w.word || '';
+      if (typeof window !== 'undefined' && window.wanakana && window.wanakana.toRomaji) {
+        return window.wanakana.toRomaji(raw);
+      }
+      return raw;
+    }
 
     let html = `
       <div class="linguaplay-card-wrapper">
-        <div style="font-size:10.5px; font-weight:bold; color:#a78bfa; letter-spacing:0.04em;">${providerTitle}</div>
-        
-        <div style="margin-top:6px; display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-          <span class="linguaplay-badge">${jlpt}</span>
-          <span class="linguaplay-badge" style="background:rgba(59,130,246,0.2); color:#93c5fd; border-color:rgba(59,130,246,0.3);">${pos}${formality}</span>
-          <span style="font-size:13.5px; color:white; font-weight:600; margin-left:2px;">${meaning}</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:10px; color:#a78bfa; font-weight:bold; text-transform:uppercase; letter-spacing:0.05em;">📖 Horizontal Word-by-Word Gloss</span>
+          <span style="font-size:9.5px; color:#6ee7b7; font-weight:600;">${providerTitle}</span>
         </div>
 
-        ${phraseConn ? `
-          <div style="font-size:12px; color:#cbd5e1; margin-top:8px; line-height:1.45; background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:8px; border:1px solid rgba(167,139,250,0.25);">
-            <strong style="color:#a78bfa; font-size:10px; text-transform:uppercase; display:block; margin-bottom:4px; letter-spacing:0.05em;">🔗 Sentence Connection Flow</strong>
-            <div style="color:#f1f5f9; font-weight:500;">${phraseConn}</div>
-          </div>
-        ` : ''}
-
-        ${sentenceRole ? `
-          <div style="font-size:12px; color:#cbd5e1; margin-top:8px; line-height:1.45; border-top:1px solid rgba(255,255,255,0.08); padding-top:6px;">
-            <strong style="color:#a78bfa; font-size:10px; text-transform:uppercase; display:block; margin-bottom:2px; letter-spacing:0.05em;">🎯 Role in This Sentence</strong>
-            ${sentenceRole}
-          </div>
-        ` : ''}
-
-        ${conj && (conj.is_conjugated || conj.explanation || conj.form) ? `
-          <div style="font-size:11.5px; color:#cbd5e1; margin-top:8px; line-height:1.4; background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:8px; border:1px solid rgba(244,114,182,0.2);">
-            <span style="color:#f472b6; font-weight:600; font-size:10px; text-transform:uppercase; display:block; margin-bottom:2px;">Conjugation in Context:</span>
-            ${conj.form ? `<span class="linguaplay-badge" style="background:rgba(244,114,182,0.2); color:#f472b6; border-color:rgba(244,114,182,0.3); font-size:10px;">${conj.form}</span> ` : ''}
-            ${conj.from_base ? `Base: <strong>${conj.from_base}</strong> (${conj.from_base_romaji || conj.from_base_reading || ''})<br>` : ''}
-            <span style="color:#e2e8f0;">${conj.explanation || ''}</span>
-          </div>
-        ` : ''}
-
-        ${nuance ? `
-          <div style="font-size:11.5px; color:#fda4af; margin-top:6px; font-style:italic; line-height:1.4;">
-            💡 <strong>Context Nuance:</strong> ${nuance}
-          </div>
-        ` : ''}
-
-        ${sentTrans && (sentTrans.en || sentTrans.jp) ? `
-          <div style="margin-top:8px; border-top:1px solid rgba(255,255,255,0.08); padding-top:6px;">
-            <span style="font-size:10px; color:#6ee7b7; font-weight:bold; text-transform:uppercase; letter-spacing:0.05em;">🧩 Full Sentence Translation</span>
-            <div style="font-size:13px; color:#f1f5f9; margin-top:3px; line-height:1.45; font-style:italic;">"${sentTrans.en || ''}"</div>
-          </div>
-        ` : ''}
-
         ${wordByWord.length > 0 ? `
-          <div style="margin-top:8px; border-top:1px solid rgba(255,255,255,0.08); padding-top:6px;">
-            <span style="font-size:10px; color:#a78bfa; font-weight:bold; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:4px;">📖 Horizontal Word-by-Word Gloss</span>
-            <div class="linguaplay-gloss-container">
-              ${wordByWord.map(w => `
-                <div class="linguaplay-gloss-card ${w.is_target ? 'is-target' : ''}" title="${w.word} (${w.reading || ''}) — ${w.meaning || ''} ${w.role ? '[' + w.role + ']' : ''}">
-                  <span class="linguaplay-gloss-reading">${w.reading || w.romaji || '&nbsp;'}</span>
+          <div class="linguaplay-gloss-container">
+            ${wordByWord.map(w => {
+              const r = getCardRomaji(w);
+              return `
+                <div class="linguaplay-gloss-card ${w.is_target ? 'is-target' : ''}" title="${w.word} (${r}) — ${w.meaning || ''} ${w.role ? '[' + w.role + ']' : ''}">
+                  <span class="linguaplay-gloss-reading" style="font-family:monospace; font-size:11px; color:#fda4af;">${r || '&nbsp;'}</span>
                   <span class="linguaplay-gloss-jp">${w.word}</span>
                   <span class="linguaplay-gloss-en">${w.meaning || ''}</span>
                 </div>
-              `).join('')}
-            </div>
+              `;
+            }).join('')}
           </div>
-        ` : ''}
+          <div style="margin-top:10px; display:flex; justify-content:flex-end;">
+            <button id="lp-goto-chat-btn" style="background:rgba(124,58,237,0.22); border:1px solid rgba(167,139,250,0.4); color:#c4b5fd; font-size:11px; font-weight:600; padding:5px 12px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:5px; transition:all 0.2s;">
+              <span>💬 Ask Sensei in Chat</span> <span>→</span>
+            </button>
+          </div>
+        ` : `
+          <div style="font-size:12px; color:#94a3b8; font-style:italic;">No word-by-word gloss available for this sentence.</div>
+        `}
       </div>
     `;
 
@@ -943,6 +1381,7 @@ content_code = """/**
         <button class="linguaplay-bar-btn" id="linguaplay-repeat-btn" title="Repeat Cue (Shortcut: R)">🔁</button>
         <button class="linguaplay-bar-btn" id="linguaplay-upload-sub-btn" title="Upload Japanese .srt/.vtt subtitle file">📁</button>
         <button class="linguaplay-bar-btn" id="linguaplay-open-app-btn" title="Open in Full LinguaPlay Player Tab" style="background: rgba(124,58,237,0.4); border-color:#a78bfa; color:#fff;">🚀</button>
+        <button class="linguaplay-bar-btn" id="linguaplay-open-settings-btn" title="Open Extension Settings" style="background: rgba(124,58,237,0.25); border-color:rgba(167,139,250,0.5); color:#fff;">⚙️</button>
         <span id="linguaplay-sub-status" style="font-size: 10px; color: #6ee7b7; margin-left: 2px;"></span>
         <button class="linguaplay-bar-btn linguaplay-collapse-btn" id="linguaplay-collapse-btn" title="Collapse Bar">✕</button>
       </div>
@@ -955,35 +1394,89 @@ content_code = """/**
     drawer.className = 'hidden';
     drawer.innerHTML = `
       <div class="linguaplay-drawer-header">
-        <div>
-          <span id="lp-active-romaji" style="font-size: 13px; color: #fda4af; font-family: monospace; font-weight: 500;"></span>
-          <h3 id="lp-active-word" style="font-size: 26px; font-weight: bold; color: white; margin: 3px 0 1px;"></h3>
-          <span id="lp-active-pos" style="font-size: 11px; color: #94a3b8;"></span>
+        <div style="flex:1; min-width:0; padding-right:12px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:2px;">
+            <span id="lp-active-romaji" style="font-size: 13px; color: #fda4af; font-family: monospace; font-weight: 500;"></span>
+            <span id="lp-active-pos" style="font-size: 11px; color: #94a3b8;"></span>
+          </div>
+          <div style="display:flex; align-items:baseline; flex-wrap:wrap; gap:8px;">
+            <h3 id="lp-active-word" style="font-size: 26px; font-weight: bold; color: white; margin: 0; line-height: 1.2;"></h3>
+            <span id="lp-def-separator" style="color: #a78bfa; font-size: 16px; font-weight: 600;">—</span>
+            <span id="lp-active-def" style="font-size: 14px; color: #e2e8f0; line-height: 1.4; font-weight: 500;"></span>
+          </div>
         </div>
-        <button id="lp-dismiss-btn" style="background:rgba(255,255,255,0.08); border:none; color:#cbd5e1; font-size:12px; cursor:pointer; padding:5px 10px; border-radius:6px; transition:0.2s;">✕ Close</button>
+        <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+          <button id="lp-drawer-settings-btn" title="Open Extension Settings" style="background:rgba(255,255,255,0.08); border:none; color:#cbd5e1; font-size:12px; cursor:pointer; padding:5px 8px; border-radius:6px; transition:0.2s;">⚙️ Settings</button>
+          <button id="lp-dismiss-btn" style="background:rgba(255,255,255,0.08); border:none; color:#cbd5e1; font-size:12px; cursor:pointer; padding:5px 10px; border-radius:6px; transition:0.2s;">✕ Close</button>
+        </div>
       </div>
 
-      <div class="linguaplay-card-wrapper">
-        <div style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; margin-bottom: 4px; letter-spacing:0.04em;">📚 Dictionary Definition</div>
-        <div id="lp-active-def" style="font-size: 13.5px; color: #e2e8f0; line-height: 1.5;"></div>
-      </div>
-
-      <button id="lp-quick-anki-btn" class="linguaplay-btn linguaplay-btn-secondary">
-        🗃️ Quick Add to Anki
-      </button>
-
-      <button id="lp-ai-btn" class="linguaplay-btn linguaplay-btn-primary">
-        ✨ Ask Antigravity AI
-      </button>
-
-      <div id="lp-ai-section">
-        <div id="lp-ai-loading" style="display:none; font-size: 12px; color: #a78bfa; text-align: center; padding: 10px 0;">
-          <span style="display:inline-block; animation:spin 1s linear infinite;">⚡</span> Analyzing in context...
-        </div>
-        <div id="lp-ai-results" style="margin-top: 10px; display: none;"></div>
-        <button id="lp-ai-anki-btn" class="linguaplay-btn linguaplay-btn-secondary" style="display:none; margin-top: 8px;">
-          🗂️ Save Enriched AI Card to Anki
+      <!-- Navigation Tabs: Breakdown vs Sensei Chatbot -->
+      <div class="linguaplay-drawer-tabs">
+        <button id="lp-tab-breakdown-btn" class="linguaplay-tab-btn active">
+          <span>📖</span> <span>Breakdown & Gloss</span>
         </button>
+        <button id="lp-tab-chat-btn" class="linguaplay-tab-btn">
+          <span>🧑‍🏫</span> <span>Sensei Chat</span>
+        </button>
+      </div>
+
+      <!-- Tab 1: Breakdown & Sentence View -->
+      <div id="lp-view-breakdown">
+        <div id="lp-sentence-wrapper" class="linguaplay-card-wrapper" style="display:none; margin-bottom:10px; background:rgba(30,27,75,0.45); border:1px solid rgba(139,92,246,0.3); border-radius:10px; padding:10px 12px;">
+          <div style="font-size:10px; font-weight:bold; color:#a78bfa; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.04em; display:flex; justify-content:space-between; align-items:center;">
+            <span>💬 Context Sentence</span>
+            <span id="lp-sentence-speed" style="font-size:9.5px; color:#34d399; font-weight:600; text-transform:none;"></span>
+          </div>
+          <div id="lp-sentence-jp" style="font-size:14px; color:#f8fafc; font-weight:500; line-height:1.5; margin-bottom:2px; font-family:'Noto Sans JP',sans-serif;"></div>
+          <div id="lp-sentence-romaji" style="font-size:12px; color:#fda4af; font-family:monospace; line-height:1.4; margin-bottom:4px;"></div>
+          <div id="lp-sentence-en" style="font-size:13px; color:#cbd5e1; line-height:1.45; font-style:italic;"></div>
+        </div>
+
+        <button id="lp-quick-anki-btn" class="linguaplay-btn linguaplay-btn-secondary">
+          🗃️ Quick Add to Anki
+        </button>
+
+        <button id="lp-ai-btn" class="linguaplay-btn linguaplay-btn-primary">
+          ✨ Ask Sensei (AI Grammar Tutor)
+        </button>
+
+        <div id="lp-ai-section">
+          <div id="lp-ai-loading" style="display:none; font-size: 12px; color: #a78bfa; text-align: center; padding: 10px 0;">
+            <span style="display:inline-block; animation:spin 1s linear infinite;">⚡</span> Sensei is analyzing…
+          </div>
+          <div id="lp-ai-results" style="margin-top: 10px; display: none;"></div>
+          <button id="lp-ai-anki-btn" class="linguaplay-btn linguaplay-btn-secondary" style="display:none; margin-top: 8px;">
+            🗂️ Save Enriched AI Card to Anki
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 2: Dedicated Chatbot View -->
+      <div id="lp-view-chat" style="display:none;">
+        <div id="lp-chat-sentence-wrapper" class="linguaplay-card-wrapper" style="margin-bottom:10px; background:rgba(30,27,75,0.45); border:1px solid rgba(139,92,246,0.3); border-radius:10px; padding:10px 12px;">
+          <div style="font-size:10px; font-weight:bold; color:#a78bfa; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.04em; display:flex; justify-content:space-between; align-items:center;">
+            <span>💬 Context Sentence</span>
+            <span id="lp-sensei-provider-badge" style="font-size:9.5px; color:#34d399; font-weight:600; text-transform:none;"></span>
+          </div>
+          <div id="lp-chat-context-sentence" style="font-size:14px; color:#f8fafc; font-weight:500; line-height:1.5; margin-bottom:2px; font-family:'Noto Sans JP',sans-serif;"></div>
+          <div id="lp-chat-sentence-romaji" style="font-size:12px; color:#fda4af; font-family:monospace; line-height:1.4; margin-bottom:4px;"></div>
+          <div id="lp-chat-sentence-en" style="font-size:13px; color:#cbd5e1; line-height:1.45; font-style:italic;"></div>
+        </div>
+
+        <div class="lp-chat-chips-row" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;">
+          <button class="lp-chat-chip" data-prompt="Why is this particle used here?">Why this particle?</button>
+          <button class="lp-chat-chip" data-prompt="Break down the grammar step-by-step.">Grammar breakdown</button>
+          <button class="lp-chat-chip" data-prompt="Give me 2 more natural example sentences with this word.">2 More examples</button>
+          <button class="lp-chat-chip" data-prompt="Explain the nuance and politeness level.">Nuance & Politeness</button>
+        </div>
+
+        <div id="lp-chat-messages" style="max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px; padding-right:4px;"></div>
+
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="lp-chat-input" placeholder="Ask Sensei anything about this sentence..." style="flex:1; background:rgba(15,23,42,0.85); border:1px solid rgba(167,139,250,0.3); border-radius:8px; padding:7px 10px; color:#f8fafc; font-size:12px; outline:none;" />
+          <button id="lp-chat-send-btn" class="linguaplay-btn linguaplay-btn-primary" style="padding:7px 12px; font-size:12px; width:auto; margin:0; cursor:pointer;">Send</button>
+        </div>
       </div>
     `;
 
@@ -1045,6 +1538,37 @@ content_code = """/**
       fileInput.click();
     });
 
+    function openExtensionSettings() {
+      console.log('[LinguaPlay] Opening extension settings...');
+      try {
+        chrome.runtime.sendMessage({ action: 'OPEN_OPTIONS_PAGE' }, (resp) => {
+          if (chrome.runtime.lastError || !resp || !resp.success) {
+            console.warn('[LinguaPlay] Background open options returned error, falling back to window.open:', chrome.runtime.lastError);
+            try {
+              window.open(chrome.runtime.getURL('options.html'), '_blank');
+            } catch (fallbackErr) {
+              console.error('[LinguaPlay] Direct window.open fallback failed:', fallbackErr);
+            }
+          }
+        });
+      } catch (err) {
+        console.warn('[LinguaPlay] Failed to send OPEN_OPTIONS_PAGE message, falling back to window.open:', err);
+        try {
+          window.open(chrome.runtime.getURL('options.html'), '_blank');
+        } catch (fallbackErr) {
+          console.error('[LinguaPlay] Direct window.open fallback failed:', fallbackErr);
+        }
+      }
+    }
+
+    const barSettingsBtn = document.getElementById('linguaplay-open-settings-btn');
+    if (barSettingsBtn) {
+      barSettingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        openExtensionSettings();
+      });
+    }
+
     document.getElementById('linguaplay-open-app-btn').addEventListener('click', () => {
       const urlParams = new URLSearchParams(window.location.search);
       const vid = urlParams.get('v') || currentVideoId;
@@ -1056,21 +1580,65 @@ content_code = """/**
     });
 
     // 7. Drawer Event Listeners
+    const drawerSettingsBtn = document.getElementById('lp-drawer-settings-btn');
+    if (drawerSettingsBtn) {
+      drawerSettingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        openExtensionSettings();
+      });
+    }
+
     document.getElementById('lp-dismiss-btn').addEventListener('click', () => {
       drawer.classList.add('hidden');
+    });
+
+    // Tab Navigation Listeners
+    const tabBreakdownBtn = document.getElementById('lp-tab-breakdown-btn');
+    const tabChatBtn = document.getElementById('lp-tab-chat-btn');
+    if (tabBreakdownBtn) {
+      tabBreakdownBtn.addEventListener('click', () => switchDrawerTab('breakdown'));
+    }
+    if (tabChatBtn) {
+      tabChatBtn.addEventListener('click', () => switchDrawerTab('chat'));
+    }
+
+    // Delegated click for 'Ask Sensei in Chat →' button from breakdown card
+    drawer.addEventListener('click', (e) => {
+      if (e.target && e.target.closest('#lp-goto-chat-btn')) {
+        switchDrawerTab('chat');
+      }
     });
 
     document.getElementById('lp-quick-anki-btn').addEventListener('click', async () => {
       const word = document.getElementById('lp-active-word').textContent;
       const romaji = document.getElementById('lp-active-romaji').textContent;
       const def = document.getElementById('lp-active-def').innerHTML;
-      const sentence = activeLiveSentence || '';
+      const sentence = drawerContextSentence || document.getElementById('lp-sentence-jp')?.textContent || activeLiveSentence || '';
+      const sentEn = document.getElementById('lp-sentence-en')?.textContent || '';
+      const cleanSentEn = (sentEn && !sentEn.includes('Translating') && !sentEn.includes('unavailable')) ? sentEn : '';
 
       chrome.storage.local.get(['linguaplay_cards'], (res) => {
         const cards = res.linguaplay_cards || [];
-        cards.push({ word, reading: word, meaning: def, sentence, date: new Date().toISOString() });
+        cards.push({
+          word,
+          reading: word,
+          romaji,
+          meaning: def,
+          sentence,
+          sentence_en: cleanSentEn,
+          date: new Date().toISOString()
+        });
         chrome.storage.local.set({ linguaplay_cards: cards });
       });
+
+      let backHtml = `<div><strong>Meaning:</strong> ${def}</div>`;
+      if (sentence) {
+        const boldSentence = word && sentence.includes(word) ? sentence.split(word).join(`<b>${word}</b>`) : sentence;
+        backHtml += `<br><div><strong>Sentence:</strong> ${boldSentence}</div>`;
+        if (cleanSentEn) {
+          backHtml += `<div style="color:#94a3b8; font-size:0.9em; margin-top:3px; font-style:italic;">${cleanSentEn}</div>`;
+        }
+      }
 
       fetch('http://127.0.0.1:8765', {
         method: 'POST',
@@ -1084,7 +1652,7 @@ content_code = """/**
               modelName: 'Basic',
               fields: {
                 Front: `${word} <span style="font-size:0.8em;color:#94a3b8;">${romaji}</span>`,
-                Back: `<div><strong>Meaning:</strong> ${def}</div><br><div><strong>Sentence:</strong> ${sentence.replace(word, '<b>' + word + '</b>')}</div>`
+                Back: backHtml
               },
               tags: ['linguaplay', 'youtube']
             }
@@ -1097,70 +1665,13 @@ content_code = """/**
       setTimeout(() => { btn.textContent = '🗃️ Quick Add to Anki'; }, 2000);
     });
 
-    document.getElementById('lp-ai-btn').addEventListener('click', async () => {
-      const word = document.getElementById('lp-active-word').textContent;
-      const romaji = document.getElementById('lp-active-romaji').textContent;
-      const sentence = activeLiveSentence || '';
-      const loading = document.getElementById('lp-ai-loading');
-      const results = document.getElementById('lp-ai-results');
-      const ankiBtn = document.getElementById('lp-ai-anki-btn');
+    const SENSEI_SYSTEM_PROMPT = `You are "Sensei", an empathetic, expert Japanese language and grammar teacher assisting a student immersing in Japanese media.
+Explain grammatical nuances, particle usage, verb conjugations, and sentence connections clearly and encouragingly.
+Always provide Hiragana readings and Romaji for any Japanese words you introduce.
+Keep answers structured, concise, and focused on this sentence context.`;
 
-      loading.style.display = 'block';
-      results.style.display = 'none';
-      ankiBtn.style.display = 'none';
-
-      chrome.storage.local.get(['linguaplay_gemini_key', 'linguaplay_ai_provider', 'linguaplay_server_url'], async (cfg) => {
-        const provider = cfg.linguaplay_ai_provider || 'antigravity';
-        const serverUrl = cfg.linguaplay_server_url || 'http://127.0.0.1:8000';
-        const geminiKey = cfg.linguaplay_gemini_key || '';
-
-        // 1. Antigravity CLI Provider
-        if (provider === 'antigravity') {
-          try {
-            const res = await fetch(`${serverUrl}/api/ai/analyze`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                word,
-                reading: romaji,
-                sentence,
-                provider: 'antigravity'
-              }),
-              signal: AbortSignal.timeout(25000)
-            });
-
-            if (!res.ok) throw new Error(`Server returned ${res.status}`);
-            const raw = await res.json();
-            const aiData = raw.data || raw;
-            lastAiData = aiData;
-
-            loading.style.display = 'none';
-            results.style.display = 'block';
-            ankiBtn.style.display = 'block';
-
-            results.innerHTML = renderPedagogicalBreakdown(aiData, '🤖 ANTIGRAVITY CLI BREAKDOWN');
-            return;
-          } catch (err) {
-            if (geminiKey) {
-              console.warn('[LinguaPlay] Local server offline, trying Gemini fallback...', err);
-            } else {
-              loading.style.display = 'none';
-              results.style.display = 'block';
-              results.innerHTML = `
-                <div style="font-size: 11px; color: #fca5a5; line-height: 1.45; padding: 4px 0;">
-                  <strong>Antigravity CLI:</strong> Could not connect to local server at <code>${serverUrl}</code>.<br>
-                  Run <code>python3 Server.py</code> or configure a free Gemini API key in extension options.
-                </div>
-              `;
-              return;
-            }
-          }
-        }
-
-        // 2. Direct Gemini API Fallback
-        if (geminiKey) {
-          try {
-            const prompt = `You are an expert Japanese immersion tutor.
+    function buildSenseiAnalysisPrompt(word, romaji, sentence) {
+      return `You are Sensei, an expert Japanese language and grammar teacher.
 Focus strictly on HOW THE TARGET WORD FITS INTO THIS SPECIFIC CONTEXT SENTENCE.
 Do NOT give generic dictionary essays or unrelated examples.
 
@@ -1200,30 +1711,501 @@ Respond with ONLY valid JSON:
     }
   ]
 }`;
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey.trim()}`;
-            const res = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: 'application/json' }
-              })
+    }
+
+    async function callSenseiLlmApi({ messages, isJson, config, word, romaji, sentence }) {
+      const provider = config.linguaplay_ai_provider || 'gemini';
+      const geminiKey = (config.linguaplay_gemini_key || '').trim();
+      const deepseekKey = (config.linguaplay_deepseek_key || '').trim();
+      const openrouterKey = (config.linguaplay_openrouter_key || '').trim();
+      const openrouterModel = (config.linguaplay_openrouter_model || 'deepseek/deepseek-chat').trim();
+      const opencodeUrl = (config.linguaplay_opencode_url || 'http://127.0.0.1:11434/v1').trim();
+      const opencodeKey = (config.linguaplay_opencode_key || '').trim();
+      const opencodeModel = (config.linguaplay_opencode_model || 'deepseek-chat').trim();
+      const serverUrl = (config.linguaplay_server_url || 'http://127.0.0.1:8000').trim();
+
+      // 1. Google Gemini Flash Direct
+      if (provider === 'gemini') {
+        if (!geminiKey) throw new Error('Missing Google Gemini API key. Add it in Extension Settings.');
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+        
+        const contents = [];
+        for (const m of messages) {
+          if (m.role === 'system') continue;
+          contents.push({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+          });
+        }
+        if (contents.length === 0 && messages.length > 0) {
+          contents.push({ role: 'user', parts: [{ text: messages[0].content }] });
+        }
+
+        const sysMsg = messages.find(m => m.role === 'system');
+        const body = {
+          contents,
+          generationConfig: isJson ? { responseMimeType: 'application/json' } : {}
+        };
+        if (sysMsg) {
+          body.systemInstruction = { parts: [{ text: sysMsg.content }] };
+        }
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(12000)
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message || `Gemini API returned status ${res.status}`);
+        }
+        const data = await res.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      }
+
+      // 2. DeepSeek Direct API
+      if (provider === 'deepseek') {
+        if (!deepseekKey) throw new Error('Missing DeepSeek API key. Add it in Extension Settings.');
+        const url = 'https://api.deepseek.com/v1/chat/completions';
+        const body = {
+          model: 'deepseek-chat',
+          messages: messages,
+          response_format: isJson ? { type: 'json_object' } : undefined
+        };
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${deepseekKey}`
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(12000)
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message || `DeepSeek API returned status ${res.status}`);
+        }
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content || '';
+      }
+
+      // 3. OpenRouter Direct API
+      if (provider === 'openrouter') {
+        if (!openrouterKey) throw new Error('Missing OpenRouter API key. Add it in Extension Settings.');
+        const url = 'https://openrouter.ai/api/v1/chat/completions';
+        const body = {
+          model: openrouterModel,
+          messages: messages,
+          response_format: isJson ? { type: 'json_object' } : undefined
+        };
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openrouterKey}`,
+            'HTTP-Referer': 'https://linguaplay.app',
+            'X-Title': 'LinguaPlay'
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(14000)
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message || `OpenRouter API returned status ${res.status}`);
+        }
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content || '';
+      }
+
+      // 4. OpenCode / Custom OpenAI Endpoint
+      if (provider === 'opencode') {
+        const targetUrl = opencodeUrl.endsWith('/chat/completions') ? opencodeUrl : `${opencodeUrl.replace(/\\/$/, '')}/chat/completions`;
+        const headers = { 'Content-Type': 'application/json' };
+        if (opencodeKey) headers['Authorization'] = `Bearer ${opencodeKey}`;
+        const body = {
+          model: opencodeModel,
+          messages: messages,
+          response_format: isJson ? { type: 'json_object' } : undefined
+        };
+        const res = await fetch(targetUrl, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(12000)
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message || `Custom Endpoint returned status ${res.status}`);
+        }
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content || '';
+      }
+
+      // 5. Antigravity CLI Local Server
+      if (provider === 'antigravity') {
+        if (isJson) {
+          const res = await fetch(`${serverUrl}/api/ai/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ word, reading: romaji, sentence, provider: 'antigravity' }),
+            signal: AbortSignal.timeout(4000)
+          });
+          if (!res.ok) throw new Error(`Local server returned ${res.status}`);
+          const raw = await res.json();
+          return JSON.stringify(raw.data || raw);
+        } else {
+          // Check chat
+          const res = await fetch(`${serverUrl}/api/ai/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages, word, sentence }),
+            signal: AbortSignal.timeout(4000)
+          });
+          if (res.ok) {
+            const raw = await res.json();
+            return raw.reply || raw.content || '';
+          }
+          throw new Error('Local server chat unavailable. Please select Gemini or DeepSeek in settings.');
+        }
+      }
+
+      throw new Error(`Unsupported AI provider: ${provider}`);
+    }
+
+    function formatSenseiMarkdown(rawText) {
+      if (!rawText) return '';
+
+      let text = rawText
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      function formatInline(str) {
+        return str
+          .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')
+          .replace(/\\*(.*?)\\*/g, '<em>$1</em>')
+          .replace(/`([^`]+)`/g, '<code class="lp-chat-inline-code">$1</code>');
+      }
+
+      function isTableDelimiter(rowStr) {
+        let clean = rowStr.trim();
+        if (clean.startsWith('|')) clean = clean.substring(1);
+        if (clean.endsWith('|')) clean = clean.substring(0, clean.length - 1);
+        const parts = clean.split('|');
+        if (parts.length === 0) return false;
+        return parts.every(p => {
+          const t = p.trim();
+          return t.length >= 2 && /^:?-+:?$/.test(t);
+        });
+      }
+
+      function splitTableRow(rowStr) {
+        let clean = rowStr.trim();
+        if (clean.startsWith('|')) clean = clean.substring(1);
+        if (clean.endsWith('|')) clean = clean.substring(0, clean.length - 1);
+        return clean.split('|').map(c => c.trim());
+      }
+
+      const lines = text.split('\\n');
+      const output = [];
+      let i = 0;
+
+      while (i < lines.length) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        if (trimmed.includes('|') && i + 1 < lines.length && isTableDelimiter(lines[i + 1])) {
+          const headerCells = splitTableRow(trimmed);
+          const alignDefs = splitTableRow(lines[i + 1]).map(c => {
+            if (c.startsWith(':') && c.endsWith(':')) return 'center';
+            if (c.endsWith(':')) return 'right';
+            return 'left';
+          });
+
+          i += 2; // Skip header and delimiter
+
+          const rows = [];
+          while (i < lines.length && lines[i].trim().includes('|') && !isTableDelimiter(lines[i])) {
+            rows.push(splitTableRow(lines[i]));
+            i++;
+          }
+
+          let tableHtml = '<div class="lp-chat-table-wrapper"><table class="lp-chat-table"><thead><tr>';
+          headerCells.forEach((h, colIdx) => {
+            const align = alignDefs[colIdx] || 'left';
+            tableHtml += `<th style="text-align:${align};">${formatInline(h)}</th>`;
+          });
+          tableHtml += '</tr></thead><tbody>';
+
+          rows.forEach(row => {
+            tableHtml += '<tr>';
+            headerCells.forEach((_, colIdx) => {
+              const cell = row[colIdx] || '';
+              const align = alignDefs[colIdx] || 'left';
+              tableHtml += `<td style="text-align:${align};">${formatInline(cell)}</td>`;
             });
+            tableHtml += '</tr>';
+          });
+          tableHtml += '</tbody></table></div>';
 
-            const data = await res.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            const json = JSON.parse(text.replace(/```json|```/g, '').trim());
-            lastAiData = json;
+          output.push(tableHtml);
+          continue;
+        }
 
-            loading.style.display = 'none';
-            results.style.display = 'block';
-            ankiBtn.style.display = 'block';
+        if (/^[-*][ \\t]+/.test(trimmed)) {
+          output.push(`<div class="lp-chat-bullet">• ${formatInline(trimmed.replace(/^[-*][ \\t]+/, ''))}</div>`);
+          i++;
+          continue;
+        }
 
-            results.innerHTML = renderPedagogicalBreakdown(json, '✨ GEMINI AI BREAKDOWN');
-          } catch (err) {
-            loading.style.display = 'none';
-            results.style.display = 'block';
-            results.innerHTML = `<div style="font-size: 11px; color: #fca5a5;">AI analysis error: ${err.message}</div>`;
+        output.push(formatInline(line));
+        i++;
+      }
+
+      return output.join('<br>').replace(/(<\\/div>)<br>/g, '$1').replace(/<br>(<div)/g, '$1');
+    }
+
+    function appendChatMessage(role, text) {
+      const container = document.getElementById('lp-chat-messages');
+      if (!container) return null;
+      const msgEl = document.createElement('div');
+      msgEl.className = role === 'user' ? 'lp-chat-msg-user' : 'lp-chat-msg-sensei';
+      if (role === 'user') {
+        msgEl.textContent = text;
+      } else {
+        msgEl.innerHTML = formatSenseiMarkdown(text);
+      }
+      container.appendChild(msgEl);
+      container.scrollTop = container.scrollHeight;
+      return msgEl;
+    }
+
+    async function sendSenseiQuestion(questionText) {
+      if (!questionText || !questionText.trim()) return;
+      const word = document.getElementById('lp-active-word')?.textContent || '';
+      const romaji = document.getElementById('lp-active-romaji')?.textContent || '';
+      const sentence = drawerContextSentence || document.getElementById('lp-chat-context-sentence')?.textContent || document.getElementById('lp-sentence-jp')?.textContent || activeLiveSentence || '';
+
+      appendChatMessage('user', questionText);
+      senseiChatHistory.push({ role: 'user', content: questionText });
+
+      const loadingEl = appendChatMessage('sensei', '⚡ Sensei is thinking…');
+
+      chrome.storage.local.get([
+        'linguaplay_ai_provider',
+        'linguaplay_gemini_key',
+        'linguaplay_deepseek_key',
+        'linguaplay_openrouter_key',
+        'linguaplay_openrouter_model',
+        'linguaplay_opencode_url',
+        'linguaplay_opencode_key',
+        'linguaplay_opencode_model',
+        'linguaplay_server_url'
+      ], async (cfg) => {
+        try {
+          const messages = [
+            {
+              role: 'system',
+              content: `${SENSEI_SYSTEM_PROMPT}\\n\\nContext Sentence: "${sentence}"\\nTarget Word: "${word}" (${romaji})`
+            },
+            ...senseiChatHistory
+          ];
+
+          const reply = await callSenseiLlmApi({
+            messages,
+            isJson: false,
+            config: cfg,
+            word,
+            romaji,
+            sentence
+          });
+
+          senseiChatHistory.push({ role: 'assistant', content: reply });
+          if (loadingEl) loadingEl.remove();
+          appendChatMessage('sensei', reply);
+        } catch (err) {
+          if (loadingEl) loadingEl.remove();
+          appendChatMessage('sensei', `⚠️ Sensei error: ${err.message}`);
+        }
+      });
+    }
+
+    // Attach Chatbot Chip and Send Listeners
+    document.querySelectorAll('.lp-chat-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const prompt = chip.getAttribute('data-prompt');
+        if (prompt) sendSenseiQuestion(prompt);
+      });
+    });
+
+    const chatInputEl = document.getElementById('lp-chat-input');
+    const chatSendBtn = document.getElementById('lp-chat-send-btn');
+    if (chatSendBtn && chatInputEl) {
+      chatSendBtn.addEventListener('click', () => {
+        const val = chatInputEl.value.trim();
+        if (val) {
+          sendSenseiQuestion(val);
+          chatInputEl.value = '';
+        }
+      });
+      chatInputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const val = chatInputEl.value.trim();
+          if (val) {
+            sendSenseiQuestion(val);
+            chatInputEl.value = '';
+          }
+        }
+      });
+    }
+
+    document.getElementById('lp-ai-btn').addEventListener('click', async () => {
+      const word = document.getElementById('lp-active-word').textContent;
+      const romaji = document.getElementById('lp-active-romaji').textContent;
+      const sentence = drawerContextSentence || document.getElementById('lp-sentence-jp')?.textContent || activeLiveSentence || '';
+      const loading = document.getElementById('lp-ai-loading');
+      const results = document.getElementById('lp-ai-results');
+      const ankiBtn = document.getElementById('lp-ai-anki-btn');
+      const chatBox = document.getElementById('lp-sensei-chat-box');
+      const badgeEl = document.getElementById('lp-sensei-provider-badge');
+
+      loading.style.display = 'block';
+      results.style.display = 'none';
+      ankiBtn.style.display = 'none';
+      if (chatBox) chatBox.style.display = 'none';
+
+      chrome.storage.local.get([
+        'linguaplay_ai_provider',
+        'linguaplay_gemini_key',
+        'linguaplay_deepseek_key',
+        'linguaplay_openrouter_key',
+        'linguaplay_openrouter_model',
+        'linguaplay_opencode_url',
+        'linguaplay_opencode_key',
+        'linguaplay_opencode_model',
+        'linguaplay_server_url'
+      ], async (cfg) => {
+        const provider = cfg.linguaplay_ai_provider || (cfg.linguaplay_gemini_key ? 'gemini' : 'antigravity');
+        const prompt = buildSenseiAnalysisPrompt(word, romaji, sentence);
+        const messages = [{ role: 'user', content: prompt }];
+
+        const providerTitleMap = {
+          gemini: '✨ GEMINI FLASH SENSEI BREAKDOWN',
+          deepseek: '⚡ DEEPSEEK SENSEI BREAKDOWN',
+          openrouter: `🌐 OPENROUTER (${cfg.linguaplay_openrouter_model || 'deepseek'}) BREAKDOWN`,
+          opencode: `💻 OPENCODE (${cfg.linguaplay_opencode_model || 'custom'}) BREAKDOWN`,
+          antigravity: '🤖 ANTIGRAVITY CLI BREAKDOWN'
+        };
+
+        try {
+          const rawText = await callSenseiLlmApi({
+            messages,
+            isJson: true,
+            config: cfg,
+            word,
+            romaji,
+            sentence
+          });
+
+          const json = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+          lastAiData = json;
+
+          loading.style.display = 'none';
+          results.style.display = 'block';
+          ankiBtn.style.display = 'block';
+          if (chatBox) chatBox.style.display = 'block';
+          if (badgeEl) badgeEl.textContent = provider.toUpperCase();
+
+          results.innerHTML = renderPedagogicalBreakdown(json, providerTitleMap[provider] || '✨ SENSEI AI BREAKDOWN');
+        } catch (err) {
+          // If local server failed and user has configured another key, try fallback
+          if (provider === 'antigravity' && cfg.linguaplay_gemini_key) {
+            try {
+              const fallbackCfg = { ...cfg, linguaplay_ai_provider: 'gemini' };
+              const rawText = await callSenseiLlmApi({
+                messages,
+                isJson: true,
+                config: fallbackCfg,
+                word,
+                romaji,
+                sentence
+              });
+              const json = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+              lastAiData = json;
+              loading.style.display = 'none';
+              results.style.display = 'block';
+              ankiBtn.style.display = 'block';
+              if (chatBox) chatBox.style.display = 'block';
+              if (badgeEl) badgeEl.textContent = 'GEMINI (FALLBACK)';
+              results.innerHTML = renderPedagogicalBreakdown(json, '✨ GEMINI FLASH SENSEI BREAKDOWN');
+              return;
+            } catch (fallbackErr) {
+              console.warn('[LinguaPlay] Fallback also failed:', fallbackErr);
+            }
+          }
+
+          loading.style.display = 'none';
+          results.style.display = 'block';
+          results.innerHTML = `
+            <div style="background: rgba(124, 58, 237, 0.14); border: 1px solid rgba(139, 92, 246, 0.35); border-radius: 8px; padding: 12px; font-size: 12px; color: #e2e8f0; line-height: 1.5;">
+              <div style="font-weight: 600; color: #f87171; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                <span>⚠️</span> AI Analysis Notice: ${err.message}
+              </div>
+              <p style="margin: 0 0 8px; color: #cbd5e1; font-size: 11.5px;">
+                Quick-save your API key directly below, or open full extension settings:
+              </p>
+              <div style="display: flex; gap: 6px; margin-bottom: 8px; align-items: center;">
+                <select id="lp-inline-provider" style="background: #1e1b4b; color: #e2e8f0; border: 1px solid rgba(139,92,246,0.5); border-radius: 6px; padding: 4px 6px; font-size: 11px;">
+                  <option value="deepseek" selected>DeepSeek</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="openrouter">OpenRouter</option>
+                  <option value="opencode">OpenCode</option>
+                </select>
+                <input id="lp-inline-api-key" type="password" placeholder="Paste API Key (sk-...)" style="flex: 1; background: #0f172a; color: #f8fafc; border: 1px solid rgba(139,92,246,0.4); border-radius: 6px; padding: 4px 8px; font-size: 11px;">
+                <button id="lp-inline-save-key-btn" style="background: #10b981; border: none; color: white; font-size: 11px; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">Save</button>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span id="lp-inline-key-status" style="font-size: 11px; color: #34d399;"></span>
+                <button id="lp-go-options-btn" style="background:#7c3aed; border:none; color:white; font-size:11px; padding:4px 10px; border-radius:6px; cursor:pointer; font-weight:600;">⚙️ Open Extension Settings</button>
+              </div>
+            </div>
+          `;
+
+          const inlineSaveBtn = document.getElementById('lp-inline-save-key-btn');
+          const inlineProvider = document.getElementById('lp-inline-provider');
+          const inlineKeyInput = document.getElementById('lp-inline-api-key');
+          const inlineStatus = document.getElementById('lp-inline-key-status');
+
+          if (inlineSaveBtn && inlineKeyInput && inlineProvider) {
+            inlineSaveBtn.addEventListener('click', (e) => {
+              e.preventDefault();
+              const prov = inlineProvider.value;
+              const rawKey = inlineKeyInput.value.trim();
+              if (!rawKey) {
+                inlineStatus.textContent = 'Please paste a key!';
+                inlineStatus.style.color = '#f87171';
+                return;
+              }
+              const saveObj = { linguaplay_ai_provider: prov };
+              if (prov === 'deepseek') saveObj.linguaplay_deepseek_key = rawKey;
+              else if (prov === 'gemini') saveObj.linguaplay_gemini_key = rawKey;
+              else if (prov === 'openrouter') saveObj.linguaplay_openrouter_key = rawKey;
+              else if (prov === 'opencode') saveObj.linguaplay_opencode_key = rawKey;
+
+              chrome.storage.local.set(saveObj, () => {
+                inlineStatus.textContent = '✓ Saved! Click Ask Sensei again.';
+                inlineStatus.style.color = '#34d399';
+              });
+            });
+          }
+
+          const optBtn = document.getElementById('lp-go-options-btn');
+          if (optBtn) {
+            optBtn.addEventListener('click', (e) => {
+              e.preventDefault();
+              openExtensionSettings();
+            });
           }
         }
       });
@@ -1232,7 +2214,7 @@ Respond with ONLY valid JSON:
     document.getElementById('lp-ai-anki-btn').addEventListener('click', () => {
       if (!lastAiData) return;
       const word = document.getElementById('lp-active-word').textContent;
-      const sentence = activeLiveSentence || '';
+      const sentence = drawerContextSentence || document.getElementById('lp-sentence-jp')?.textContent || activeLiveSentence || '';
       const target = lastAiData.target_word || {};
       const meaning = target.meaning || lastAiData.contextual_meaning || lastAiData.meaning || '';
       const sentenceFit = lastAiData.sentence_fit || {};
@@ -1307,6 +2289,8 @@ Respond with ONLY valid JSON:
       currentSubIndex = -1;
       subtitleTimeline = [];
       activeLiveSentence = '';
+      drawerContextSentence = '';
+      drawerActiveWord = '';
 
       injectUI();
 
@@ -1342,7 +2326,7 @@ Respond with ONLY valid JSON:
 })();
 """
 
-with open('extension/content.js', 'w', encoding='utf-8') as f:
+with open(out_file, 'w', encoding='utf-8') as f:
     f.write(content_code)
 
-print('Successfully restored extension/content.js to 2:45 AM state!')
+print(f'Successfully built {out_file}!')
