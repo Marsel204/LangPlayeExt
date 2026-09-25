@@ -763,7 +763,10 @@ console.log('✅ Test 13c: Live video captions decoupled from drawer context sta
 }
 console.log('✅ Test 13d: Runtime word click -> subtitle advance -> prompt isolation verified');
 
-console.log(`\n🎉 ALL 13 TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n`);
+console.log('\n🎛️ Running Test Suite 14: Logo Click & App Turn-Off Feature...');
+require('./tests/test_logo_toggle.js');
+
+console.log(`\n🎉 ALL 14 TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n`);
 process.exit(0);
 
 
