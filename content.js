@@ -725,12 +725,17 @@
   let drawerActiveWord = '';
   let activeLiveSentence = '';
   let isPanelCollapsed = true;
+  let isAppEnabled = true;
 
   // ── Load Settings ──
-  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed'], (res) => {
+  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled'], (res) => {
     if (res.linguaplay_reading_mode) readingMode = res.linguaplay_reading_mode;
     if (typeof res.linguaplay_panel_collapsed === 'boolean') isPanelCollapsed = res.linguaplay_panel_collapsed;
+    if (typeof res.linguaplay_app_enabled === 'boolean') isAppEnabled = res.linguaplay_app_enabled;
     updateWidgetState();
+    if (!isAppEnabled) {
+      setAppEnabled(false);
+    }
   });
 
   // ── Tokenizer with Kanji Resolution ──
@@ -925,6 +930,7 @@
 
   // ── In-Memory Player Track Discovery Bridge ──
   function inspectAndSwitchPlayerTracks() {
+    if (!isAppEnabled) return;
     try {
       window.dispatchEvent(new CustomEvent('LINGUAPLAY_REQUEST_TRACK_SWITCH', {
         detail: { languageCode: 'ja' }
@@ -1096,7 +1102,7 @@
     const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
     if (!container) return;
 
-    if (!sentenceText || !sentenceText.trim() || !hasJapaneseCharacters(sentenceText)) {
+    if (!isAppEnabled || !sentenceText || !sentenceText.trim() || !hasJapaneseCharacters(sentenceText)) {
       container.innerHTML = '';
       if (overlay) overlay.classList.remove('active');
       if (player) player.classList.remove('linguaplay-has-japanese');
@@ -1437,6 +1443,7 @@
   // ── Hook Live YouTube Closed Captions (DOM & textTracks) ──
   function setupLiveCaptionHooking() {
     const observer = new MutationObserver(() => {
+      if (!isAppEnabled) return;
       const captionContainer = document.querySelector('.ytp-caption-window-container') || document.querySelector('.caption-window');
       if (captionContainer) {
         const segs = captionContainer.querySelectorAll('.ytp-caption-segment');
@@ -1465,6 +1472,7 @@
       for (let i = 0; i < activeVideoEl.textTracks.length; i++) {
         const track = activeVideoEl.textTracks[i];
         track.oncuechange = () => {
+          if (!isAppEnabled) return;
           if (subtitleTimeline.length === 0) {
             if (track.activeCues && track.activeCues.length > 0) {
               const cueText = track.activeCues[0].text;
@@ -1485,13 +1493,66 @@
     }
   }
 
+  function setAppEnabled(enabled) {
+    isAppEnabled = !!enabled;
+    chrome.storage.local.set({ linguaplay_app_enabled: isAppEnabled });
+    try {
+      window.dispatchEvent(new CustomEvent('LINGUAPLAY_SET_APP_STATE', {
+        detail: { enabled: isAppEnabled }
+      }));
+    } catch (e) {}
+
+    const widget = document.getElementById('linguaplay-yt-widget');
+    const trigger = document.getElementById('linguaplay-toggle-trigger');
+    const overlay = document.getElementById('linguaplay-yt-tokens-overlay');
+    const container = document.getElementById('linguaplay-yt-tokens');
+    const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
+    const drawer = document.getElementById('linguaplay-yt-drawer');
+
+    if (!isAppEnabled) {
+      if (container) container.innerHTML = '';
+      if (overlay) overlay.classList.remove('active');
+      if (player) player.classList.remove('linguaplay-has-japanese');
+      if (drawer) drawer.classList.add('hidden');
+      isPanelCollapsed = true;
+      if (widget) widget.classList.add('collapsed');
+      if (trigger) {
+        trigger.classList.add('app-disabled');
+        trigger.title = 'LinguaPlay is OFF — Click to turn ON';
+      }
+    } else {
+      if (trigger) {
+        trigger.classList.remove('app-disabled');
+        trigger.title = 'Open LinguaPlay Settings';
+      }
+      isPanelCollapsed = false;
+      if (widget) widget.classList.remove('collapsed');
+      inspectAndSwitchPlayerTracks();
+      if (currentSubIndex >= 0 && subtitleTimeline[currentSubIndex]) {
+        renderSentenceTokens(subtitleTimeline[currentSubIndex].text);
+      } else if (activeLiveSentence) {
+        renderSentenceTokens(activeLiveSentence);
+      }
+    }
+  }
+
   function updateWidgetState() {
     const widget = document.getElementById('linguaplay-yt-widget');
+    const trigger = document.getElementById('linguaplay-toggle-trigger');
     if (!widget) return;
     if (isPanelCollapsed) {
       widget.classList.add('collapsed');
     } else {
       widget.classList.remove('collapsed');
+    }
+    if (trigger) {
+      if (!isAppEnabled) {
+        trigger.classList.add('app-disabled');
+        trigger.title = 'LinguaPlay is OFF — Click to turn ON';
+      } else {
+        trigger.classList.remove('app-disabled');
+        trigger.title = 'Open LinguaPlay Settings';
+      }
     }
   }
 
@@ -1540,13 +1601,13 @@
     if (isPanelCollapsed) widget.classList.add('collapsed');
 
     widget.innerHTML = `
-      <div id="linguaplay-toggle-trigger" title="Open LinguaPlay Settings">
+      <div id="linguaplay-toggle-trigger" class="${!isAppEnabled ? 'app-disabled' : ''}" title="${!isAppEnabled ? 'LinguaPlay is OFF — Click to turn ON' : 'Open LinguaPlay Settings'}">
         <span>言</span>
       </div>
       <div id="linguaplay-yt-bar">
-        <span style="font-size: 11px; font-weight: bold; color: #a78bfa; margin-right: 2px; display:flex; align-items:center; gap:3px;">
+        <button id="linguaplay-bar-logo" class="linguaplay-bar-logo-btn" title="Turn OFF LinguaPlay (stop subtitles)">
           <span>言</span> <span>LinguaPlay</span>
-        </span>
+        </button>
         <button class="linguaplay-bar-btn ${readingMode === 'furigana' ? 'active' : ''}" data-mode="furigana">Furigana</button>
         <button class="linguaplay-bar-btn ${readingMode === 'romaji' ? 'active' : ''}" data-mode="romaji">Romaji</button>
         <button class="linguaplay-bar-btn ${readingMode === 'hidden' ? 'active' : ''}" data-mode="hidden">Hidden</button>
@@ -1664,19 +1725,37 @@
     }
 
     // 5. Retractable Widget Toggle Listeners
-    document.getElementById('linguaplay-toggle-trigger').addEventListener('click', (e) => {
-      e.stopPropagation();
-      isPanelCollapsed = false;
-      chrome.storage.local.set({ linguaplay_panel_collapsed: false });
-      updateWidgetState();
-    });
+    const toggleTrigger = document.getElementById('linguaplay-toggle-trigger');
+    if (toggleTrigger) {
+      toggleTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!isAppEnabled) {
+          setAppEnabled(true);
+        } else {
+          isPanelCollapsed = false;
+          chrome.storage.local.set({ linguaplay_panel_collapsed: false });
+          updateWidgetState();
+        }
+      });
+    }
 
-    document.getElementById('linguaplay-collapse-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      isPanelCollapsed = true;
-      chrome.storage.local.set({ linguaplay_panel_collapsed: true });
-      updateWidgetState();
-    });
+    const barLogo = document.getElementById('linguaplay-bar-logo');
+    if (barLogo) {
+      barLogo.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setAppEnabled(false);
+      });
+    }
+
+    const collapseBtn = document.getElementById('linguaplay-collapse-btn');
+    if (collapseBtn) {
+      collapseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isPanelCollapsed = true;
+        chrome.storage.local.set({ linguaplay_panel_collapsed: true });
+        updateWidgetState();
+      });
+    }
 
     // 6. Bar Event Listeners
     widget.querySelectorAll('[data-mode]').forEach(btn => {
@@ -2425,7 +2504,7 @@ Respond with ONLY valid JSON:
   }
 
   function onTimeUpdate() {
-    if (!activeVideoEl || subtitleTimeline.length === 0) return;
+    if (!isAppEnabled || !activeVideoEl || subtitleTimeline.length === 0) return;
     const ct = activeVideoEl.currentTime - timingOffset;
 
     let matchIdx = -1;
@@ -2476,6 +2555,11 @@ Respond with ONLY valid JSON:
         activeVideoEl = v;
         activeVideoEl.addEventListener('timeupdate', onTimeUpdate);
         setupLiveCaptionHooking();
+      }
+
+      if (!isAppEnabled) {
+        subtitleTimeline = [];
+        return;
       }
 
       inspectAndSwitchPlayerTracks();
