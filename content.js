@@ -738,6 +738,8 @@
   let activeLiveSentence = '';
   let isPanelCollapsed = true;
   let areSubtitlesHidden = false;
+  let playerUI = null;
+  let liveCaptionObserver = null;
 
   // ── Load Settings ──
   chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed'], (res) => {
@@ -1450,6 +1452,7 @@
 
   // ── Hook Live YouTube Closed Captions (DOM & textTracks) ──
   function setupLiveCaptionHooking() {
+    if (liveCaptionObserver) liveCaptionObserver.disconnect();
     const observer = new MutationObserver(() => {
       const captionContainer = document.querySelector('.ytp-caption-window-container') || document.querySelector('.caption-window');
       if (captionContainer) {
@@ -1474,6 +1477,7 @@
 
     const target = document.querySelector('#movie_player') || document.body;
     observer.observe(target, { childList: true, subtree: true, characterData: true });
+    liveCaptionObserver = observer;
 
     if (activeVideoEl && activeVideoEl.textTracks) {
       for (let i = 0; i < activeVideoEl.textTracks.length; i++) {
@@ -1504,7 +1508,7 @@
     // This page-session flag survives YouTube navigation without changing
     // the drawer's own open/closed state or the selected reading mode.
     document.documentElement.classList.toggle('linguaplay-subtitles-hidden', areSubtitlesHidden);
-    const button = document.getElementById('linguaplay-visibility-toggle');
+    const button = playerUI?.visibilityToggle;
     if (!button) return;
     const label = areSubtitlesHidden ? 'Show subtitles and translation' : 'Hide subtitles and translation';
     button.title = label;
@@ -1514,18 +1518,62 @@
 
   function updateWidgetState() {
     updateSubtitleVisibility();
-    const widget = document.getElementById('linguaplay-yt-widget');
+    const widget = playerUI?.widget;
     if (!widget) return;
     if (isPanelCollapsed) {
       widget.classList.add('collapsed');
     } else {
       widget.classList.remove('collapsed');
     }
+    playerUI.settingsToggle.setAttribute('aria-expanded', String(!isPanelCollapsed));
+  }
+
+  function setPanelCollapsed(collapsed) {
+    isPanelCollapsed = collapsed;
+    chrome.storage.local.set({ linguaplay_panel_collapsed: collapsed });
+    updateWidgetState();
+  }
+
+  function ensurePlayerControls() {
+    if (!playerUI) return;
+    const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player') || document.querySelector('video')?.parentElement;
+    if (!player) {
+      playerUI.controls.remove();
+      playerUI.widget.hidden = true;
+      return;
+    }
+    const { controls, widget, overlay } = playerUI;
+    if (overlay.parentElement !== player) player.appendChild(overlay);
+    if (widget.parentElement !== player) player.appendChild(widget);
+    if (playerUI.player !== player) {
+      playerUI.player = player;
+      setupLiveCaptionHooking();
+    }
+    const rightControls = player.querySelector('.ytp-right-controls');
+    widget.hidden = !rightControls;
+    if (!rightControls) {
+      controls.remove();
+      return;
+    }
+    const cc = rightControls.querySelector('.ytp-subtitles-button');
+    const anchor = cc?.parentElement === rightControls ? cc : Array.from(rightControls.children).find(child => child !== controls) || null;
+    if (controls.parentElement !== rightControls || controls.nextElementSibling !== anchor) {
+      rightControls.insertBefore(controls, anchor);
+    }
+    const nativeButton = Array.from(rightControls.querySelectorAll('.ytp-button')).find(button => !controls.contains(button) && button.getBoundingClientRect().width > 0);
+    if (nativeButton) controls.style.setProperty('--linguaplay-control-width', `${nativeButton.getBoundingClientRect().width}px`);
+    const playerBounds = player.getBoundingClientRect();
+    const barBounds = (player.querySelector('.ytp-chrome-bottom') || rightControls).getBoundingClientRect();
+    widget.style.bottom = `${Math.max(52, playerBounds.bottom - barBounds.top + 8)}px`;
+    widget.style.right = `${Math.max(12, playerBounds.right - barBounds.right)}px`;
   }
 
   // ── Inject LinguaPlay Interface on YouTube ──
   function injectUI() {
-    if (document.getElementById('linguaplay-yt-widget')) return;
+    if (playerUI) {
+      ensurePlayerControls();
+      return;
+    }
 
     const moviePlayer = document.querySelector('#movie_player') || document.querySelector('.html5-video-player') || document.querySelector('video')?.parentElement;
     if (!moviePlayer) return;
@@ -1562,16 +1610,13 @@
     overlay.innerHTML = `<div id="linguaplay-yt-tokens"></div>`;
     moviePlayer.appendChild(overlay);
 
-    // 3. Retractable LinguaPlay Floating Widget (Top-Right Corner)
+    // 3. Settings panel above the native player control bar.
     const widget = document.createElement('div');
     widget.id = 'linguaplay-yt-widget';
     if (isPanelCollapsed) widget.classList.add('collapsed');
 
     widget.innerHTML = `
-      <div id="linguaplay-toggle-trigger" title="Open LinguaPlay Settings">
-        <span>言</span>
-      </div>
-      <div id="linguaplay-yt-bar">
+      <div id="linguaplay-yt-bar" role="group" aria-label="LinguaPlay settings">
         <span style="font-size: 11px; font-weight: bold; color: #a78bfa; margin-right: 2px; display:flex; align-items:center; gap:3px;">
           <span>言</span> <span>LinguaPlay</span>
         </span>
@@ -1589,7 +1634,15 @@
         <span id="linguaplay-sub-status" style="font-size: 10px; color: #6ee7b7; margin-left: 2px;"></span>
         <button class="linguaplay-bar-btn linguaplay-collapse-btn" id="linguaplay-collapse-btn" title="Collapse Bar">✕</button>
       </div>
-      <button type="button" id="linguaplay-visibility-toggle" title="Hide subtitles and translation" aria-label="Hide subtitles and translation" aria-pressed="false">
+    `;
+    moviePlayer.appendChild(widget);
+
+    // Buttons inherit YouTube's native control-bar visibility. Retain their
+    // references so they can be reattached if YouTube replaces that bar.
+    const controls = document.createElement('span');
+    controls.id = 'linguaplay-yt-controls';
+    controls.innerHTML = `
+      <button type="button" class="ytp-button" id="linguaplay-visibility-toggle" title="Hide subtitles and translation" aria-label="Hide subtitles and translation" aria-pressed="false">
         <svg class="linguaplay-eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
           <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>
         </svg>
@@ -1597,8 +1650,13 @@
           <path d="m3 3 18 18M10.6 5.1A12 12 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-3 4M6.5 6.5A18 18 0 0 0 2 12s3.5 7 10 7a12 12 0 0 0 5.5-1.5M10 10a3 3 0 0 0 4 4"/>
         </svg>
       </button>
+      <button type="button" class="ytp-button" id="linguaplay-toggle-trigger" title="LinguaPlay settings" aria-label="LinguaPlay settings" aria-controls="linguaplay-yt-bar" aria-expanded="false">
+        <span aria-hidden="true">言</span>
+      </button>
     `;
-    moviePlayer.appendChild(widget);
+    const visibilityToggle = controls.querySelector('#linguaplay-visibility-toggle');
+    const settingsToggle = controls.querySelector('#linguaplay-toggle-trigger');
+    playerUI = { player: moviePlayer, controls, widget, overlay, visibilityToggle, settingsToggle };
 
     // 4. Translation Panel (Defaults to Native Sidebar or Body)
     const drawer = document.createElement('div');
@@ -1700,30 +1758,40 @@
     }
 
     // 5. Retractable Widget Toggle Listeners
-    const visibilityToggle = document.getElementById('linguaplay-visibility-toggle');
     visibilityToggle.addEventListener('click', (e) => {
       e.stopPropagation();
       areSubtitlesHidden = !areSubtitlesHidden;
       if (!areSubtitlesHidden) onTimeUpdate();
       updateSubtitleVisibility();
     });
-    // Preserve native button keyboard activation while isolating player shortcuts.
-    ['keydown', 'keyup', 'pointerdown', 'pointerup'].forEach(eventName => {
-      visibilityToggle.addEventListener(eventName, (e) => e.stopPropagation());
-    });
-
-    document.getElementById('linguaplay-toggle-trigger').addEventListener('click', (e) => {
+    settingsToggle.addEventListener('click', (e) => {
       e.stopPropagation();
-      isPanelCollapsed = false;
-      chrome.storage.local.set({ linguaplay_panel_collapsed: false });
-      updateWidgetState();
+      ensurePlayerControls();
+      setPanelCollapsed(!isPanelCollapsed);
     });
 
     document.getElementById('linguaplay-collapse-btn').addEventListener('click', (e) => {
       e.stopPropagation();
-      isPanelCollapsed = true;
-      chrome.storage.local.set({ linguaplay_panel_collapsed: true });
-      updateWidgetState();
+      setPanelCollapsed(true);
+      settingsToggle.focus();
+    });
+
+    // Stop player shortcuts without preventing native button activation or Tab.
+    [controls, widget].forEach(surface => {
+      ['click', 'keydown', 'keyup', 'pointerdown', 'pointerup', 'mousedown', 'mouseup'].forEach(eventName => {
+        surface.addEventListener(eventName, (e) => e.stopPropagation());
+      });
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !isPanelCollapsed) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPanelCollapsed(true);
+        settingsToggle.focus();
+      }
+    }, true);
+    document.addEventListener('click', (e) => {
+      if (!isPanelCollapsed && !widget.contains(e.target) && !controls.contains(e.target)) setPanelCollapsed(true);
     });
 
     // 6. Bar Event Listeners
@@ -2460,6 +2528,7 @@ Respond with ONLY valid JSON:
     });
 
     updateWidgetState();
+    ensurePlayerControls();
     setupLiveCaptionHooking();
   }
 
@@ -2507,6 +2576,16 @@ Respond with ONLY valid JSON:
     const vid = urlParams.get('v');
     if (!vid) return;
 
+    // Also retry on the same video: native controls can arrive late or be rebuilt.
+    injectUI();
+    const v = document.querySelector('video');
+    if (v && v !== activeVideoEl) {
+      if (activeVideoEl) activeVideoEl.removeEventListener('timeupdate', onTimeUpdate);
+      activeVideoEl = v;
+      activeVideoEl.addEventListener('timeupdate', onTimeUpdate);
+      setupLiveCaptionHooking();
+    }
+
     if (vid !== currentVideoId) {
       currentVideoId = vid;
       currentSubIndex = -1;
@@ -2516,16 +2595,6 @@ Respond with ONLY valid JSON:
       drawerActiveWord = '';
       drawerContextVersion++;
       senseiChatHistory = [];
-
-      injectUI();
-
-      const v = document.querySelector('video');
-      if (v && v !== activeVideoEl) {
-        if (activeVideoEl) activeVideoEl.removeEventListener('timeupdate', onTimeUpdate);
-        activeVideoEl = v;
-        activeVideoEl.addEventListener('timeupdate', onTimeUpdate);
-        setupLiveCaptionHooking();
-      }
 
       inspectAndSwitchPlayerTracks();
 
@@ -2547,5 +2616,7 @@ Respond with ONLY valid JSON:
   setInterval(checkAndInitVideo, 1000);
   window.addEventListener('yt-navigate-finish', checkAndInitVideo);
   window.addEventListener('popstate', checkAndInitVideo);
+  window.addEventListener('resize', ensurePlayerControls);
+  document.addEventListener('fullscreenchange', ensurePlayerControls);
 
 })();

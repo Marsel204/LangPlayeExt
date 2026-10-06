@@ -15,7 +15,7 @@ function createContentHarness(config = {}) {
   const elements = new Map();
   class Element {
     constructor() {
-      this.style = {};
+      this.style = { setProperty(name, value) { this[name] = value; } };
       this.children = [];
       this.listeners = {};
       this.value = '';
@@ -47,25 +47,51 @@ function createContentHarness(config = {}) {
       for (const match of value.matchAll(/id="([^"]+)"/g)) {
         const child = new Element();
         child.id = match[1];
+        this.appendChild(child);
       }
     }
     get innerHTML() { return this._html; }
     set textContent(value) { this._text = value; this._html = value; }
     get textContent() { return this._text; }
-    appendChild(child) { child.parentElement = this; this.children.push(child); return child; }
-    insertBefore(child) { return this.appendChild(child); }
+    get firstChild() { return this.children[0] || null; }
+    get nextElementSibling() { return this.parentElement?.children[this.parentElement.children.indexOf(this) + 1] || null; }
+    appendChild(child) { child.remove(); child.parentElement = this; this.children.push(child); return child; }
+    insertBefore(child, anchor) {
+      if (!anchor) return this.appendChild(child);
+      child.remove();
+      child.parentElement = this;
+      this.children.splice(this.children.indexOf(anchor), 0, child);
+      return child;
+    }
     addEventListener(name, callback) { this.listeners[name] = callback; }
-    querySelectorAll() { return []; }
+    querySelectorAll(selector) {
+      const descendants = this.children.flatMap(child => [child, ...child.querySelectorAll('*')]);
+      return descendants.filter(child => selector === '*' || (selector.startsWith('#') ? child.id === selector.slice(1) : selector.startsWith('.') && child.classList.contains(selector.slice(1))));
+    }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+    contains(element) { return this === element || this.children.some(child => child.contains(element)); }
+    getBoundingClientRect() { return { top:470, bottom:510, left:0, right:900, width:40, height:40 }; }
     scrollIntoView() {}
     focus() {}
     remove() {
       if (this.parentElement) {
         this.parentElement.children = this.parentElement.children.filter(c => c !== this);
       }
+      this.parentElement = null;
     }
   }
   const body = new Element();
   const player = new Element();
+  player.getBoundingClientRect = () => ({ top:0, bottom:510, left:0, right:900, width:900, height:510 });
+  const nativeBar = new Element();
+  nativeBar.className = 'ytp-chrome-bottom';
+  const nativeControls = new Element();
+  nativeControls.className = 'ytp-right-controls';
+  const nativeCC = new Element();
+  nativeCC.className = 'ytp-button ytp-subtitles-button';
+  nativeControls.appendChild(nativeCC);
+  nativeBar.appendChild(nativeControls);
+  player.appendChild(nativeBar);
   const secondary = new Element();
   const calls = [];
   const pending = [];
@@ -79,12 +105,13 @@ function createContentHarness(config = {}) {
       querySelector: selector => selector === '#movie_player' ? player : selector === '#secondary-inner' ? secondary : null,
       querySelectorAll: () => [],
       createElement: () => new Element(),
+      addEventListener() {},
     },
     chrome: { storage: { local: {
       get: (_keys, callback) => callback(config),
       set: () => {},
     } } },
-    MutationObserver: class { observe() {} },
+    MutationObserver: class { observe() {} disconnect() {} },
     AbortSignal,
     URLSearchParams,
     setInterval() {},
@@ -172,12 +199,49 @@ test('a completed translation while hidden is retained for the previously open d
 
 test('visibility controls isolate pointer and keyboard events without preventing button activation', () => {
   const h = createContentHarness();
-  const button = h.elements.get('linguaplay-visibility-toggle');
   for (const name of ['keydown', 'keyup', 'pointerdown', 'pointerup']) {
     let stopped = false;
-    button.listeners[name]({ stopPropagation() { stopped = true; } });
+    h.elements.get('linguaplay-yt-controls').listeners[name]({ stopPropagation() { stopped = true; } });
     assert.equal(stopped, true, name);
   }
+});
+
+test('native controls are placed before CC and reattached without duplicate buttons', () => {
+  const h = createContentHarness();
+  const player = h.sandbox.document.querySelector('#movie_player');
+  const group = h.elements.get('linguaplay-yt-controls');
+  const right = player.querySelector('.ytp-right-controls');
+  assert.equal(right.firstChild, group);
+  assert.equal(group.children[0].id, 'linguaplay-visibility-toggle');
+  assert.equal(group.children[1].id, 'linguaplay-toggle-trigger');
+  h.injectUI();
+  h.injectUI();
+  assert.equal(right.children.filter(child => child === group).length, 1);
+  right.remove();
+  h.injectUI();
+  assert.equal(group.parentElement, null);
+  const replacement = h.sandbox.document.createElement('div');
+  replacement.className = 'ytp-right-controls';
+  const gear = h.sandbox.document.createElement('button');
+  gear.className = 'ytp-button';
+  replacement.appendChild(gear);
+  player.appendChild(replacement);
+  h.injectUI();
+  assert.equal(replacement.firstChild, group, 'Without CC, use the first native control');
+  assert.equal(group.nextElementSibling, gear);
+});
+
+test('the settings control toggles the toolbar and its accessible expanded state', () => {
+  const h = createContentHarness();
+  const settings = h.elements.get('linguaplay-toggle-trigger');
+  const widget = h.elements.get('linguaplay-yt-widget');
+  for (const expanded of [true, false, true]) {
+    settings.listeners.click({ stopPropagation() {} });
+    assert.equal(settings.getAttribute('aria-expanded'), String(expanded));
+    assert.equal(widget.classList.contains('collapsed'), !expanded);
+  }
+  h.elements.get('linguaplay-collapse-btn').listeners.click({ stopPropagation() {} });
+  assert.equal(settings.getAttribute('aria-expanded'), 'false');
 });
 
 test('a fresh page session resets subtitle visibility', () => {
