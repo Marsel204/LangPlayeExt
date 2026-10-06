@@ -322,6 +322,24 @@ test('control: an explicit local provider dispatches to the local server', async
   assert.equal(h.calls[0]?.url, 'http://127.0.0.1:8000/api/ai/analyze');
 });
 
+test('local analysis can finish after the former four-second deadline', async () => {
+  const h = createContentHarness();
+  // Scale seconds to milliseconds while preserving the response/deadline order.
+  h.sandbox.AbortSignal = { timeout: milliseconds => AbortSignal.timeout(milliseconds / 1000) };
+  h.sandbox.fetch = (_url, { signal }) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve({ ok: true, json: async () => ({ status: 'success', data: { contextual_meaning: 'cat' } }) }), 35);
+    signal.addEventListener('abort', () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
+  });
+  const result = await h.callSenseiLlmApi({ messages: [], isJson: true, config: {}, word: '猫', romaji: 'neko', sentence: '猫がいる' });
+  assert.equal(JSON.parse(result).contextual_meaning, 'cat');
+});
+
+test('local analysis reports the actual backend error', async () => {
+  const h = createContentHarness();
+  h.sandbox.fetch = async () => ({ ok: false, status: 504, json: async () => ({ status: 'error', message: 'Antigravity CLI execution timed out.' }) });
+  await assert.rejects(h.callSenseiLlmApi({ messages: [], isJson: true, config: {}, word: '猫', sentence: '猫がいる' }), /Antigravity CLI execution timed out/);
+});
+
 test('a chat response for a previous word cannot enter the new conversation', async () => {
   const h = createContentHarness({ linguaplay_ai_provider: 'deepseek', linguaplay_deepseek_key: 'fake-test-key' });
   h.handleTokenClick({ surface: '猫', baseForm: '猫' }, '猫がいる');

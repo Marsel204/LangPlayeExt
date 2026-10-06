@@ -18,6 +18,13 @@ const server = http.createServer((req, res) => {
   req.on('data', chunk => body += chunk);
   req.on('end', () => {
     requests.push({ method: req.method, url: req.url, origin: req.headers.origin, body });
+    if (req.url === '/api/ai/analyze') {
+      setTimeout(() => {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ status: 'success', data: { word_by_word: [{ word: '猫', reading: 'ねこ', romaji: 'neko', meaning: 'cat' }] } }));
+      }, 5200);
+      return;
+    }
     if (req.headers.origin === 'https://www.youtube.com') {
       res.writeHead(403); res.end(); return;
     }
@@ -97,7 +104,10 @@ try {
   assert.equal(standalone.success, true, JSON.stringify(standalone));
   assert.equal(standalone.data.contextual_meaning, 'cat');
   const nativeStartup = await checkNativeStartup({ root, profile, extensionOrigin, evaluate });
-  const subtitleVisibility = await checkSubtitleVisibility({ root, evaluate, rpc, sessionId });
+  const subtitleVisibility = await checkSubtitleVisibility({ root, evaluate, rpc, sessionId, localAiUrl: `http://127.0.0.1:${port}` });
+  const localAnalysis = requests.find(request => request.url === '/api/ai/analyze');
+  assert.ok(localAnalysis);
+  assert.ok(Object.hasOwn(JSON.parse(localAnalysis.body), 'romaji'), 'Send the reading using the backend romaji field');
   console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, workerRequest: answer.success, standaloneCustomRequest: standalone.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility }));
 } finally {
   ws?.close();

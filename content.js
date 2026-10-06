@@ -2142,23 +2142,31 @@ Respond with ONLY valid JSON:
 
       // 5. Antigravity CLI Local Server
       if (provider === 'antigravity') {
+        // Local model generation can exceed 30 seconds. Keep this deadline
+        // longer than the companion server's 90-second CLI budget.
+        const localAiTimeout = 120000;
         if (isJson) {
-          const res = await fetch(`${serverUrl}/api/ai/analyze`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ word, reading: romaji, sentence, provider: 'antigravity' }),
-            signal: AbortSignal.timeout(4000)
-          });
-          if (!res.ok) throw new Error(`Local server returned ${res.status}`);
-          const raw = await res.json();
-          return JSON.stringify(raw.data || raw);
+          try {
+            const res = await fetch(`${serverUrl}/api/ai/analyze`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ word, romaji, sentence, provider: 'antigravity' }),
+              signal: AbortSignal.timeout(localAiTimeout)
+            });
+            const raw = await res.json().catch(() => ({}));
+            if (!res.ok || raw.status === 'error') throw new Error(raw.message || `Local server returned ${res.status}`);
+            return JSON.stringify(raw.data || raw);
+          } catch (error) {
+            if (error.name === 'TimeoutError') throw new Error('Local AI did not respond within two minutes. Click Ask Sensei to try again.');
+            throw error;
+          }
         } else {
           // Check chat
           const res = await fetch(`${serverUrl}/api/ai/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messages, word, sentence }),
-            signal: AbortSignal.timeout(4000)
+            signal: AbortSignal.timeout(localAiTimeout)
           });
           if (res.ok) {
             const raw = await res.json();
@@ -2456,9 +2464,9 @@ Respond with ONLY valid JSON:
                 <span>⚠️</span> AI Analysis Notice: ${err.message}
               </div>
               <p style="margin: 0 0 8px; color: #cbd5e1; font-size: 11.5px;">
-                Quick-save your API key directly below, or open full extension settings:
+                ${provider === 'antigravity' ? 'Click Ask Sensei to retry, or open extension settings to select another provider.' : 'Quick-save your API key directly below, or open full extension settings:'}
               </p>
-              <div style="display: flex; gap: 6px; margin-bottom: 8px; align-items: center;">
+              <div style="display: ${provider === 'antigravity' ? 'none' : 'flex'}; gap: 6px; margin-bottom: 8px; align-items: center;">
                 <select id="lp-inline-provider" style="background: #1e1b4b; color: #e2e8f0; border: 1px solid rgba(139,92,246,0.5); border-radius: 6px; padding: 4px 6px; font-size: 11px;">
                   <option value="deepseek" selected>DeepSeek</option>
                   <option value="gemini">Gemini</option>
