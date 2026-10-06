@@ -38,8 +38,66 @@ try {
   console.warn('[LinguaPlay Background] Failed to register contextMenus onClicked listener:', e);
 }
 
+const serverStarts = new Map();
+const serverStartFailures = new Map();
+
+function canRequestServerStart(sender) {
+  if (sender.id !== chrome.runtime.id) return false;
+  try {
+    const url = new URL(sender.url || sender.origin);
+    return (url.protocol === 'chrome-extension:' && url.hostname === chrome.runtime.id && ['/player.html', '/options.html'].includes(url.pathname)) ||
+      (url.protocol === 'https:' && (url.hostname === 'youtube.com' || url.hostname.endsWith('.youtube.com')) && url.pathname === '/watch');
+  } catch { return false; }
+}
+
+async function ensureLocalServer() {
+  const config = await chrome.storage.local.get(['linguaplay_server_url', 'linguaplay_auto_start_server']);
+  if (config.linguaplay_auto_start_server === false) return { success: true, skipped: true };
+  const url = new URL(config.linguaplay_server_url || 'http://127.0.0.1:8000');
+  // Only the fixed local Python server can be launched. Remote endpoints are
+  // managed by their owners and must never cause a local process to start.
+  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname) || url.username || url.password || !['', '/'].includes(url.pathname)) {
+    return { success: true, skipped: true };
+  }
+  const port = Number(url.port || 80);
+  const key = `http://127.0.0.1:${port}`;
+  if (serverStarts.has(key)) return serverStarts.get(key);
+  const pending = (async () => {
+    try {
+      const response = await fetch(`${key}/api/ai/status`, { signal: AbortSignal.timeout(1000) });
+      const data = await response.json();
+      if (response.ok && data.status === 'success' && typeof data.antigravity_available === 'boolean') {
+        serverStartFailures.delete(key);
+        return { success: true, started: false };
+      }
+    } catch { /* An offline server is the expected startup case. */ }
+    const previousFailure = serverStartFailures.get(key);
+    if (previousFailure && Date.now() - previousFailure.time < 30000) return previousFailure.response;
+    const response = await new Promise(resolve => {
+      chrome.runtime.sendNativeMessage('com.linguaplay.server', { action: 'ensure_server', port }, result => {
+        const error = chrome.runtime.lastError;
+        resolve(error ? { success: false, error: `Local launcher unavailable: ${error.message}. Install native/install_host.py for this extension.` } : result || { success: false, error: 'Local launcher did not respond' });
+      });
+    });
+    if (!response.success) serverStartFailures.set(key, { time: Date.now(), response });
+    else serverStartFailures.delete(key);
+    return { success: !!response.success, started: !!response.started, ...(response.error ? { error: response.error } : {}) };
+  })();
+  serverStarts.set(key, pending);
+  try { return await pending; } finally { serverStarts.delete(key); }
+}
+
 // Innertube Android VR Caption Extraction Bridge in Background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'ENSURE_LOCAL_SERVER') {
+    if (!canRequestServerStart(sender)) {
+      sendResponse({ success: false, error: 'Untrusted server startup request' });
+      return false;
+    }
+    ensureLocalServer().then(sendResponse, error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
   if (request.action === 'CALL_CUSTOM_AI') {
     (async () => {
       try {

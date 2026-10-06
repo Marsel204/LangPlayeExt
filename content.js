@@ -2584,6 +2584,17 @@ Respond with ONLY valid JSON:
     }
   }
 
+  function startServerOnPlayback() {
+    if (!activeVideoEl || activeVideoEl.paused || activeVideoEl.ended || !new URLSearchParams(window.location.search).get('v')) return;
+    if (!chrome.runtime?.sendMessage) return;
+    try {
+      chrome.runtime.sendMessage({ action: 'ENSURE_LOCAL_SERVER' }, response => {
+        const error = chrome.runtime.lastError;
+        if (error || (response && !response.success)) console.warn('[LinguaPlay] Server auto-start:', error?.message || response.error);
+      });
+    } catch (error) { console.warn('[LinguaPlay] Server auto-start:', error.message); }
+  }
+
   async function checkAndInitVideo() {
     const urlParams = new URLSearchParams(window.location.search);
     const vid = urlParams.get('v');
@@ -2593,10 +2604,15 @@ Respond with ONLY valid JSON:
     injectUI();
     const v = document.querySelector('video');
     if (v && v !== activeVideoEl) {
-      if (activeVideoEl) activeVideoEl.removeEventListener('timeupdate', onTimeUpdate);
+      if (activeVideoEl) {
+        activeVideoEl.removeEventListener('timeupdate', onTimeUpdate);
+        activeVideoEl.removeEventListener('playing', startServerOnPlayback);
+      }
       activeVideoEl = v;
       activeVideoEl.addEventListener('timeupdate', onTimeUpdate);
+      activeVideoEl.addEventListener('playing', startServerOnPlayback);
       setupLiveCaptionHooking();
+      startServerOnPlayback();
     }
 
     if (vid !== currentVideoId) {

@@ -65,6 +65,36 @@ An AI-enhanced Japanese language immersion video player and YouTube subtitle com
 
 ---
 
+## Automatic local server startup (Linux)
+
+LinguaPlay can start the companion `Server.py` when a YouTube video or a video in the standalone player begins playing. A running server is reused; opening a paused video does not start it. The server stays running after playback stops.
+
+Install the local launcher once from this repository. Find your extension ID in `chrome://extensions`, then run:
+
+```bash
+python3 native/install_host.py \
+  --server /home/marsel/Projects/LangPlay/Server.py \
+  --extension-id YOUR_EXTENSION_ID
+```
+
+Replace the server path if needed. Reload the extension after installing. The launcher uses Chrome native messaging and registers with both Google Chrome and Chromium. Repeat `--extension-id` to authorize another checkout. Use `--port` if your local server uses a port other than 8000, and save the matching **Local Server URL** in Options.
+
+The launcher starts the server on `127.0.0.1`, launches only the installed server path and port, and prevents duplicate starts across tabs and browsers. Remote server URLs do not launch a local process. Disable **Start local server when a video plays** in Options to turn off automatic startup.
+
+Launcher files are installed in `~/.local/share/linguaplay/native`; server output is recorded in `~/.local/state/linguaplay/server.log`. If you move `Server.py` or reinstall Python, rerun the installer. No login service is created. Other operating systems can continue running the server manually.
+
+Verify the implementation with:
+
+```bash
+node tests/test_server_startup.js
+python3 tests/test_native_host.py
+node tests/browser_custom_ai.mjs
+```
+
+The browser check requires Chromium and uses a temporary profile and a small test server; it does not invoke an AI model or modify your browser profile.
+
+---
+
 ## ⌨️ Keyboard Shortcuts
 
 | Key | Action |

@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const opencodeKey = document.getElementById('opencode-key');
   const opencodeModel = document.getElementById('opencode-model');
   const serverUrl = document.getElementById('server-url');
+  const autoStartServer = document.getElementById('auto-start-server');
   const ankiDeck = document.getElementById('anki-deck');
   const ankiConnectUrl = document.getElementById('ankiconnect-url');
   const readingMode = document.getElementById('reading-mode');
@@ -46,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'linguaplay_opencode_key',
     'linguaplay_opencode_model',
     'linguaplay_server_url',
+    'linguaplay_auto_start_server',
     'linguaplay_anki_deck',
     'linguaplay_ankiconnect_url',
     'linguaplay_reading_mode',
@@ -60,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (res.linguaplay_opencode_key) opencodeKey.value = res.linguaplay_opencode_key;
     if (res.linguaplay_opencode_model) opencodeModel.value = res.linguaplay_opencode_model;
     if (res.linguaplay_server_url) serverUrl.value = res.linguaplay_server_url;
+    autoStartServer.checked = res.linguaplay_auto_start_server !== false;
     if (res.linguaplay_anki_deck) ankiDeck.value = res.linguaplay_anki_deck;
     if (res.linguaplay_ankiconnect_url) ankiConnectUrl.value = res.linguaplay_ankiconnect_url;
     if (res.linguaplay_reading_mode) readingMode.value = res.linguaplay_reading_mode;
@@ -100,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
       linguaplay_opencode_key: opencodeKey.value.trim(),
       linguaplay_opencode_model: opencodeModel.value.trim() || 'deepseek-chat',
       linguaplay_server_url: serverUrl.value.trim() || 'http://127.0.0.1:8000',
+      linguaplay_auto_start_server: autoStartServer.checked,
       linguaplay_anki_deck: ankiDeck.value.trim() || 'LinguaPlay',
       linguaplay_ankiconnect_url: ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765',
       linguaplay_reading_mode: readingMode.value

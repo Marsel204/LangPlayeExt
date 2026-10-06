@@ -129,7 +129,7 @@ function createContentHarness(config = {}) {
     .replace('    setupLiveCaptionHooking();\n  }',
       '    globalThis.chatApi = { sendSenseiQuestion, callSenseiLlmApi };\n    setupLiveCaptionHooking();\n  }')
     .replace(/\}\)\(\);\s*$/, `globalThis.contentApi = {
-      getWordReading, generateSentenceRomaji, handleTokenClick, injectUI, renderSentenceTokens, onTimeUpdate,
+      getWordReading, generateSentenceRomaji, handleTokenClick, injectUI, renderSentenceTokens, onTimeUpdate, checkAndInitVideo,
       setPlayback(video, cues) { activeVideoEl = video; subtitleTimeline = cues; currentSubIndex = -1; }
     };})();`);
   vm.runInNewContext(instrumented, sandbox, { filename: 'content.js' });
@@ -142,6 +142,33 @@ function clickVisibility(h) {
   h.elements.get('linguaplay-visibility-toggle').listeners.click({ stopPropagation() { stopped = true; } });
   assert.equal(stopped, true, 'Visibility clicks must not reach the video player');
 }
+
+test('YouTube startup follows playback, including already-playing and replacement videos', async () => {
+  const h = createContentHarness();
+  const messages = [];
+  h.sandbox.chrome.runtime = { sendMessage(message, callback) { messages.push(message); callback?.({ success: true }); } };
+  h.sandbox.window.location.search = '?v=playback-test';
+  h.sandbox.fetch = async () => ({ ok: true, text: async () => 'WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n猫\n' });
+  const originalSelector = h.sandbox.document.querySelector;
+  const createVideo = paused => ({ paused, ended: false, currentTime: 0, listeners: {}, addEventListener(name, fn) { this.listeners[name] = fn; }, removeEventListener(name, fn) { if (this.listeners[name] === fn) delete this.listeners[name]; } });
+  let video = createVideo(true);
+  h.sandbox.document.querySelector = selector => selector === 'video' ? video : originalSelector(selector);
+  await h.checkAndInitVideo();
+  assert.equal(messages.length, 0, 'Opening a paused video does not start the server');
+  video.paused = false;
+  video.listeners.playing();
+  assert.equal(messages.length, 1);
+  await h.checkAndInitVideo();
+  assert.equal(messages.length, 1, 'Periodic checks do not launch again for the same playing element');
+  const previous = video;
+  video = createVideo(false);
+  await h.checkAndInitVideo();
+  assert.equal(messages.length, 2, 'Playback already in progress is detected when binding');
+  assert.equal(previous.listeners.playing, undefined);
+  video.ended = true;
+  video.listeners.playing();
+  assert.equal(messages.length, 2);
+});
 
 test('visibility toggles independently of toolbar, readings and drawer state', () => {
   const h = createContentHarness({ linguaplay_reading_mode: 'romaji' });
@@ -483,6 +510,15 @@ function createOptionsHarness(config = {}, { allowed = true, granted = true } = 
 test('Options defaults agree with the content provider selection', () => {
   assert.equal(createOptionsHarness().elements.get('ai-provider').value, 'antigravity');
   assert.equal(createOptionsHarness({ linguaplay_gemini_key: 'fake-test-key' }).elements.get('ai-provider').value, 'gemini');
+});
+
+test('Options defaults auto-start on and saves an explicit opt-out', async () => {
+  const h = createOptionsHarness();
+  assert.equal(h.elements.get('auto-start-server').checked, true);
+  h.elements.get('auto-start-server').checked = false;
+  await h.elements.get('save-settings-btn').listeners.click();
+  assert.equal(h.saved[0].linguaplay_auto_start_server, false);
+  assert.equal(createOptionsHarness({ linguaplay_auto_start_server: false }).elements.get('auto-start-server').checked, false);
 });
 
 test('saving a remote custom endpoint requests access only to its host', async () => {

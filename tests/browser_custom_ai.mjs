@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import http from 'node:http';
 import assert from 'node:assert/strict';
 import { checkSubtitleVisibility } from './browser_subtitle_visibility_checks.mjs';
+import { checkNativeStartup } from './browser_native_startup_checks.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const browserBinary = process.env.CHROMIUM_PATH || 'chromium';
 const profile = await mkdtemp(path.join(tmpdir(), 'linguaplay-browser-'));
@@ -95,8 +96,9 @@ try {
   })()`);
   assert.equal(standalone.success, true, JSON.stringify(standalone));
   assert.equal(standalone.data.contextual_meaning, 'cat');
+  const nativeStartup = await checkNativeStartup({ root, profile, extensionOrigin, evaluate });
   const subtitleVisibility = await checkSubtitleVisibility({ root, evaluate, rpc, sessionId });
-  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, workerRequest: answer.success, standaloneCustomRequest: standalone.success, origins: requests.map(request => request.origin || '(none)'), subtitleVisibility }));
+  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, workerRequest: answer.success, standaloneCustomRequest: standalone.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility }));
 } finally {
   ws?.close();
   browser.kill('SIGTERM');
