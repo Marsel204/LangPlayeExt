@@ -8,6 +8,18 @@
   pointer-events: none !important;
 }
 
+/* Suppress presentation without stopping live caption capture or drawer updates. */
+.linguaplay-subtitles-hidden #linguaplay-yt-tokens-overlay,
+.linguaplay-subtitles-hidden #linguaplay-yt-drawer {
+  display: none !important;
+}
+
+.linguaplay-subtitles-hidden .ytp-caption-window-container,
+.linguaplay-subtitles-hidden .caption-window {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 /* ── 1. Subtitle Tokens Area (Centered Bottom of Video) ── */
 #linguaplay-yt-tokens-overlay {
   position: absolute;
@@ -108,12 +120,17 @@
   display: flex;
   align-items: center;
   user-select: none;
+  gap: 8px;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-#linguaplay-toggle-trigger {
+#linguaplay-toggle-trigger,
+#linguaplay-visibility-toggle {
   width: 32px;
   height: 32px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 0;
   border-radius: 50%;
   background: rgba(22, 19, 42, 0.85);
   border: 1px solid rgba(167, 139, 250, 0.4);
@@ -130,11 +147,26 @@
   transition: all 0.25s ease;
 }
 
-#linguaplay-toggle-trigger:hover {
+#linguaplay-toggle-trigger:hover,
+#linguaplay-visibility-toggle:hover {
   background: rgba(124, 58, 237, 0.8);
   color: white;
   transform: scale(1.08);
   box-shadow: 0 0 12px rgba(167, 139, 250, 0.6);
+}
+
+#linguaplay-visibility-toggle:focus-visible {
+  outline: 2px solid #c4b5fd;
+  outline-offset: 3px;
+}
+
+#linguaplay-visibility-toggle .linguaplay-eye-off,
+#linguaplay-visibility-toggle[aria-pressed="true"] .linguaplay-eye-open {
+  display: none;
+}
+
+#linguaplay-visibility-toggle[aria-pressed="true"] .linguaplay-eye-off {
+  display: block;
 }
 
 #linguaplay-yt-bar {
@@ -539,5 +571,4 @@
   padding-left: 2px;
   line-height: 1.4;
 }
-
 

@@ -168,18 +168,24 @@ async function updateAIProviderUI() {
   const icons = {
     antigravity: '⚡',
     gemini: '🌟',
-    openrouter: '🚀'
+    openrouter: '🚀',
+    deepseek: '⚡',
+    opencode: '💻'
   };
 
   const btnLabels = {
     antigravity: 'Ask Antigravity AI for Breakdown',
     gemini: 'Ask Gemini AI for Breakdown',
-    openrouter: 'Ask DeepSeek AI for Breakdown'
+    openrouter: 'Ask OpenRouter AI for Breakdown',
+    deepseek: 'Ask DeepSeek AI for Breakdown',
+    opencode: 'Ask Custom AI for Breakdown'
   };
 
   const placeholders = {
     gemini: 'Gemini key (AIzaSy…)',
-    openrouter: 'OpenRouter key (sk-or…)'
+    openrouter: 'OpenRouter key (sk-or…)',
+    deepseek: 'DeepSeek key (sk-…)',
+    opencode: 'Optional endpoint API key…'
   };
 
   if (aiProviderIcon) aiProviderIcon.textContent = icons[prov] || '🤖';

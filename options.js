@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'linguaplay_reading_mode',
     'linguaplay_cards'
   ], (res) => {
-    aiProvider.value = res.linguaplay_ai_provider || 'gemini';
+    aiProvider.value = res.linguaplay_ai_provider || (res.linguaplay_gemini_key ? 'gemini' : 'antigravity');
     if (res.linguaplay_gemini_key) geminiKey.value = res.linguaplay_gemini_key;
     if (res.linguaplay_deepseek_key) deepseekKey.value = res.linguaplay_deepseek_key;
     if (res.linguaplay_openrouter_key) openrouterKey.value = res.linguaplay_openrouter_key;
@@ -68,8 +68,28 @@ document.addEventListener('DOMContentLoaded', () => {
     savedCardCounter.textContent = `${cards.length} card${cards.length === 1 ? '' : 's'} in storage`;
   });
 
+  async function allowCustomEndpoint() {
+    const endpoint = new URL(opencodeUrl.value.trim() || 'http://127.0.0.1:11434/v1');
+    if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
+      throw new Error('Use an HTTP or HTTPS endpoint URL without embedded credentials');
+    }
+    const permissions = { origins: [`${endpoint.protocol}//${endpoint.hostname}/*`] };
+    if (!await chrome.permissions.contains(permissions) && !await chrome.permissions.request(permissions)) {
+      throw new Error('Endpoint access was not allowed. Settings were not saved.');
+    }
+  }
+
   // 2. Save settings
-  saveSettingsBtn.addEventListener('click', () => {
+  saveSettingsBtn.addEventListener('click', async () => {
+    if (aiProvider.value === 'opencode') {
+      try {
+        await allowCustomEndpoint();
+      } catch (error) {
+        opencodeStatusText.textContent = `❌ ${error.message}`;
+        opencodeStatusText.style.color = '#f87171';
+        return;
+      }
+    }
     chrome.storage.local.set({
       linguaplay_ai_provider: aiProvider.value,
       linguaplay_gemini_key: geminiKey.value.trim(),
@@ -220,6 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (key) headers['Authorization'] = `Bearer ${key}`;
 
       try {
+        await allowCustomEndpoint();
         const res = await fetch(targetUrl, {
           method: 'POST',
           headers: headers,
@@ -235,7 +256,8 @@ document.addEventListener('DOMContentLoaded', () => {
           opencodeStatusText.style.color = '#34d399';
         } else {
           const err = await res.json().catch(() => ({}));
-          opencodeStatusText.textContent = `❌ Error: ${err.error?.message || 'Status ' + res.status}`;
+          const originHint = res.status === 403 ? ' If using Ollama, set OLLAMA_ORIGINS=chrome-extension://* and restart Ollama.' : '';
+          opencodeStatusText.textContent = `❌ Error: ${err.error?.message || 'Status ' + res.status}${originHint}`;
           opencodeStatusText.style.color = '#f87171';
         }
       } catch (e) {

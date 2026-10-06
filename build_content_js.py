@@ -78,6 +78,17 @@ content_code = """/**
     const w = word.trim();
     if (SPECIAL_WORDS[w]) return SPECIAL_WORDS[w];
     const deinflections = yomitanDeinflector.deinflect(w);
+    // 来る changes its stem with the inflection. 行く must retain the
+    // established reading ahead of the ambiguous 行う candidate.
+    if (w.startsWith('来') && deinflections.some(candidate => candidate.term === '来る')) {
+      const suffix = w.slice(1);
+      const stem = /^(?:な|ず|ぬ|よう|られ|させ|い|れる)/.test(suffix)
+        ? 'こ' : /^(?:る|れ)/.test(suffix) ? 'く' : 'き';
+      return stem + suffix;
+    }
+    if (w.startsWith('行') && deinflections.some(candidate => candidate.term === '行く')) {
+      return 'い' + w.slice(1);
+    }
     for (let dIdx = 0; dIdx < deinflections.length; dIdx++) {
       const { term } = deinflections[dIdx];
       if (SPECIAL_WORDS[term]) {
@@ -545,10 +556,12 @@ content_code = """/**
   let currentVideoId = null;
   let lastAiData = null;
   let senseiChatHistory = [];
+  let drawerContextVersion = 0;
   let drawerContextSentence = '';
   let drawerActiveWord = '';
   let activeLiveSentence = '';
   let isPanelCollapsed = true;
+  let areSubtitlesHidden = false;
 
   // ── Load Settings ──
   chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed'], (res) => {
@@ -1099,6 +1112,7 @@ content_code = """/**
       posEl.textContent = '';
       posEl.style.display = 'none';
     }
+    drawerContextVersion++;
     drawerActiveWord = token.surface || '';
     drawerContextSentence = (sentenceContext || token.surface || '').trim();
 
@@ -1309,7 +1323,21 @@ content_code = """/**
     }
   }
 
+  function updateSubtitleVisibility() {
+    // Keep rendering and requests running; only suppress their presentation.
+    // This page-session flag survives YouTube navigation without changing
+    // the drawer's own open/closed state or the selected reading mode.
+    document.documentElement.classList.toggle('linguaplay-subtitles-hidden', areSubtitlesHidden);
+    const button = document.getElementById('linguaplay-visibility-toggle');
+    if (!button) return;
+    const label = areSubtitlesHidden ? 'Show subtitles and translation' : 'Hide subtitles and translation';
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    button.setAttribute('aria-pressed', String(areSubtitlesHidden));
+  }
+
   function updateWidgetState() {
+    updateSubtitleVisibility();
     const widget = document.getElementById('linguaplay-yt-widget');
     if (!widget) return;
     if (isPanelCollapsed) {
@@ -1385,6 +1413,14 @@ content_code = """/**
         <span id="linguaplay-sub-status" style="font-size: 10px; color: #6ee7b7; margin-left: 2px;"></span>
         <button class="linguaplay-bar-btn linguaplay-collapse-btn" id="linguaplay-collapse-btn" title="Collapse Bar">✕</button>
       </div>
+      <button type="button" id="linguaplay-visibility-toggle" title="Hide subtitles and translation" aria-label="Hide subtitles and translation" aria-pressed="false">
+        <svg class="linguaplay-eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+        <svg class="linguaplay-eye-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="m3 3 18 18M10.6 5.1A12 12 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-3 4M6.5 6.5A18 18 0 0 0 2 12s3.5 7 10 7a12 12 0 0 0 5.5-1.5M10 10a3 3 0 0 0 4 4"/>
+        </svg>
+      </button>
     `;
     moviePlayer.appendChild(widget);
 
@@ -1488,6 +1524,18 @@ content_code = """/**
     }
 
     // 5. Retractable Widget Toggle Listeners
+    const visibilityToggle = document.getElementById('linguaplay-visibility-toggle');
+    visibilityToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      areSubtitlesHidden = !areSubtitlesHidden;
+      if (!areSubtitlesHidden) onTimeUpdate();
+      updateSubtitleVisibility();
+    });
+    // Preserve native button keyboard activation while isolating player shortcuts.
+    ['keydown', 'keyup', 'pointerdown', 'pointerup'].forEach(eventName => {
+      visibilityToggle.addEventListener(eventName, (e) => e.stopPropagation());
+    });
+
     document.getElementById('linguaplay-toggle-trigger').addEventListener('click', (e) => {
       e.stopPropagation();
       isPanelCollapsed = false;
@@ -1713,15 +1761,16 @@ Respond with ONLY valid JSON:
 }`;
     }
 
+    function getSenseiProvider(config) {
+      return config.linguaplay_ai_provider || (config.linguaplay_gemini_key ? 'gemini' : 'antigravity');
+    }
+
     async function callSenseiLlmApi({ messages, isJson, config, word, romaji, sentence }) {
-      const provider = config.linguaplay_ai_provider || 'gemini';
+      const provider = getSenseiProvider(config);
       const geminiKey = (config.linguaplay_gemini_key || '').trim();
       const deepseekKey = (config.linguaplay_deepseek_key || '').trim();
       const openrouterKey = (config.linguaplay_openrouter_key || '').trim();
       const openrouterModel = (config.linguaplay_openrouter_model || 'deepseek/deepseek-chat').trim();
-      const opencodeUrl = (config.linguaplay_opencode_url || 'http://127.0.0.1:11434/v1').trim();
-      const opencodeKey = (config.linguaplay_opencode_key || '').trim();
-      const opencodeModel = (config.linguaplay_opencode_model || 'deepseek-chat').trim();
       const serverUrl = (config.linguaplay_server_url || 'http://127.0.0.1:8000').trim();
 
       // 1. Google Gemini Flash Direct
@@ -1818,28 +1867,20 @@ Respond with ONLY valid JSON:
         return data.choices?.[0]?.message?.content || '';
       }
 
-      // 4. OpenCode / Custom OpenAI Endpoint
+      // The background worker owns the configured endpoint and API key.
+      // Content-script fetches otherwise inherit YouTube's CORS restrictions.
       if (provider === 'opencode') {
-        const targetUrl = opencodeUrl.endsWith('/chat/completions') ? opencodeUrl : `${opencodeUrl.replace(/\\/$/, '')}/chat/completions`;
-        const headers = { 'Content-Type': 'application/json' };
-        if (opencodeKey) headers['Authorization'] = `Bearer ${opencodeKey}`;
-        const body = {
-          model: opencodeModel,
-          messages: messages,
-          response_format: isJson ? { type: 'json_object' } : undefined
-        };
-        const res = await fetch(targetUrl, {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(12000)
+        return new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({ action: 'CALL_CUSTOM_AI', messages, isJson }, response => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else if (!response || !response.success) {
+              reject(new Error(response?.error || 'Custom endpoint request failed'));
+            } else {
+              resolve(response.content);
+            }
+          });
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error?.message || `Custom Endpoint returned status ${res.status}`);
-        }
-        const data = await res.json();
-        return data.choices?.[0]?.message?.content || '';
       }
 
       // 5. Antigravity CLI Local Server
@@ -1987,6 +2028,8 @@ Respond with ONLY valid JSON:
       const romaji = document.getElementById('lp-active-romaji')?.textContent || '';
       const sentence = drawerContextSentence || document.getElementById('lp-chat-context-sentence')?.textContent || document.getElementById('lp-sentence-jp')?.textContent || activeLiveSentence || '';
 
+      const contextVersion = drawerContextVersion;
+      const history = senseiChatHistory;
       appendChatMessage('user', questionText);
       senseiChatHistory.push({ role: 'user', content: questionText });
 
@@ -2003,13 +2046,14 @@ Respond with ONLY valid JSON:
         'linguaplay_opencode_model',
         'linguaplay_server_url'
       ], async (cfg) => {
+        if (contextVersion !== drawerContextVersion) return;
         try {
           const messages = [
             {
               role: 'system',
               content: `${SENSEI_SYSTEM_PROMPT}\\n\\nContext Sentence: "${sentence}"\\nTarget Word: "${word}" (${romaji})`
             },
-            ...senseiChatHistory
+            ...history
           ];
 
           const reply = await callSenseiLlmApi({
@@ -2021,10 +2065,12 @@ Respond with ONLY valid JSON:
             sentence
           });
 
-          senseiChatHistory.push({ role: 'assistant', content: reply });
+          if (contextVersion !== drawerContextVersion) return;
+          history.push({ role: 'assistant', content: reply });
           if (loadingEl) loadingEl.remove();
           appendChatMessage('sensei', reply);
         } catch (err) {
+          if (contextVersion !== drawerContextVersion) return;
           if (loadingEl) loadingEl.remove();
           appendChatMessage('sensei', `⚠️ Sensei error: ${err.message}`);
         }
@@ -2086,7 +2132,7 @@ Respond with ONLY valid JSON:
         'linguaplay_opencode_model',
         'linguaplay_server_url'
       ], async (cfg) => {
-        const provider = cfg.linguaplay_ai_provider || (cfg.linguaplay_gemini_key ? 'gemini' : 'antigravity');
+        const provider = getSenseiProvider(cfg);
         const prompt = buildSenseiAnalysisPrompt(word, romaji, sentence);
         const messages = [{ role: 'user', content: prompt }];
 
@@ -2237,6 +2283,7 @@ Respond with ONLY valid JSON:
       setTimeout(() => { btn.textContent = '🗂️ Save Enriched AI Card to Anki'; }, 2000);
     });
 
+    updateWidgetState();
     setupLiveCaptionHooking();
   }
 
@@ -2291,6 +2338,8 @@ Respond with ONLY valid JSON:
       activeLiveSentence = '';
       drawerContextSentence = '';
       drawerActiveWord = '';
+      drawerContextVersion++;
+      senseiChatHistory = [];
 
       injectUI();
 
