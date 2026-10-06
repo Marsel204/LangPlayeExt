@@ -24,9 +24,9 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId }
   await evaluate(`(async () => {
     await chrome.storage.local.set({ linguaplay_reading_mode: 'furigana', linguaplay_panel_collapsed: true });
     document.head.querySelectorAll('link[rel="stylesheet"]').forEach(el => el.remove());
-    document.body.innerHTML = '<main><div id="movie_player" class="html5-video-player"><video></video><div class="ytp-caption-window-container"><div class="caption-window"><span class="ytp-caption-segment">猫がいる</span></div></div></div><aside id="secondary-inner"></aside></main>';
+    document.body.innerHTML = '<main><div id="movie_player" class="html5-video-player"><video></video><div class="ytp-caption-window-container"><div class="caption-window"><span class="ytp-caption-segment">猫がいる</span></div></div></div><aside id="secondary"><section id="mix-card"><details id="mix-details" open><summary>YouTube Mix</summary><div style="height:220px">Playlist tracks</div></details></section><div id="secondary-inner"><div id="related">Recommended videos</div></div></aside></main>';
     const style = document.createElement('style');
-    style.textContent = ${JSON.stringify(css)} + 'body {margin:0;background:#171526;} main {display:flex;gap:20px;padding:20px;} #movie_player {position:relative;width:900px;height:510px;background:#252039;flex-shrink:0;} #secondary-inner {width:360px;} video {width:100%;height:100%;} .ytp-caption-window-container {position:absolute;bottom:100px;color:white;}';
+    style.textContent = ${JSON.stringify(css)} + 'body {margin:0;background:#171526;} main {display:flex;gap:20px;padding:20px;} #movie_player {position:relative;width:900px;height:510px;background:#252039;flex-shrink:0;} #secondary {width:360px;display:flex;flex-direction:column;color:white;} #mix-card {padding:12px;background:#302b45;border-radius:12px;margin-bottom:16px;} video {width:100%;height:100%;} .ytp-caption-window-container {position:absolute;bottom:100px;color:white;}';
     style.textContent += '.ytp-chrome-bottom {position:absolute;bottom:8px;left:12px;right:12px;height:40px;} .ytp-right-controls {float:right;height:100%;} .ytp-button {display:inline-flex;align-items:center;justify-content:center;width:40px;height:100%;border:0;background:transparent;color:white;vertical-align:top;} .ytp-autohide .ytp-chrome-bottom {opacity:0;pointer-events:none;}';
     document.head.appendChild(style);
     window.playerEvents = [];
@@ -113,6 +113,14 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId }
   assert.deepEqual(await evaluate('Array.from(document.getElementById("linguaplay-yt-controls").children, el => el.id)'), ['linguaplay-visibility-toggle', 'linguaplay-toggle-trigger']);
   await evaluate('document.querySelector(".linguaplay-yt-token").click()');
   assert.notEqual((await state()).drawer, 'none');
+  assert.equal(await evaluate('document.getElementById("linguaplay-yt-drawer").parentElement.id'), 'secondary', 'The drawer must use the outer sidebar, above the expanded Mix');
+  assert.equal(await evaluate('document.getElementById("linguaplay-yt-drawer").getBoundingClientRect().bottom <= document.getElementById("mix-card").getBoundingClientRect().top'), true);
+  const drawerTop = await evaluate('document.getElementById("linguaplay-yt-drawer").getBoundingClientRect().top');
+  await evaluate('document.getElementById("mix-details").open = false');
+  assert.equal(await evaluate('document.getElementById("linguaplay-yt-drawer").getBoundingClientRect().top'), drawerTop, 'Collapsing Mix must not move the translation card');
+  await evaluate('document.getElementById("mix-details").open = true; const sidebar = document.getElementById("secondary"); sidebar.insertBefore(document.getElementById("mix-card"), sidebar.firstChild)');
+  await waitFor('document.getElementById("secondary").firstElementChild.id === "linguaplay-yt-drawer"');
+  assert.equal(await evaluate('document.getElementById("linguaplay-yt-drawer").getBoundingClientRect().bottom <= document.getElementById("mix-card").getBoundingClientRect().top'), true);
   if (process.env.VISIBILITY_SCREENSHOT_PATH) {
     const screenshot = await rpc('Page.captureScreenshot', { format: 'png' }, sessionId);
     await writeFile(process.env.VISIBILITY_SCREENSHOT_PATH, Buffer.from(screenshot.data, 'base64'));
@@ -129,6 +137,21 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId }
   assert.equal(current.eye, 'none');
   assert.notEqual(current.eyeOff, 'none');
   assert.deepEqual(current.playerEvents, []);
+
+  // A sidebar rebuild must retain the same drawer and in-flight translation.
+  await evaluate(`window.savedDrawer = document.getElementById('linguaplay-yt-drawer');
+    const previousSidebar = document.getElementById('secondary');
+    const replacementSidebar = previousSidebar.cloneNode(true);
+    replacementSidebar.querySelector('#linguaplay-yt-drawer').remove();
+    previousSidebar.replaceWith(replacementSidebar);
+    window.dispatchEvent(new Event('resize'));`);
+  assert.equal(await evaluate('document.getElementById("secondary").firstElementChild === window.savedDrawer'), true);
+  assert.equal(await evaluate('document.querySelectorAll("#linguaplay-yt-drawer").length'), 1);
+  assert.equal((await state()).drawer, 'none');
+  await evaluate('document.getElementById("secondary").style.display = "none"; window.dispatchEvent(new Event("resize"))');
+  assert.equal(await evaluate('window.savedDrawer.parentElement === document.body && window.savedDrawer.classList.contains("floating-fallback")'), true);
+  await evaluate('document.getElementById("secondary").style.display = "flex"; window.dispatchEvent(new Event("resize"))');
+  assert.equal(await evaluate('document.getElementById("secondary").firstElementChild === window.savedDrawer && !window.savedDrawer.classList.contains("floating-fallback")'), true);
 
   await evaluate('document.querySelector(".ytp-caption-segment").textContent = "犬がいる"; window.completeTranslation()');
   await waitFor('document.getElementById("linguaplay-yt-tokens").textContent.includes("犬") && document.getElementById("lp-sentence-en").textContent === "A cat is here"');
@@ -254,5 +277,5 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId }
   await rpc('Page.reload', {}, sessionId);
   await waitFor('document.readyState === "complete" && !document.getElementById("linguaplay-yt-widget")');
   assert.equal(await evaluate('document.documentElement.classList.contains("linguaplay-subtitles-hidden")'), false);
-  return { liveCaptions: true, asyncTranslation: true, toolbar: true, keyboard: true, fullscreen: true, navigation: true, refresh: true, nativePlacement: true, autoHide: true, narrowLayout: true, replacement: true };
+  return { liveCaptions: true, asyncTranslation: true, toolbar: true, keyboard: true, fullscreen: true, navigation: true, refresh: true, nativePlacement: true, autoHide: true, narrowLayout: true, replacement: true, aboveExpandedMix: true, sidebarReplacement: true, sidebarFallback: true };
 }

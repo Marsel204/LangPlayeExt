@@ -262,6 +262,13 @@
   transition: all 0.25s ease;
 }
 
+/* Keep the translation card first when YouTube uses a flex sidebar. */
+#secondary > #linguaplay-yt-drawer,
+#secondary-inner > #linguaplay-yt-drawer,
+#related > #linguaplay-yt-drawer {
+  order: -1;
+}
+
 /* When in Floating/Fullscreen/Theater fallback mode */
 #linguaplay-yt-drawer.floating-fallback {
   position: fixed;

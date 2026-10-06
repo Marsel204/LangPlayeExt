@@ -740,6 +740,8 @@
   let areSubtitlesHidden = false;
   let playerUI = null;
   let liveCaptionObserver = null;
+  let drawerPlacementObserver = null;
+  let drawerSidebar = null;
 
   // ── Load Settings ──
   chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed'], (res) => {
@@ -1235,23 +1237,37 @@
     }
   }
 
+  // Use the outer sidebar: Mix/playlist panels may precede #secondary-inner.
+  function ensureDrawerPlacement() {
+    const drawer = playerUI?.drawer || document.getElementById('linguaplay-yt-drawer');
+    if (!drawer) return;
+    const sidebar = ['#secondary', '#secondary-inner', '#related']
+      .map(selector => document.querySelector(selector))
+      .find(element => element && element.offsetParent !== null) || null;
+    if (sidebar) {
+      drawer.classList.remove('floating-fallback');
+      if (drawer.parentElement !== sidebar || sidebar.firstChild !== drawer) sidebar.insertBefore(drawer, sidebar.firstChild);
+    } else {
+      drawer.classList.add('floating-fallback');
+      if (drawer.parentElement !== document.body) document.body.appendChild(drawer);
+    }
+    if (drawerSidebar !== sidebar) {
+      if (drawerPlacementObserver) drawerPlacementObserver.disconnect();
+      drawerSidebar = sidebar;
+      if (sidebar) {
+        drawerPlacementObserver = new MutationObserver(ensureDrawerPlacement);
+        // Watch direct sidebar children only; translation/chat updates should
+        // not trigger repositioning or an observer loop.
+        drawerPlacementObserver.observe(sidebar, { childList: true });
+      }
+    }
+  }
+
   // ── Handle Word Click (Non-Interrupting & Side-Panel Integration) ──
   function handleTokenClick(token, sentenceContext) {
-    let drawer = document.getElementById('linguaplay-yt-drawer');
+    const drawer = playerUI?.drawer || document.getElementById('linguaplay-yt-drawer');
     if (!drawer) return;
-
-    const secondary = document.querySelector('#secondary-inner') || document.querySelector('#secondary') || document.querySelector('#related');
-    if (secondary && secondary.offsetParent !== null) {
-      if (drawer.parentElement !== secondary) {
-        secondary.insertBefore(drawer, secondary.firstChild);
-      }
-      drawer.classList.remove('floating-fallback');
-    } else {
-      if (drawer.parentElement !== document.body) {
-        document.body.appendChild(drawer);
-      }
-      drawer.classList.add('floating-fallback');
-    }
+    ensureDrawerPlacement();
 
     const wordEl = document.getElementById('lp-active-word');
     const romajiEl = document.getElementById('lp-active-romaji');
@@ -1536,6 +1552,7 @@
 
   function ensurePlayerControls() {
     if (!playerUI) return;
+    ensureDrawerPlacement();
     const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player') || document.querySelector('video')?.parentElement;
     if (!player) {
       playerUI.controls.remove();
@@ -1750,12 +1767,8 @@
       </div>
     `;
 
-    const secondary = document.querySelector('#secondary-inner') || document.querySelector('#secondary') || document.querySelector('#related');
-    if (secondary) {
-      secondary.insertBefore(drawer, secondary.firstChild);
-    } else {
-      document.body.appendChild(drawer);
-    }
+    playerUI.drawer = drawer;
+    ensureDrawerPlacement();
 
     // 5. Retractable Widget Toggle Listeners
     visibilityToggle.addEventListener('click', (e) => {
