@@ -476,6 +476,16 @@
 }
 
 /* ── Sensei Chatbot UI ── */
+#lp-chat-messages {
+  overflow-anchor: none;
+}
+
+#lp-chat-send-btn:disabled,
+.lp-chat-chip:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
 .lp-chat-chip {
   background: rgba(167, 139, 250, 0.12);
   border: 1px solid rgba(167, 139, 250, 0.25);

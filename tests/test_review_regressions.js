@@ -374,6 +374,66 @@ test('control: the configured DeepSeek chat uses the actual API builder', async 
   assert.ok(h.elements.get('lp-chat-messages').children.some(child => child.textContent === 'A current answer'));
 });
 
+test('chat rejects overlapping sends without losing a draft and sends ordered history afterward', async () => {
+  const h = createContentHarness({ linguaplay_ai_provider: 'deepseek', linguaplay_deepseek_key: 'fake-test-key' });
+  assert.equal(h.sendSenseiQuestion('Question one'), true);
+  assert.equal(h.elements.get('lp-chat-send-btn').disabled, true);
+  assert.equal(h.sendSenseiQuestion('Question two'), false);
+  const input = h.elements.get('lp-chat-input');
+  input.value = 'Question two';
+  input.listeners.keydown({ key: 'Enter' });
+  assert.equal(input.value, 'Question two');
+  assert.equal(h.pending.length, 1);
+  h.pending[0]({ ok: true, json: async () => ({ choices: [{ message: { content: 'Answer one' } }] }) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.elements.get('lp-chat-send-btn').disabled, false);
+  input.listeners.keydown({ key: 'Enter' });
+  assert.equal(input.value, '');
+  const request = JSON.parse(h.calls.at(-1).options.body);
+  assert.deepEqual(request.messages.slice(1), [
+    { role: 'user', content: 'Question one' },
+    { role: 'assistant', content: 'Answer one' },
+    { role: 'user', content: 'Question two' },
+  ]);
+});
+
+test('an old word response does not unlock a new word request', async () => {
+  const h = createContentHarness({ linguaplay_ai_provider: 'deepseek', linguaplay_deepseek_key: 'fake-test-key' });
+  h.handleTokenClick({ surface: '猫', baseForm: '猫' }, '猫がいる');
+  h.sendSenseiQuestion('Explain 猫');
+  h.handleTokenClick({ surface: '犬', baseForm: '犬' }, '犬がいる');
+  assert.equal(h.elements.get('lp-chat-send-btn').disabled, false);
+  h.sendSenseiQuestion('Explain 犬');
+  h.pending[0]({ ok: true, json: async () => ({ choices: [{ message: { content: 'Old cat answer' } }] }) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.elements.get('lp-chat-send-btn').disabled, true);
+  assert.equal(h.elements.get('lp-chat-messages').getAttribute('aria-busy'), 'true');
+  h.pending[1]({ ok: true, json: async () => ({ choices: [{ message: { content: 'Dog answer' } }] }) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.elements.get('lp-chat-send-btn').disabled, false);
+});
+
+test('chat failures unlock retry and do not send an unanswered duplicate in history', async () => {
+  const h = createContentHarness({ linguaplay_ai_provider: 'antigravity' });
+  h.sendSenseiQuestion('Retry this question');
+  h.pending[0]({ ok: false, status: 504, json: async () => ({ status: 'error', message: 'Model timed out' }) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.elements.get('lp-chat-send-btn').disabled, false);
+  assert.ok(h.elements.get('lp-chat-messages').children.some(child => child.textContent.includes('Model timed out')));
+  h.sendSenseiQuestion('Retry this question');
+  const messages = JSON.parse(h.calls.at(-1).options.body).messages;
+  assert.equal(messages.filter(message => message.role === 'user').length, 1);
+});
+
+test('IME confirmation does not submit an unfinished Japanese question', () => {
+  const h = createContentHarness();
+  const input = h.elements.get('lp-chat-input');
+  input.value = '日本語';
+  input.listeners.keydown({ key: 'Enter', isComposing: true });
+  assert.equal(input.value, '日本語');
+  assert.equal(h.pending.length, 0);
+});
+
 function createStandaloneHarness(provider) {
   const calls = [];
   const settings = {

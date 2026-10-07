@@ -732,6 +732,7 @@
   let currentVideoId = null;
   let lastAiData = null;
   let senseiChatHistory = [];
+  let activeSenseiChatRequest = null;
   let drawerContextVersion = 0;
   let drawerContextSentence = '';
   let drawerActiveWord = '';
@@ -1264,6 +1265,14 @@
   }
 
   // ── Handle Word Click (Non-Interrupting & Side-Panel Integration) ──
+  function updateSenseiChatControls() {
+    const busy = activeSenseiChatRequest?.contextVersion === drawerContextVersion;
+    const sendButton = document.getElementById('lp-chat-send-btn');
+    if (sendButton) sendButton.disabled = busy;
+    document.querySelectorAll('.lp-chat-chip').forEach(button => { button.disabled = busy; });
+    document.getElementById('lp-chat-messages')?.setAttribute('aria-busy', String(busy));
+  }
+
   function handleTokenClick(token, sentenceContext) {
     const drawer = playerUI?.drawer || document.getElementById('linguaplay-yt-drawer');
     if (!drawer) return;
@@ -1377,6 +1386,8 @@
     if (chatMessages) chatMessages.innerHTML = '';
     if (chatInput) chatInput.value = '';
     senseiChatHistory = [];
+    activeSenseiChatRequest = null;
+    updateSenseiChatControls();
     lastAiData = null;
 
     if (typeof switchDrawerTab === 'function') {
@@ -2165,14 +2176,14 @@ Respond with ONLY valid JSON:
           const res = await fetch(`${serverUrl}/api/ai/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages, word, sentence }),
+            body: JSON.stringify({ messages, word, romaji, sentence }),
             signal: AbortSignal.timeout(localAiTimeout)
           });
-          if (res.ok) {
-            const raw = await res.json();
-            return raw.reply || raw.content || '';
-          }
-          throw new Error('Local server chat unavailable. Please select Gemini or DeepSeek in settings.');
+          const raw = await res.json().catch(() => ({}));
+          if (!res.ok || raw.status === 'error') throw new Error(raw.message || `Local server chat returned ${res.status}`);
+          const reply = raw.reply || raw.content;
+          if (typeof reply !== 'string' || !reply.trim()) throw new Error('Local server returned an empty chat reply.');
+          return reply;
         }
       }
 
@@ -2272,7 +2283,16 @@ Respond with ONLY valid JSON:
       return output.join('<br>').replace(/(<\/div>)<br>/g, '$1').replace(/<br>(<div)/g, '$1');
     }
 
-    function appendChatMessage(role, text) {
+    function captureChatScroll() {
+      const container = document.getElementById('lp-chat-messages');
+      if (!container || !container.clientHeight) return null;
+      return {
+        top: container.scrollTop,
+        following: container.scrollHeight - container.clientHeight - container.scrollTop <= 32
+      };
+    }
+
+    function appendChatMessage(role, text, scroll = captureChatScroll()) {
       const container = document.getElementById('lp-chat-messages');
       if (!container) return null;
       const msgEl = document.createElement('div');
@@ -2283,20 +2303,33 @@ Respond with ONLY valid JSON:
         msgEl.innerHTML = formatSenseiMarkdown(text);
       }
       container.appendChild(msgEl);
-      container.scrollTop = container.scrollHeight;
+      if (scroll?.following) {
+        // Long answers should start at their first line, not their last line.
+        if (role === 'sensei' && msgEl.getBoundingClientRect().height > container.clientHeight) {
+          container.scrollTop += msgEl.getBoundingClientRect().top - container.getBoundingClientRect().top - (container.clientTop || 0);
+        } else {
+          container.scrollTop = container.scrollHeight;
+        }
+      } else if (scroll) {
+        container.scrollTop = scroll.top;
+      }
       return msgEl;
     }
 
-    async function sendSenseiQuestion(questionText) {
-      if (!questionText || !questionText.trim()) return;
+    function sendSenseiQuestion(questionText) {
+      if (!questionText || !questionText.trim() || activeSenseiChatRequest?.contextVersion === drawerContextVersion) return false;
       const word = document.getElementById('lp-active-word')?.textContent || '';
       const romaji = document.getElementById('lp-active-romaji')?.textContent || '';
       const sentence = drawerContextSentence || document.getElementById('lp-chat-context-sentence')?.textContent || document.getElementById('lp-sentence-jp')?.textContent || activeLiveSentence || '';
 
       const contextVersion = drawerContextVersion;
       const history = senseiChatHistory;
+      const request = { contextVersion };
+      activeSenseiChatRequest = request;
+      updateSenseiChatControls();
       appendChatMessage('user', questionText);
-      senseiChatHistory.push({ role: 'user', content: questionText });
+      const userMessage = { role: 'user', content: questionText };
+      history.push(userMessage);
 
       const loadingEl = appendChatMessage('sensei', '⚡ Sensei is thinking…');
 
@@ -2311,8 +2344,8 @@ Respond with ONLY valid JSON:
         'linguaplay_opencode_model',
         'linguaplay_server_url'
       ], async (cfg) => {
-        if (contextVersion !== drawerContextVersion) return;
         try {
+          if (contextVersion !== drawerContextVersion) return;
           const messages = [
             {
               role: 'system',
@@ -2332,14 +2365,25 @@ Respond with ONLY valid JSON:
 
           if (contextVersion !== drawerContextVersion) return;
           history.push({ role: 'assistant', content: reply });
+          const scroll = captureChatScroll();
           if (loadingEl) loadingEl.remove();
-          appendChatMessage('sensei', reply);
+          appendChatMessage('sensei', reply, scroll);
         } catch (err) {
           if (contextVersion !== drawerContextVersion) return;
+          const index = history.indexOf(userMessage);
+          if (index !== -1) history.splice(index, 1);
+          const scroll = captureChatScroll();
           if (loadingEl) loadingEl.remove();
-          appendChatMessage('sensei', `⚠️ Sensei error: ${err.message}`);
+          appendChatMessage('sensei', `⚠️ Sensei error: ${err.message}`, scroll);
+        } finally {
+          // An old response must not unlock a new word's pending request.
+          if (activeSenseiChatRequest === request) {
+            activeSenseiChatRequest = null;
+            updateSenseiChatControls();
+          }
         }
       });
+      return true;
     }
 
     // Attach Chatbot Chip and Send Listeners
@@ -2356,16 +2400,14 @@ Respond with ONLY valid JSON:
       chatSendBtn.addEventListener('click', () => {
         const val = chatInputEl.value.trim();
         if (val) {
-          sendSenseiQuestion(val);
-          chatInputEl.value = '';
+          if (sendSenseiQuestion(val)) chatInputEl.value = '';
         }
       });
       chatInputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.isComposing) {
           const val = chatInputEl.value.trim();
           if (val) {
-            sendSenseiQuestion(val);
-            chatInputEl.value = '';
+            if (sendSenseiQuestion(val)) chatInputEl.value = '';
           }
         }
       });
@@ -2632,6 +2674,8 @@ Respond with ONLY valid JSON:
       drawerActiveWord = '';
       drawerContextVersion++;
       senseiChatHistory = [];
+      activeSenseiChatRequest = null;
+      updateSenseiChatControls();
 
       inspectAndSwitchPlayerTracks();
 
