@@ -9,6 +9,7 @@ import http from 'node:http';
 import assert from 'node:assert/strict';
 import { checkSubtitleVisibility } from './browser_subtitle_visibility_checks.mjs';
 import { checkNativeStartup } from './browser_native_startup_checks.mjs';
+import { checkJapaneseParsing } from './browser_japanese_parsing_checks.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const browserBinary = process.env.CHROMIUM_PATH || 'chromium';
 const profile = await mkdtemp(path.join(tmpdir(), 'linguaplay-browser-'));
@@ -108,7 +109,8 @@ try {
   const localAnalysis = requests.find(request => request.url === '/api/ai/analyze');
   assert.ok(localAnalysis);
   assert.ok(Object.hasOwn(JSON.parse(localAnalysis.body), 'romaji'), 'Send the reading using the backend romaji field');
-  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, workerRequest: answer.success, standaloneCustomRequest: standalone.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility }));
+  const japaneseParsing = process.env.PARSER_SERVER_DIR ? await checkJapaneseParsing({root,evaluate,backend:process.env.PARSER_SERVER_DIR}) : {skipped:'Set PARSER_SERVER_DIR to test a real Sudachi backend'};
+  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, workerRequest: answer.success, standaloneCustomRequest: standalone.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility, japaneseParsing }));
 } finally {
   ws?.close();
   browser.kill('SIGTERM');

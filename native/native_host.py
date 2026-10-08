@@ -65,9 +65,13 @@ def ensure_server(config):
             raise RuntimeError(f'Server.py not found: {server}. Reinstall the local launcher with the correct --server path.')
         env = os.environ.copy()
         env['PATH'] = config['runtime_path']
+        # Parser dependencies live beside the selected backend, outside system
+        # Python. Preserve the venv symlink path so Python activates the venv.
+        server_python = server.parent / '.venv/bin/python'
+        python_path = str(server_python) if server_python.is_file() and os.access(server_python, os.X_OK) else config['python_path']
         with (state / 'server.log').open('ab') as log:
             process = subprocess.Popen(
-                [config['python_path'], '-u', str(server), '--host', '127.0.0.1', '--port', str(port)],
+                [python_path, '-u', str(server), '--host', '127.0.0.1', '--port', str(port)],
                 cwd=server.parent, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
                 start_new_session=True, close_fds=True, env=env,
             )

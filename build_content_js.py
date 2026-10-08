@@ -329,6 +329,8 @@ content_code = """/**
     return { furigana: hira, romaji };
   }
 
+  const japaneseParser = globalThis.LinguaPlayParser?.create({ wanakana: window.wanakana });
+
   const COPULAS = new Set([
     'だった', 'でした', 'だろう', 'でしょう', 'だ', 'です',
     'じゃない', 'じゃなかった', 'ではない', 'ではなかった'
@@ -450,6 +452,8 @@ content_code = """/**
 
   function generateSentenceRomaji(sentenceText, targetWord) {
     if (!sentenceText || !sentenceText.trim()) return '';
+    const parsedRomaji = japaneseParser?.romaji(sentenceText, targetWord);
+    if (parsedRomaji != null) return parsedRomaji;
     const clean = sentenceText.trim();
     const tokens = segmentJapaneseSentence(clean);
 
@@ -558,6 +562,7 @@ content_code = """/**
   let senseiChatHistory = [];
   let activeSenseiChatRequest = null;
   let drawerContextVersion = 0;
+  let refreshDrawerParsing = () => {};
   let drawerContextSentence = '';
   let drawerActiveWord = '';
   let activeLiveSentence = '';
@@ -569,6 +574,9 @@ content_code = """/**
   let drawerSidebar = null;
 
   // ── Load Settings ──
+  let renderedSentence = '';
+  let subtitleRenderVersion = 0;
+
   chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed'], (res) => {
     if (res.linguaplay_reading_mode) readingMode = res.linguaplay_reading_mode;
     if (typeof res.linguaplay_panel_collapsed === 'boolean') isPanelCollapsed = res.linguaplay_panel_collapsed;
@@ -578,6 +586,8 @@ content_code = """/**
   // ── Tokenizer with Kanji Resolution ──
   function tokenize(sentence) {
     if (!sentence || !sentence.trim()) return [];
+    const parsed = japaneseParser?.cached(sentence);
+    if (parsed) return parsed;
     
     if (typeof Intl !== 'undefined' && Intl.Segmenter) {
       try {
@@ -933,6 +943,9 @@ content_code = """/**
 
   // ── Render Tokens into Subtitle Overlay ──
   function renderSentenceTokens(sentenceText) {
+    const renderVersion = ++subtitleRenderVersion;
+    const videoId = currentVideoId;
+    renderedSentence = sentenceText || '';
     const container = document.getElementById('linguaplay-yt-tokens');
     const overlay = document.getElementById('linguaplay-yt-tokens-overlay');
     const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
@@ -949,9 +962,21 @@ content_code = """/**
     if (player) player.classList.add('linguaplay-has-japanese');
 
     const tokens = tokenize(sentenceText);
+    if (japaneseParser && !japaneseParser.cached(sentenceText)) {
+      japaneseParser.request(sentenceText).then(parsed => {
+        if (parsed && renderVersion === subtitleRenderVersion && videoId === currentVideoId && renderedSentence === sentenceText) {
+          renderSentenceTokens(sentenceText);
+        }
+      });
+    }
     container.innerHTML = '';
 
+    let offset = 0;
     tokens.forEach(tk => {
+      if (!tk.surface.trim()) return;
+      const start = Number.isInteger(tk.start) ? tk.start : sentenceText.indexOf(tk.surface, offset);
+      const token = { ...tk, start, end: Number.isInteger(tk.end) ? tk.end : start + tk.surface.length };
+      offset = token.end;
       const span = document.createElement('span');
       span.className = 'linguaplay-yt-token';
       span.dataset.word = tk.surface;
@@ -966,14 +991,18 @@ content_code = """/**
         hiddenClass = 'hidden-reading';
       }
 
-      span.innerHTML = `
-        <span class="linguaplay-token-reading ${hiddenClass}">${reading || '&nbsp;'}</span>
-        <span class="linguaplay-jp-text">${tk.surface}</span>
-      `;
+      const readingSpan = document.createElement('span');
+      readingSpan.className = `linguaplay-token-reading ${hiddenClass}`;
+      readingSpan.textContent = reading || '\\u00a0';
+      const surfaceSpan = document.createElement('span');
+      surfaceSpan.className = 'linguaplay-jp-text';
+      surfaceSpan.textContent = tk.surface;
+      span.appendChild(readingSpan);
+      span.appendChild(surfaceSpan);
 
       span.addEventListener('click', (e) => {
         e.stopPropagation();
-        handleTokenClick(tk, sentenceText);
+        handleTokenClick(token, sentenceText);
       });
 
       container.appendChild(span);
@@ -1125,7 +1154,8 @@ content_code = """/**
     const chatEnEl = document.getElementById('lp-chat-sentence-en');
     const chatBadgeEl = document.getElementById('lp-sensei-provider-badge');
 
-    const readingData = getWordReading(token.surface);
+    const readingData = token.furigana && token.romaji
+      ? { furigana: token.furigana, romaji: token.romaji } : getWordReading(token.surface);
     const displayReading = readingData.romaji && readingData.furigana !== readingData.romaji
       ? `${readingData.furigana} (${readingData.romaji})`
       : readingData.furigana;
@@ -1142,6 +1172,50 @@ content_code = """/**
     drawerContextVersion++;
     drawerActiveWord = token.surface || '';
     drawerContextSentence = (sentenceContext || token.surface || '').trim();
+    const contextVersion = drawerContextVersion;
+    const leadingWhitespace = (sentenceContext || '').length - (sentenceContext || '').trimStart().length;
+    const selectedStart = Number.isInteger(token.start) ? token.start - leadingWhitespace : null;
+    let definitionBase = null;
+    function updateDefinition(selected) {
+      const base = selected.baseForm || selected.surface;
+      if (definitionBase === base) return;
+      definitionBase = base;
+      const local = JDICT[base] || JDICT[selected.surface];
+      if (local) { defEl.innerHTML = local; return; }
+      defEl.innerHTML = '<span style="opacity:0.6;">Looking up definition…</span>';
+      fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&q=${encodeURIComponent(base)}`)
+        .then(r => r.json()).then(d => {
+          if (drawerContextVersion !== contextVersion || definitionBase !== base) return;
+          defEl.textContent = d?.[0]?.map(s => s[0]).filter(Boolean).join('') || 'No definition found';
+        }).catch(() => {
+          if (drawerContextVersion === contextVersion && definitionBase === base) defEl.textContent = 'Click Ask Antigravity AI below for deep analysis.';
+        });
+    }
+
+    if (japaneseParser) {
+      const contextSentence = drawerContextSentence;
+      refreshDrawerParsing = () => japaneseParser.request(contextSentence).then(parsed => {
+        if (!parsed || contextVersion !== drawerContextVersion || contextSentence !== drawerContextSentence) return;
+        let selected = parsed.find(item => item.surface === token.surface && (selectedStart === null || item.start === selectedStart));
+        if (!selected) {
+          const morpheme = parsed.flatMap(item => Array.isArray(item.morphemes) ? item.morphemes : [])
+            .find(item => item.surface === token.surface && (selectedStart === null || item.start === selectedStart));
+          if (morpheme) selected = japaneseParser.readingToken(morpheme);
+        }
+        if (selected) {
+          romajiEl.textContent = `${selected.furigana} (${selected.romaji})`;
+          posEl.textContent = selected.baseForm !== token.surface ? `(Base: ${selected.baseForm})` : '';
+          posEl.style.display = selected.baseForm !== token.surface ? 'inline' : 'none';
+          updateDefinition(selected);
+        }
+        const html = japaneseParser.romaji(contextSentence, token.surface);
+        if (html != null) {
+          if (sentRomajiEl) sentRomajiEl.innerHTML = html;
+          if (chatRomajiEl) chatRomajiEl.innerHTML = html;
+        }
+      });
+      refreshDrawerParsing();
+    }
 
     // Instant Sentence Context & Romaji Rendering
     if (sentenceWrap && sentJpEl && sentEnEl) {
@@ -1218,24 +1292,7 @@ content_code = """/**
       switchDrawerTab('breakdown');
     }
 
-    const local = JDICT[token.baseForm] || JDICT[token.surface];
-    if (local) {
-      defEl.innerHTML = local;
-    } else {
-      defEl.innerHTML = '<span style="opacity:0.6;">Looking up definition…</span>';
-      fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&q=${encodeURIComponent(token.baseForm)}`)
-        .then(r => r.json())
-        .then(d => {
-          let trans = '';
-          if (d && d[0] && Array.isArray(d[0])) {
-            trans = d[0].map(s => s[0]).filter(Boolean).join('');
-          }
-          defEl.textContent = trans || 'No definition found';
-        })
-        .catch(() => {
-          defEl.textContent = 'Click Ask Antigravity AI below for deep analysis.';
-        });
-    }
+    updateDefinition(token);
 
     drawer.classList.remove('hidden');
     drawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -2465,6 +2522,11 @@ Respond with ONLY valid JSON:
       chrome.runtime.sendMessage({ action: 'ENSURE_LOCAL_SERVER' }, response => {
         const error = chrome.runtime.lastError;
         if (error || (response && !response.success)) console.warn('[LinguaPlay] Server auto-start:', error?.message || response.error);
+        if (!error && response?.success) {
+          japaneseParser?.retry();
+          if (renderedSentence) renderSentenceTokens(renderedSentence);
+          refreshDrawerParsing();
+        }
       });
     } catch (error) { console.warn('[LinguaPlay] Server auto-start:', error.message); }
   }
@@ -2491,12 +2553,16 @@ Respond with ONLY valid JSON:
 
     if (vid !== currentVideoId) {
       currentVideoId = vid;
+      japaneseParser?.reset();
+      subtitleRenderVersion++;
+      renderedSentence = '';
       currentSubIndex = -1;
       subtitleTimeline = [];
       activeLiveSentence = '';
       drawerContextSentence = '';
       drawerActiveWord = '';
       drawerContextVersion++;
+      refreshDrawerParsing = () => {};
       senseiChatHistory = [];
       activeSenseiChatRequest = null;
       updateSenseiChatControls();

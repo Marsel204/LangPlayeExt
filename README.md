@@ -95,6 +95,49 @@ The browser check requires Chromium and uses a temporary profile and a small tes
 
 ---
 
+## Japanese morphology
+
+YouTube and the standalone player use the companion backend's offline Sudachi
+parser for readings, parts of speech and dictionary forms. Inflected words stay
+clickable as a unit: `来ない` reads `こない` and looks up `来る`. The drawer and
+Anki use the same readings. Sentence translation providers are unchanged.
+
+This requires the updated backend as well as the extension. Install the pinned
+parser dependencies once inside the **backend** checkout:
+
+```bash
+uv venv --python 3.14 .venv
+uv pip install --python .venv/bin/python -r requirements-parser.txt
+```
+
+Rerun `native/install_host.py` using the installed backend path and extension ID,
+then reload the extension. The updated launcher prefers `.venv/bin/python` beside
+`Server.py`; restart any server already running with the old interpreter. For
+manual startup, use `.venv/bin/python Server.py --host 127.0.0.1 --port 8000`.
+
+When the server/parser is unavailable, subtitles remain usable with the existing
+lightweight fallback. Parsing retries on subsequent cues and when automatic
+startup finishes. No remote dictionary download or API key is needed for Sudachi.
+Ambiguous words and fictional names can still have incorrect readings.
+
+The tested Core dictionary takes about 207 MiB on disk, with approximately
+124 MiB total parser-process peak RAM in the short-line benchmark. A real Chromium
+run measured about 35 ms for its first request and a 3.7 ms median across four
+subsequent uncached requests, including localhost and extension messaging.
+Repeated lines are cached; these timings are machine-specific.
+
+Run the real parser/browser integration with the backend environment installed:
+
+```bash
+node --test tests/test_*.js
+PARSER_SERVER_DIR=/path/to/LangPlay node tests/browser_custom_ai.mjs
+```
+
+The browser test uses an isolated backend on a temporary port and a disposable
+Chromium profile. Run `.venv/bin/python -m unittest discover -s tests -p 'test_*py'`
+from the backend checkout for morphology and HTTP tests. Both repositories need
+to ship together to enable this path.
+
 ## ⌨️ Keyboard Shortcuts
 
 | Key | Action |
@@ -130,7 +173,8 @@ extension/
 │   ├── dict.js                # Offline JDICT & Google Translate fallback
 │   ├── player-controller.js   # Video & YouTube iframe controller
 │   ├── subtitles.js           # Subtitle parsing & cue sync
-│   ├── tokenizer.js           # Kuromoji / WanaKana morphological analyzer
+│   ├── tokenizer.js           # Local Sudachi + lightweight fallback
+│   ├── japanese-parser.js     # Shared async parser client and reading cache
 │   └── ui.js                  # Toast notifications & modals
 ├── lib/
 │   ├── wanakana.min.js        # Offline WanaKana library

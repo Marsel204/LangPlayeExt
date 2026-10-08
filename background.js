@@ -40,6 +40,7 @@ try {
 
 const serverStarts = new Map();
 const serverStartFailures = new Map();
+const parserRequests = new Map();
 
 function canRequestServerStart(sender) {
   if (sender.id !== chrome.runtime.id) return false;
@@ -89,6 +90,39 @@ async function ensureLocalServer() {
 
 // Innertube Android VR Caption Extraction Bridge in Background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'PARSE_JAPANESE') {
+    (async () => {
+      try {
+        if (!canRequestServerStart(sender)) throw new Error('Untrusted parser request');
+        if (typeof request.text !== 'string' || !request.text.trim() || request.text.length > 4096) throw new Error('Invalid parser text');
+        const config = await chrome.storage.local.get(['linguaplay_server_url']);
+        const endpoint = new URL(config.linguaplay_server_url || 'http://127.0.0.1:8000');
+        if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) throw new Error('Invalid server URL');
+        const origin = `${endpoint.protocol}//${endpoint.hostname}/*`;
+        if (!await chrome.permissions.contains({ origins: [origin] })) throw new Error('Server endpoint permission is missing');
+        endpoint.pathname = endpoint.pathname.replace(/\/+$/, '') + '/api/parse';
+        endpoint.search = ''; endpoint.hash = '';
+        const key = JSON.stringify([endpoint.href, request.text]);
+        let pending = parserRequests.get(key);
+        if (!pending) {
+          if (parserRequests.size >= 32) throw new Error('Parser is busy');
+          pending = (async () => {
+            const response = await fetch(endpoint.href, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: request.text }), signal: AbortSignal.timeout(2500),
+            });
+            if (!response.ok) throw new Error(`Parser unavailable (HTTP ${response.status})`);
+            const data = await response.json();
+            if (data.status !== 'success' || !Array.isArray(data.tokens)) throw new Error('Invalid parser response');
+            return { success: true, tokens: data.tokens, engine: data.engine };
+          })().finally(() => parserRequests.delete(key));
+          parserRequests.set(key, pending);
+        }
+        sendResponse(await pending);
+      } catch (error) { sendResponse({ success: false, error: error.message }); }
+    })();
+    return true;
+  }
   if (request.action === 'ENSURE_LOCAL_SERVER') {
     if (!canRequestServerStart(sender)) {
       sendResponse({ success: false, error: 'Untrusted server startup request' });

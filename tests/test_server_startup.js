@@ -90,11 +90,12 @@ test('standalone native and iframe players start only upon playback', async () =
   const video = { paused: true, ended: false, addEventListener(name, fn) { listeners[name] = fn; }, pause() {}, load() {}, removeAttribute() {}, classList: { add() {}, remove() {} } };
   const sandbox = {
     console, setInterval() {}, clearInterval() {},
+    retryJapaneseParser() {}, refreshTokenParsing() {},
     chrome: { runtime: { sendMessage(message, callback) { messages.push(message); callback({ success: true }); } } },
     window: { location: { origin: 'chrome-extension://test' }, YT: { PlayerState: { PLAYING: 1 }, Player: function (_id, config) { playerEvents = config.events; } } },
     document: { getElementById() { return { classList: { add() {}, remove() {} } }; } },
   };
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'js/player-controller.js'), 'utf8').replace(/export \{[^}]+\};/g, '').replace(/export /g, '') + '\nglobalThis.api = { initPlayer, loadYouTubeVideo };', sandbox);
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'js/player-controller.js'), 'utf8').replace(/^import .*;\n/gm, '').replace(/export \{[^}]+\};/g, '').replace(/export /g, '') + '\nglobalThis.api = { initPlayer, loadYouTubeVideo };', sandbox);
   sandbox.api.initPlayer(video, () => {});
   assert.equal(messages.length, 0);
   listeners.playing();

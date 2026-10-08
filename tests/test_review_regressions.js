@@ -11,7 +11,7 @@ const content = fs.readFileSync(path.join(root, 'content.js'), 'utf8');
 
 // Execute production functions. The DOM and network are test doubles; no API
 // credentials, browser profile, local server, or external service is used.
-function createContentHarness(config = {}) {
+function createContentHarness(config = {}, parser = undefined) {
   const elements = new Map();
   class Element {
     constructor() {
@@ -97,6 +97,7 @@ function createContentHarness(config = {}) {
   const pending = [];
   const sandbox = {
     console,
+    LinguaPlayParser: parser,
     window: { wanakana, location: { search: '', href: '' }, addEventListener() {} },
     document: {
       body,
@@ -142,6 +143,68 @@ function clickVisibility(h) {
   h.elements.get('linguaplay-visibility-toggle').listeners.click({ stopPropagation() { stopped = true; } });
   assert.equal(stopped, true, 'Visibility clicks must not reach the video player');
 }
+
+function parsingHarness() {
+  const requests = new Map();
+  const h = createContentHarness({}, { create: options => require('../js/japanese-parser.js').create({
+    ...options, transport: text => new Promise(resolve => requests.set(text, resolve)),
+  }) });
+  const token = (surface, reading, baseForm = surface, start = 0, pos = '名詞') => ({ surface, reading, baseForm, pos, start, end: start + surface.length });
+  const tick = () => new Promise(resolve => setImmediate(resolve));
+  return { h, requests, token, tick };
+}
+
+test('the production overlay and drawer use parsed readings, grouped inflections and lemmas', async () => {
+  const { h, requests, token, tick } = parsingHarness();
+  h.renderSentenceTokens('来ない');
+  await tick();
+  requests.get('来ない')({ tokens: [token('来ない', 'コナイ', '来る', 0, '動詞')] });
+  await tick();
+  const button = h.elements.get('linguaplay-yt-tokens').children[0];
+  assert.equal(button.dataset.word, '来ない');
+  assert.equal(button.dataset.baseform, '来る');
+  assert.equal(button.querySelector('.linguaplay-token-reading').textContent, 'こない');
+  button.listeners.click({ stopPropagation() {} });
+  await tick();
+  assert.equal(h.elements.get('lp-active-romaji').textContent, 'こない (konai)');
+  assert.equal(h.elements.get('lp-active-pos').textContent, '(Base: 来る)');
+  assert.ok(h.elements.get('lp-sentence-romaji').innerHTML.includes('konai'));
+  assert.ok(h.elements.get('lp-chat-sentence-romaji').innerHTML.includes('konai'));
+});
+
+test('parsing completed after hide and drawer close preserves visibility and current context', async () => {
+  const { h, requests, token, tick } = parsingHarness();
+  h.renderSentenceTokens('学校');
+  h.handleTokenClick({ surface: '学校', baseForm: '学校', start: 2 }, '  学校  ');
+  h.elements.get('lp-dismiss-btn').listeners.click();
+  clickVisibility(h);
+  await tick();
+  requests.get('学校')({ tokens: [token('学校', 'ガッコウ')] });
+  await tick();
+  assert.equal(h.elements.get('lp-active-romaji').textContent, 'がっこう (gakkou)', 'Leading whitespace must not break clicked offsets');
+  assert.equal(h.elements.get('linguaplay-yt-drawer').classList.contains('hidden'), true);
+  assert.equal(h.sandbox.document.documentElement.classList.contains('linguaplay-subtitles-hidden'), true);
+  clickVisibility(h);
+  assert.equal(h.elements.get('linguaplay-yt-drawer').classList.contains('hidden'), true);
+});
+
+test('late parser results cannot replace a newer caption, cleared overlay or selected word', async () => {
+  const { h, requests, token, tick } = parsingHarness();
+  h.renderSentenceTokens('学校');
+  h.handleTokenClick({ surface: '学校', baseForm: '学校' }, '学校');
+  h.renderSentenceTokens('来ない');
+  h.handleTokenClick({ surface: '来ない', baseForm: '来ない' }, '来ない');
+  await tick();
+  requests.get('学校')({ tokens: [token('学校', 'ガッコウ')] });
+  await tick();
+  assert.equal(h.elements.get('lp-active-word').textContent, '来ない');
+  assert.ok(h.elements.get('linguaplay-yt-tokens').children.some(el => el.dataset.word === '来'));
+  h.renderSentenceTokens('');
+  requests.get('来ない')({ tokens: [token('来ない', 'コナイ', '来る', 0, '動詞')] });
+  await tick();
+  assert.equal(h.elements.get('linguaplay-yt-tokens').children.length, 0);
+  assert.equal(h.elements.get('lp-active-romaji').textContent, 'こない (konai)');
+});
 
 test('YouTube startup follows playback, including already-playing and replacement videos', async () => {
   const h = createContentHarness();
@@ -189,7 +252,7 @@ test('visibility toggles independently of toolbar, readings and drawer state', (
   assert.equal(button.title, 'Hide subtitles and translation');
   assert.equal(drawer.classList.contains('hidden'), true, 'An explicitly closed drawer stays closed');
   h.renderSentenceTokens('猫');
-  assert.ok(h.elements.get('linguaplay-yt-tokens').children[0].innerHTML.includes('neko'));
+  assert.ok(h.elements.get('linguaplay-yt-tokens').children[0].querySelector('.linguaplay-token-reading').textContent.includes('neko'));
 });
 
 test('subtitle tracking continues while hidden and restoration uses the current time', () => {
@@ -200,7 +263,7 @@ test('subtitle tracking continues while hidden and restoration uses the current 
   clickVisibility(h);
   video.currentTime = 4;
   h.onTimeUpdate();
-  assert.ok(h.elements.get('linguaplay-yt-tokens').children[0].innerHTML.includes('犬'));
+  assert.equal(h.elements.get('linguaplay-yt-tokens').children[0].querySelector('.linguaplay-jp-text').textContent, '犬');
   assert.equal(h.sandbox.document.documentElement.classList.contains('linguaplay-subtitles-hidden'), true);
   video.currentTime = 6; // Seek without a timeupdate before restoring.
   clickVisibility(h);

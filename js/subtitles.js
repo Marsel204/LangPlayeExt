@@ -4,7 +4,7 @@
  * timing offset manager, and tokenized reading mode renderer.
  */
 
-import { tokenizeSentence } from './tokenizer.js';
+import { tokenizeSentence, requestParsedSentence } from './tokenizer.js';
 
 const VTT_TIME_RE = /(\d{1,2}:)?(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{1,2}:)?(\d{2}):(\d{2})[.,](\d{3})/;
 const SRT_TIME_RE = /(\d{2}):(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[.,](\d{3})/;
@@ -14,6 +14,14 @@ let currentSubIndex = -1;
 let timingOffset = 0.0; // in seconds
 let readingMode = 'furigana'; // 'furigana' | 'romaji' | 'hidden'
 let manualCaptionsLoaded = false;
+const tokenRenderVersions = new WeakMap();
+let lastTokenRender = null;
+
+export function refreshTokenParsing() {
+  if (lastTokenRender && currentSubIndex >= 0 && subtitleTimeline[currentSubIndex]?.text === lastTokenRender.text) {
+    renderTokens(lastTokenRender.text, lastTokenRender.container);
+  }
+}
 
 try {
   if (typeof localStorage !== 'undefined' && localStorage.getItem) {
@@ -249,10 +257,16 @@ export function getReadingMode() {
 
 export function renderTokens(text, container) {
   if (!container) return;
+  lastTokenRender = { text, container };
+  const version = (tokenRenderVersions.get(container) || 0) + 1;
+  tokenRenderVersions.set(container, version);
   container.innerHTML = '';
   if (!text || !text.trim()) return;
 
   const tokens = tokenizeSentence(text);
+  requestParsedSentence(text).then(parsed => {
+    if (parsed && tokenRenderVersions.get(container) === version && tokens !== parsed) renderTokens(text, container);
+  });
   if (tokens.length === 0) {
     const span = document.createElement('span');
     span.className = 'text-white text-xl font-medium px-2 py-1';
@@ -261,6 +275,7 @@ export function renderTokens(text, container) {
     return;
   }
 
+  let offset = 0;
   for (const tk of tokens) {
     if (!tk.surface.trim()) continue;
 
@@ -273,6 +288,8 @@ export function renderTokens(text, container) {
     span.dataset.pos = tk.pos;
     span.dataset.posDetail = tk.posDetail;
     span.dataset.baseform = tk.baseForm;
+    span.dataset.start = Number.isInteger(tk.start) ? tk.start : text.indexOf(tk.surface, offset);
+    offset = Number(span.dataset.start) + tk.surface.length;
 
     let readingText = tk.furigana || tk.reading;
     let readingHiddenClass = '';
@@ -283,10 +300,15 @@ export function renderTokens(text, container) {
       readingHiddenClass = 'hidden-reading';
     }
 
-    span.innerHTML = `
-      <span class="token-reading text-rose-subtle/80 leading-tight ${readingHiddenClass}">${readingText || '&nbsp;'}</span>
-      <span class="jp-text text-white text-xl font-medium" style="font-family:'Noto Sans JP',sans-serif">${tk.surface}</span>
-    `;
+    const readingSpan = document.createElement('span');
+    readingSpan.className = `token-reading text-rose-subtle/80 leading-tight ${readingHiddenClass}`;
+    readingSpan.textContent = readingText || '\u00a0';
+    const wordSpan = document.createElement('span');
+    wordSpan.className = 'jp-text text-white text-xl font-medium';
+    wordSpan.style.fontFamily = "'Noto Sans JP',sans-serif";
+    wordSpan.textContent = tk.surface;
+    span.appendChild(readingSpan);
+    span.appendChild(wordSpan);
 
     container.appendChild(span);
   }

@@ -3,6 +3,9 @@
  * Unifies HTML5 native <video> element and YouTube IFrame Player API.
  */
 
+import { retryJapaneseParser } from './tokenizer.js';
+import { refreshTokenParsing } from './subtitles.js';
+
 let mediaMode = 'native'; // 'native' | 'youtube'
 let videoEl = null;
 let ytPlayer = null;
@@ -17,6 +20,7 @@ function startServerOnPlayback() {
     chrome.runtime.sendMessage({ action: 'ENSURE_LOCAL_SERVER' }, response => {
       const error = chrome.runtime.lastError;
       if (error || (response && !response.success)) console.warn('[LinguaPlay] Server auto-start:', error?.message || response.error);
+      if (!error && response?.success) { retryJapaneseParser(); refreshTokenParsing(); }
     });
   } catch (error) { console.warn('[LinguaPlay] Server auto-start:', error.message); }
 }

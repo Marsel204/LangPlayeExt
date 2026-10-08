@@ -64,6 +64,14 @@ class NativeHostTests(unittest.TestCase):
             self.assertFalse(self.request(message)['success'])
         self.assertFalse((self.directory / 'starts.log').exists())
 
+    def test_prefers_server_virtual_environment(self):
+        venv = self.directory / '.venv'
+        subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(venv)], check=True)
+        self.server.write_text('import sys\nfrom pathlib import Path\nPath(__file__).with_name("prefix.txt").write_text(sys.prefix)\n' + self.server.read_text())
+        answer = self.request()
+        self.assertTrue(answer['success'], answer)
+        self.assertEqual((self.directory / 'prefix.txt').read_text(), str(venv))
+
     def test_restart_after_server_stops(self):
         first = self.request()
         os.kill(first['pid'], signal.SIGTERM)
