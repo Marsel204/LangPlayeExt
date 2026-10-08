@@ -364,5 +364,83 @@ test('content.js includes Audio Timing 1-click anchor sync, macro buttons, and s
   assert.ok(contentJs.includes('lp_offset_'), 'content.js must persist timing offset per video in storage');
 });
 
+test('background.js cascades to track-only search if composite query yields 0 results', async () => {
+  const bgCode = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+
+  let messageListener = null;
+  const mockChrome = {
+    runtime: {
+      onInstalled: { addListener: () => {} },
+      onMessage: { addListener: (cb) => { messageListener = cb; } },
+      getURL: (p) => `chrome-extension://mock/${p}`
+    },
+    tabs: { create: () => {} },
+    storage: { local: { get: async () => ({}) } },
+    permissions: { contains: async () => true }
+  };
+
+  const evalFn = new Function('chrome', bgCode);
+  evalFn(mockChrome);
+
+  const originalFetch = globalThis.fetch;
+  const fetchUrls = [];
+  try {
+    globalThis.fetch = async (url) => {
+      fetchUrls.push(url);
+      if (url.includes('lrclib.net/api/get')) {
+        return { ok: false, status: 404, json: async () => ({ message: 'Not found' }) };
+      }
+      if (url.includes('lrclib.net/api/search')) {
+        // If query is composite anime title + track, return 0
+        if (url.includes('Oregairu')) {
+          return { ok: true, status: 200, json: async () => [] };
+        }
+        // If track-only fallback is attempted with '春擬き'
+        if (url.includes('%E6%98%A5%E6%93%AC%E3%81%8D') || url.includes('春擬き')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ([
+              {
+                trackName: '春擬き',
+                artistName: 'やなぎなぎ',
+                syncedLyrics: '[00:00.71] 探しに行くんだ そこへ'
+              }
+            ])
+          };
+        }
+      }
+      return { ok: false, status: 404 };
+    };
+
+    const response = await new Promise(resolve => {
+      messageListener({
+        action: 'FETCH_LRCLIB_LYRICS',
+        trackName: '春擬き',
+        artistName: 'Oregairu',
+        query: 'Oregairu 春擬き'
+      }, { id: 'mock-id' }, resolve);
+    });
+
+    assert.equal(response.success, true, 'Cascading search should succeed');
+    assert.equal(response.trackName, '春擬き');
+    assert.equal(response.artistName, 'やなぎなぎ');
+    assert.ok(fetchUrls.some(u => u.includes('q=%E6%98%A5%E6%93%AC%E3%81%8D') || u.includes('q=春擬き')), 'Must have attempted track-only fallback query');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('content.js includes Sensei AI song identifier and 1-click modal button', () => {
+  const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+  assert.ok(contentJs.includes('identifySongWithSensei'), 'content.js must define identifySongWithSensei');
+  assert.ok(contentJs.includes('lp-ai-identify-btn'), 'content.js must define 1-click Sensei button #lp-ai-identify-btn');
+});
+
+test('content.js includes per-video lyrics caching with storage persistence', () => {
+  const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+  assert.ok(contentJs.includes('lp_lyrics_cache_'), 'content.js must check and persist lp_lyrics_cache_ in storage');
+});
+
 
 

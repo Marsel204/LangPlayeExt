@@ -1277,18 +1277,241 @@
     return [];
   }
 
-  // ── Fetch Synced Lyrics from LRCLIB ──
+  // ── Sensei AI LLM Call Engine (Shared Across LinguaPlay) ──
+  function getSenseiProvider(config) {
+    return config.linguaplay_ai_provider || (config.linguaplay_gemini_key ? 'gemini' : 'antigravity');
+  }
+
+  async function callSenseiLlmApi({ messages, isJson, config, word, romaji, sentence }) {
+    const provider = getSenseiProvider(config);
+    const geminiKey = (config.linguaplay_gemini_key || '').trim();
+    const deepseekKey = (config.linguaplay_deepseek_key || '').trim();
+    const openrouterKey = (config.linguaplay_openrouter_key || '').trim();
+    const openrouterModel = (config.linguaplay_openrouter_model || 'deepseek/deepseek-chat').trim();
+    const serverUrl = (config.linguaplay_server_url || 'http://127.0.0.1:8000').trim();
+
+    // 1. Google Gemini Flash Direct
+    if (provider === 'gemini') {
+      if (!geminiKey) throw new Error('Missing Google Gemini API key. Add it in Extension Settings.');
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+      
+      const contents = [];
+      for (const m of messages) {
+        if (m.role === 'system') continue;
+        contents.push({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }]
+        });
+      }
+      if (contents.length === 0 && messages.length > 0) {
+        contents.push({ role: 'user', parts: [{ text: messages[0].content }] });
+      }
+
+      const sysMsg = messages.find(m => m.role === 'system');
+      const body = {
+        contents,
+        generationConfig: isJson ? { responseMimeType: 'application/json' } : {}
+      };
+      if (sysMsg) {
+        body.systemInstruction = { parts: [{ text: sysMsg.content }] };
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(12000)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Gemini API returned status ${res.status}`);
+      }
+      const data = await res.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    // 2. DeepSeek Direct API
+    if (provider === 'deepseek') {
+      if (!deepseekKey) throw new Error('Missing DeepSeek API key. Add it in Extension Settings.');
+      const url = 'https://api.deepseek.com/v1/chat/completions';
+      const body = {
+        model: 'deepseek-chat',
+        messages: messages,
+        response_format: isJson ? { type: 'json_object' } : undefined
+      };
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${deepseekKey}`
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(12000)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `DeepSeek API returned status ${res.status}`);
+      }
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || '';
+    }
+
+    // 3. OpenRouter Direct API
+    if (provider === 'openrouter') {
+      if (!openrouterKey) throw new Error('Missing OpenRouter API key. Add it in Extension Settings.');
+      const url = 'https://openrouter.ai/api/v1/chat/completions';
+      const body = {
+        model: openrouterModel,
+        messages: messages,
+        response_format: isJson ? { type: 'json_object' } : undefined
+      };
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openrouterKey}`,
+          'HTTP-Referer': 'https://linguaplay.app',
+          'X-Title': 'LinguaPlay'
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(14000)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `OpenRouter API returned status ${res.status}`);
+      }
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || '';
+    }
+
+    // 4. OpenCode Custom Endpoint
+    if (provider === 'opencode') {
+      return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ action: 'CALL_CUSTOM_AI', messages, isJson }, response => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (!response || !response.success) {
+            reject(new Error(response?.error || 'Custom endpoint request failed'));
+          } else {
+            resolve(response.content);
+          }
+        });
+      });
+    }
+
+    // 5. Antigravity CLI Local Server
+    if (provider === 'antigravity') {
+      const localAiTimeout = 120000;
+      if (isJson) {
+        try {
+          const res = await fetch(`${serverUrl}/api/ai/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ word, romaji, sentence, provider: 'antigravity' }),
+            signal: AbortSignal.timeout(localAiTimeout)
+          });
+          const raw = await res.json().catch(() => ({}));
+          if (!res.ok || raw.status === 'error') throw new Error(raw.message || `Local server returned ${res.status}`);
+          return JSON.stringify(raw.data || raw);
+        } catch (error) {
+          if (error.name === 'TimeoutError') throw new Error('Local AI did not respond within two minutes. Click Ask Sensei to try again.');
+          throw error;
+        }
+      } else {
+        const res = await fetch(`${serverUrl}/api/ai/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages, word, romaji, sentence }),
+          signal: AbortSignal.timeout(localAiTimeout)
+        });
+        const raw = await res.json().catch(() => ({}));
+        if (!res.ok || raw.status === 'error') throw new Error(raw.message || `Local server chat returned ${res.status}`);
+        const reply = raw.reply || raw.content;
+        if (typeof reply !== 'string' || !reply.trim()) throw new Error('Local server returned an empty chat reply.');
+        return reply;
+      }
+    }
+
+    throw new Error(`Unsupported AI provider: ${provider}`);
+  }
+
+  // ── Sensei AI Song Identification ──
+  async function identifySongWithSensei(title, channel) {
+    if (!title || typeof title !== 'string') return null;
+    return new Promise((resolve) => {
+      if (!chrome.storage?.local) {
+        resolve(null);
+        return;
+      }
+      chrome.storage.local.get([
+        'linguaplay_ai_provider',
+        'linguaplay_gemini_key',
+        'linguaplay_deepseek_key',
+        'linguaplay_openrouter_key',
+        'linguaplay_openrouter_model',
+        'linguaplay_opencode_url',
+        'linguaplay_opencode_key',
+        'linguaplay_opencode_model',
+        'linguaplay_server_url'
+      ], async (cfg) => {
+        try {
+          const provider = getSenseiProvider(cfg);
+          const hasKey = cfg.linguaplay_gemini_key || cfg.linguaplay_deepseek_key || cfg.linguaplay_openrouter_key || cfg.linguaplay_opencode_key || provider === 'antigravity';
+          if (!hasKey) {
+            resolve({ error: 'Please set up an AI API key (Gemini, DeepSeek, etc.) in LinguaPlay settings to use Sensei AI.' });
+            return;
+          }
+
+          const prompt = `You are Sensei, an expert in Japanese music, anime soundtracks, and J-pop.
+Given this YouTube music video title and channel:
+Title: "${title.replace(/"/g, '\"')}"
+Channel: "${(channel || '').replace(/"/g, '\"')}"
+
+Extract the song metadata:
+1. "trackName": The real Japanese song title (strip "OP", "ED", "Theme", "MV", "Full", etc.).
+2. "artistName": The actual performing music artist/singer (NOT the anime series name, anime studio, or YouTube reposter). If the song is an anime theme and the singer is not named in the title, use your knowledge of the official soundtrack release to provide the real artist name.
+3. "animeName": The anime series name if applicable, or empty string.
+
+Respond in JSON only:
+{"trackName": "...", "artistName": "...", "animeName": "..."}`;
+
+          const raw = await callSenseiLlmApi({
+            messages: [{ role: 'user', content: prompt }],
+            isJson: true,
+            config: cfg,
+            word: title,
+            romaji: '',
+            sentence: title
+          });
+
+          const json = JSON.parse(raw.replace(/```json|```/g, '').trim());
+          if (json && (json.trackName || json.artistName)) {
+            resolve({
+              trackName: (json.trackName || '').trim(),
+              artistName: (json.artistName || '').trim(),
+              animeName: (json.animeName || '').trim()
+            });
+            return;
+          }
+          resolve(null);
+        } catch (e) {
+          console.warn('[LinguaPlay] identifySongWithSensei error:', e);
+          resolve({ error: e.message });
+        }
+      });
+    });
+  }
+
+  // ── Fetch Synced Lyrics from LRCLIB & Kugou (with Heuristic + Sensei AI Fallback) ──
   async function fetchLrclibLyrics(title, channel, duration) {
     try {
       const meta = cleanSongTitle(title, channel);
-      if (!meta.trackName && !meta.query) return null;
-
-      const response = await new Promise(resolve => {
+      const queryApi = (t, a, q) => new Promise(resolve => {
         chrome.runtime.sendMessage({
           action: 'FETCH_LRCLIB_LYRICS',
-          trackName: meta.trackName,
-          artistName: meta.artistName,
-          query: meta.query,
+          trackName: t,
+          artistName: a,
+          query: q,
           duration: duration || 0
         }, res => {
           if (chrome.runtime?.lastError) {
@@ -1299,10 +1522,42 @@
         });
       });
 
+      // 1. Try heuristic extraction first (0ms)
+      let response = null;
+      if (meta.trackName || meta.query) {
+        response = await queryApi(meta.trackName, meta.artistName, meta.query);
+      }
+
       if (response && response.success && response.syncedLyrics) {
         const cues = parseLRC(response.syncedLyrics);
         if (cues && cues.length > 0) {
-          return { cues, trackName: response.trackName, artistName: response.artistName, provider: response.provider || 'lrclib' };
+          return {
+            cues,
+            trackName: response.trackName || meta.trackName,
+            artistName: response.artistName || meta.artistName,
+            provider: response.provider || 'lrclib',
+            syncedLyrics: response.syncedLyrics
+          };
+        }
+      }
+
+      // 2. Auto-fallback to Sensei AI if heuristic search found nothing
+      const aiMeta = await identifySongWithSensei(title, channel);
+      if (aiMeta && !aiMeta.error && (aiMeta.trackName || aiMeta.artistName)) {
+        const aiQuery = [aiMeta.artistName, aiMeta.trackName].filter(Boolean).join(' ');
+        response = await queryApi(aiMeta.trackName, aiMeta.artistName, aiQuery);
+        if (response && response.success && response.syncedLyrics) {
+          const cues = parseLRC(response.syncedLyrics);
+          if (cues && cues.length > 0) {
+            return {
+              cues,
+              trackName: response.trackName || aiMeta.trackName,
+              artistName: response.artistName || aiMeta.artistName,
+              provider: response.provider || 'lrclib',
+              isAi: true,
+              syncedLyrics: response.syncedLyrics
+            };
+          }
         }
       }
     } catch (e) {
@@ -2161,8 +2416,14 @@
           </div>
 
           <div id="lp-lyrics-modal-status" style="margin-bottom:14px; padding:10px 14px; background:rgba(30,27,75,0.5); border:1px solid rgba(139,92,246,0.3); border-radius:10px; font-size:12px; color:#c7d2fe; display:flex; justify-content:space-between; align-items:center;">
-            <span>Active Subtitles: <strong id="lp-modal-active-count">0 cues</strong></span>
-            <span id="lp-modal-active-type" style="color:#34d399; font-weight:600;">None</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>Active Subtitles: <strong id="lp-modal-active-count">0 cues</strong></span>
+              <span id="lp-modal-cache-badge" style="font-size:10px; padding:2px 6px; border-radius:4px; display:none;"></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="lp-modal-active-type" style="color:#34d399; font-weight:600;">None</span>
+              <button id="lp-clear-cache-btn" style="display:none; background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; border-radius:6px; padding:2px 8px; font-size:10.5px; cursor:pointer;" title="Clear cached lyrics for this video">Clear Cache</button>
+            </div>
           </div>
 
           <!-- Search Synced Lyrics (LRCLIB & Kugou) -->
@@ -2183,7 +2444,10 @@
                 <input type="text" id="lp-search-artist-input" placeholder="Artist name" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; border-radius:8px; padding:7px 10px; color:#fff; font-size:12px; outline:none;">
               </div>
             </div>
-            <button id="lp-search-submit-btn" style="width:100%; background:#7c3aed; color:#fff; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">Search & Sync</button>
+            <div style="display:flex; gap:8px;">
+              <button id="lp-search-submit-btn" style="flex:1; background:#7c3aed; color:#fff; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">Search & Sync</button>
+              <button id="lp-ai-identify-btn" style="background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border:none; border-radius:8px; padding:8px 12px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; white-space:nowrap;" title="Use Sensei AI to extract clean Song Title and Artist from video">✨ AI Identify</button>
+            </div>
             <div id="lp-search-results-list" style="margin-top:10px; max-height:140px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
           </div>
 
@@ -2276,12 +2540,83 @@
                 </div>
               `;
             }
-            updateLyricsModalStatus();
+
+            // Persist to local cache so user never has to re-search this video
+            if (currentVideoId && chrome.storage?.local) {
+              chrome.storage.local.set({
+                [`lp_lyrics_cache_${currentVideoId}`]: {
+                  trackName: response.trackName || track,
+                  artistName: response.artistName || artist,
+                  provider: response.provider || 'lrclib',
+                  syncedLyrics: response.syncedLyrics,
+                  cachedAt: Date.now()
+                }
+              }, () => {
+                updateLyricsModalStatus();
+              });
+            } else {
+              updateLyricsModalStatus();
+            }
+
             ensureYouTubeCCEnabled();
             return;
           }
         }
         if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">No synced lyrics found on LRCLIB or Kugou Music for this search query.</div>';
+      });
+
+      // 1-Click AI Identification via Sensei LLM
+      document.getElementById('lp-ai-identify-btn')?.addEventListener('click', async () => {
+        const listContainer = document.getElementById('lp-search-results-list');
+        const meta = getYouTubeVideoMetadata();
+        if (!meta.title) {
+          if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">Could not read video title from YouTube page.</div>';
+          return;
+        }
+
+        if (listContainer) {
+          listContainer.innerHTML = '<div style="font-size:11px; color:#ec4899; display:flex; align-items:center; gap:6px;"><span>✨</span> Sensei AI is analyzing video title and identifying artist...</div>';
+        }
+
+        const ai = await identifySongWithSensei(meta.title, meta.channel);
+        if (!ai) {
+          if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">Sensei AI could not identify song. Please check extension settings.</div>';
+          return;
+        }
+        if (ai.error) {
+          if (listContainer) listContainer.innerHTML = `<div style="font-size:11px; color:#ef4444;">⚠️ Sensei AI Notice: ${ai.error}</div>`;
+          return;
+        }
+
+        const trackInp = document.getElementById('lp-search-track-input');
+        const artistInp = document.getElementById('lp-search-artist-input');
+        if (trackInp) trackInp.value = ai.trackName || '';
+        if (artistInp) artistInp.value = ai.artistName || '';
+
+        if (listContainer) {
+          listContainer.innerHTML = `
+            <div style="font-size:11px; color:#c084fc; margin-bottom:4px;">
+              ✨ Identified: <strong>${ai.trackName}</strong> by <strong>${ai.artistName}</strong> ${ai.animeName ? '(' + ai.animeName + ')' : ''}
+            </div>
+          `;
+        }
+
+        // Trigger search automatically with AI identified metadata
+        document.getElementById('lp-search-submit-btn')?.click();
+      });
+
+      // Clear cached lyrics for current video
+      document.getElementById('lp-clear-cache-btn')?.addEventListener('click', () => {
+        if (!currentVideoId || !chrome.storage?.local) return;
+        chrome.storage.local.remove([`lp_lyrics_cache_${currentVideoId}`], () => {
+          subtitleTimeline = [];
+          currentSubIndex = -1;
+          const statusBadge = document.getElementById('linguaplay-sub-status');
+          if (statusBadge) statusBadge.textContent = '';
+          updateLyricsModalStatus();
+          const listContainer = document.getElementById('lp-search-results-list');
+          if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#94a3b8;">Cleared cached lyrics for this video.</div>';
+        });
       });
 
       function setTimingOffset(newOffset) {
@@ -2343,6 +2678,27 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       if (offsetEl) offsetEl.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
       const manualInp = document.getElementById('lp-offset-manual-input');
       if (manualInp && document.activeElement !== manualInp) manualInp.value = timingOffset.toFixed(1);
+
+      if (currentVideoId && chrome.storage?.local) {
+        chrome.storage.local.get([`lp_lyrics_cache_${currentVideoId}`], (res) => {
+          const cached = res[`lp_lyrics_cache_${currentVideoId}`];
+          const cacheBadge = document.getElementById('lp-modal-cache-badge');
+          const clearBtn = document.getElementById('lp-clear-cache-btn');
+          if (cached && cached.syncedLyrics && subtitleTimeline.length > 0) {
+            if (cacheBadge) {
+              cacheBadge.style.display = 'inline-block';
+              cacheBadge.style.background = 'rgba(52,211,153,0.18)';
+              cacheBadge.style.color = '#34d399';
+              cacheBadge.style.border = '1px solid rgba(52,211,153,0.4)';
+              cacheBadge.textContent = '💾 Saved in Cache';
+            }
+            if (clearBtn) clearBtn.style.display = 'inline-block';
+          } else {
+            if (cacheBadge) cacheBadge.style.display = 'none';
+            if (clearBtn) clearBtn.style.display = 'none';
+          }
+        });
+      }
     }
 
     function openLyricsModal() {
@@ -2354,8 +2710,22 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       const cleaned = cleanSongTitle(meta.title, meta.channel);
       const trackInp = document.getElementById('lp-search-track-input');
       const artistInp = document.getElementById('lp-search-artist-input');
-      if (trackInp && !trackInp.value) trackInp.value = cleaned.trackName || '';
-      if (artistInp && !artistInp.value) artistInp.value = cleaned.artistName || '';
+
+      if (currentVideoId && chrome.storage?.local) {
+        chrome.storage.local.get([`lp_lyrics_cache_${currentVideoId}`], (res) => {
+          const cached = res[`lp_lyrics_cache_${currentVideoId}`];
+          if (cached && (cached.trackName || cached.artistName)) {
+            if (trackInp && !trackInp.value) trackInp.value = cached.trackName || '';
+            if (artistInp && !artistInp.value) artistInp.value = cached.artistName || '';
+          } else {
+            if (trackInp && !trackInp.value) trackInp.value = cleaned.trackName || '';
+            if (artistInp && !artistInp.value) artistInp.value = cleaned.artistName || '';
+          }
+        });
+      } else {
+        if (trackInp && !trackInp.value) trackInp.value = cleaned.trackName || '';
+        if (artistInp && !artistInp.value) artistInp.value = cleaned.artistName || '';
+      }
 
       updateLyricsModalStatus();
     }
@@ -2542,167 +2912,6 @@ Respond with ONLY valid JSON:
     }
   ]
 }`;
-    }
-
-    function getSenseiProvider(config) {
-      return config.linguaplay_ai_provider || (config.linguaplay_gemini_key ? 'gemini' : 'antigravity');
-    }
-
-    async function callSenseiLlmApi({ messages, isJson, config, word, romaji, sentence }) {
-      const provider = getSenseiProvider(config);
-      const geminiKey = (config.linguaplay_gemini_key || '').trim();
-      const deepseekKey = (config.linguaplay_deepseek_key || '').trim();
-      const openrouterKey = (config.linguaplay_openrouter_key || '').trim();
-      const openrouterModel = (config.linguaplay_openrouter_model || 'deepseek/deepseek-chat').trim();
-      const serverUrl = (config.linguaplay_server_url || 'http://127.0.0.1:8000').trim();
-
-      // 1. Google Gemini Flash Direct
-      if (provider === 'gemini') {
-        if (!geminiKey) throw new Error('Missing Google Gemini API key. Add it in Extension Settings.');
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
-        
-        const contents = [];
-        for (const m of messages) {
-          if (m.role === 'system') continue;
-          contents.push({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: m.content }]
-          });
-        }
-        if (contents.length === 0 && messages.length > 0) {
-          contents.push({ role: 'user', parts: [{ text: messages[0].content }] });
-        }
-
-        const sysMsg = messages.find(m => m.role === 'system');
-        const body = {
-          contents,
-          generationConfig: isJson ? { responseMimeType: 'application/json' } : {}
-        };
-        if (sysMsg) {
-          body.systemInstruction = { parts: [{ text: sysMsg.content }] };
-        }
-
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(12000)
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error?.message || `Gemini API returned status ${res.status}`);
-        }
-        const data = await res.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      }
-
-      // 2. DeepSeek Direct API
-      if (provider === 'deepseek') {
-        if (!deepseekKey) throw new Error('Missing DeepSeek API key. Add it in Extension Settings.');
-        const url = 'https://api.deepseek.com/v1/chat/completions';
-        const body = {
-          model: 'deepseek-chat',
-          messages: messages,
-          response_format: isJson ? { type: 'json_object' } : undefined
-        };
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${deepseekKey}`
-          },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(12000)
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error?.message || `DeepSeek API returned status ${res.status}`);
-        }
-        const data = await res.json();
-        return data.choices?.[0]?.message?.content || '';
-      }
-
-      // 3. OpenRouter Direct API
-      if (provider === 'openrouter') {
-        if (!openrouterKey) throw new Error('Missing OpenRouter API key. Add it in Extension Settings.');
-        const url = 'https://openrouter.ai/api/v1/chat/completions';
-        const body = {
-          model: openrouterModel,
-          messages: messages,
-          response_format: isJson ? { type: 'json_object' } : undefined
-        };
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openrouterKey}`,
-            'HTTP-Referer': 'https://linguaplay.app',
-            'X-Title': 'LinguaPlay'
-          },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(14000)
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error?.message || `OpenRouter API returned status ${res.status}`);
-        }
-        const data = await res.json();
-        return data.choices?.[0]?.message?.content || '';
-      }
-
-      // The background worker owns the configured endpoint and API key.
-      // Content-script fetches otherwise inherit YouTube's CORS restrictions.
-      if (provider === 'opencode') {
-        return new Promise((resolve, reject) => {
-          chrome.runtime.sendMessage({ action: 'CALL_CUSTOM_AI', messages, isJson }, response => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else if (!response || !response.success) {
-              reject(new Error(response?.error || 'Custom endpoint request failed'));
-            } else {
-              resolve(response.content);
-            }
-          });
-        });
-      }
-
-      // 5. Antigravity CLI Local Server
-      if (provider === 'antigravity') {
-        // Local model generation can exceed 30 seconds. Keep this deadline
-        // longer than the companion server's 90-second CLI budget.
-        const localAiTimeout = 120000;
-        if (isJson) {
-          try {
-            const res = await fetch(`${serverUrl}/api/ai/analyze`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ word, romaji, sentence, provider: 'antigravity' }),
-              signal: AbortSignal.timeout(localAiTimeout)
-            });
-            const raw = await res.json().catch(() => ({}));
-            if (!res.ok || raw.status === 'error') throw new Error(raw.message || `Local server returned ${res.status}`);
-            return JSON.stringify(raw.data || raw);
-          } catch (error) {
-            if (error.name === 'TimeoutError') throw new Error('Local AI did not respond within two minutes. Click Ask Sensei to try again.');
-            throw error;
-          }
-        } else {
-          // Check chat
-          const res = await fetch(`${serverUrl}/api/ai/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages, word, romaji, sentence }),
-            signal: AbortSignal.timeout(localAiTimeout)
-          });
-          const raw = await res.json().catch(() => ({}));
-          if (!res.ok || raw.status === 'error') throw new Error(raw.message || `Local server chat returned ${res.status}`);
-          const reply = raw.reply || raw.content;
-          if (typeof reply !== 'string' || !reply.trim()) throw new Error('Local server returned an empty chat reply.');
-          return reply;
-        }
-      }
-
-      throw new Error(`Unsupported AI provider: ${provider}`);
     }
 
     function formatSenseiMarkdown(rawText) {
@@ -3204,15 +3413,30 @@ Respond with ONLY valid JSON:
       updateSenseiChatControls();
       updateLyricsModalStatus();
 
-      // Load stored offset for this video
+      // Load stored offset and cached lyrics for this video
       if (chrome.storage?.local) {
-        chrome.storage.local.get([`lp_offset_${vid}`], (res) => {
+        chrome.storage.local.get([`lp_offset_${vid}`, `lp_lyrics_cache_${vid}`], (res) => {
           if (typeof res[`lp_offset_${vid}`] === 'number') {
             timingOffset = res[`lp_offset_${vid}`];
           } else {
             timingOffset = 0.0;
           }
           updateOffsetDisplay();
+
+          const cached = res[`lp_lyrics_cache_${vid}`];
+          if (cached && cached.syncedLyrics && subtitleTimeline.length === 0) {
+            const cues = parseLRC(cached.syncedLyrics);
+            if (cues && cues.length > 0) {
+              subtitleTimeline = cues;
+              lyricsFetchAttemptedVid = vid;
+              const statusBadge = document.getElementById('linguaplay-sub-status');
+              if (statusBadge) {
+                const provTag = cached.provider === 'kugou' ? ' [Kugou]' : (cached.isAi ? ' [AI]' : '');
+                statusBadge.textContent = `🎵 ${cached.trackName || 'Lyrics'}${provTag} (${cues.length})`;
+              }
+              ensureYouTubeCCEnabled();
+            }
+          }
           updateLyricsModalStatus();
         });
       } else {
@@ -3252,8 +3476,22 @@ Respond with ONLY valid JSON:
           if (lyricsInfo && lyricsInfo.cues && lyricsInfo.cues.length > 0) {
             subtitleTimeline = lyricsInfo.cues;
             if (statusBadge) {
-              const provTag = lyricsInfo.provider === 'kugou' ? ' [Kugou]' : '';
+              const provTag = lyricsInfo.provider === 'kugou' ? ' [Kugou]' : (lyricsInfo.isAi ? ' [AI]' : '');
               statusBadge.textContent = `🎵 ${lyricsInfo.trackName || 'Lyrics'}${provTag} (${lyricsInfo.cues.length})`;
+            }
+
+            // Cache to local storage so future views load instantly
+            if (currentVideoId && chrome.storage?.local && lyricsInfo.syncedLyrics) {
+              chrome.storage.local.set({
+                [`lp_lyrics_cache_${currentVideoId}`]: {
+                  trackName: lyricsInfo.trackName,
+                  artistName: lyricsInfo.artistName,
+                  provider: lyricsInfo.provider || 'lrclib',
+                  syncedLyrics: lyricsInfo.syncedLyrics,
+                  isAi: !!lyricsInfo.isAi,
+                  cachedAt: Date.now()
+                }
+              });
             }
           } else {
             if (statusBadge) {

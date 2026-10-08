@@ -359,24 +359,28 @@ async function fetchKugouLyrics(keyword, duration = 0) {
           } catch (e) { /* fallback to search */ }
         }
 
-        // 2. LRCLIB Search fallback
+        // 2. LRCLIB Search fallback (Composite query, then track-only fallback)
         const searchQ = (query || `${artistName || ''} ${trackName || ''}`).trim();
-        if (searchQ) {
-          const searchParams = new URLSearchParams();
-          searchParams.set('q', searchQ);
-          const searchRes = await fetch(`https://lrclib.net/api/search?${searchParams.toString()}`, {
-            headers,
-            signal: AbortSignal.timeout(5000)
-          });
-          if (searchRes.ok) {
-            const list = await searchRes.json();
-            if (Array.isArray(list) && list.length > 0) {
-              // Pick best match: prefer item with syncedLyrics, Japanese text if present
-              let candidate = list.find(item => item.syncedLyrics && /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(item.syncedLyrics));
-              if (!candidate) candidate = list.find(item => item.syncedLyrics);
-              if (!candidate) candidate = list[0];
+        const pickCandidate = (list) => {
+          if (!Array.isArray(list) || list.length === 0) return null;
+          let candidate = list.find(item => item.syncedLyrics && /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(item.syncedLyrics));
+          if (!candidate) candidate = list.find(item => item.syncedLyrics);
+          if (!candidate) candidate = list[0];
+          return candidate && (candidate.syncedLyrics || candidate.plainLyrics) ? candidate : null;
+        };
 
-              if (candidate && (candidate.syncedLyrics || candidate.plainLyrics)) {
+        if (searchQ) {
+          try {
+            const searchParams = new URLSearchParams();
+            searchParams.set('q', searchQ);
+            const searchRes = await fetch(`https://lrclib.net/api/search?${searchParams.toString()}`, {
+              headers,
+              signal: AbortSignal.timeout(5000)
+            });
+            if (searchRes.ok) {
+              const list = await searchRes.json();
+              const candidate = pickCandidate(list);
+              if (candidate) {
                 sendResponse({
                   success: true,
                   provider: 'lrclib',
@@ -388,13 +392,44 @@ async function fetchKugouLyrics(keyword, duration = 0) {
                 return;
               }
             }
-          }
+          } catch (e) { /* ignore and try track-only */ }
+        }
+
+        // 2b. LRCLIB Track-only search fallback
+        const cleanTrack = (trackName || '').trim();
+        if (cleanTrack && cleanTrack.length >= 2 && cleanTrack.toLowerCase() !== searchQ.toLowerCase()) {
+          try {
+            const trackParams = new URLSearchParams();
+            trackParams.set('q', cleanTrack);
+            const trackRes = await fetch(`https://lrclib.net/api/search?${trackParams.toString()}`, {
+              headers,
+              signal: AbortSignal.timeout(5000)
+            });
+            if (trackRes.ok) {
+              const list = await trackRes.json();
+              const candidate = pickCandidate(list);
+              if (candidate && candidate.syncedLyrics) {
+                sendResponse({
+                  success: true,
+                  provider: 'lrclib',
+                  trackName: candidate.trackName || cleanTrack,
+                  artistName: candidate.artistName || artistName,
+                  syncedLyrics: candidate.syncedLyrics,
+                  plainLyrics: candidate.plainLyrics
+                });
+                return;
+              }
+            }
+          } catch (e) { /* fallback to Kugou */ }
         }
 
         // 3. Kugou Music fallback (High coverage for Anime, Covers & J-Pop)
         const kugouQ = (query || `${artistName || ''} ${trackName || ''}`).trim();
         if (kugouQ) {
-          const kugouResult = await fetchKugouLyrics(kugouQ, duration);
+          let kugouResult = await fetchKugouLyrics(kugouQ, duration);
+          if (!kugouResult && cleanTrack && cleanTrack.length >= 2 && cleanTrack.toLowerCase() !== kugouQ.toLowerCase()) {
+            kugouResult = await fetchKugouLyrics(cleanTrack, duration);
+          }
           if (kugouResult && kugouResult.syncedLyrics) {
             sendResponse({
               success: true,
