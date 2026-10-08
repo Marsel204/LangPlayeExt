@@ -224,6 +224,12 @@ export function cleanSongTitle(rawTitle, rawChannel = '') {
     clean = clean.replace(/[【】]/g, ' ').trim();
   }
 
+  // Strip anime theme metadata in parentheses if there is text outside of it
+  const withoutAnimeParens = clean.replace(/[（\(](?:TVアニメ|アニメ|TV Anime|Anime|主題歌|OP|ED|挿入歌|テーマ|Character Song).*?[）\)]/gi, ' ').trim();
+  if (withoutAnimeParens) {
+    clean = withoutAnimeParens;
+  }
+
   clean = clean.replace(/\[(?:Official|MV|Music Video|Full|Audio|Lyric Video|4K|HD|Remastered|Live).*?\]/gi, ' ');
   clean = clean.replace(/\((?:Official|Music Video|MV|Audio|Lyric Video|Full Ver\.?|Live|Visualizer|THE FIRST TAKE).*?\)/gi, ' ');
   clean = clean.replace(/THE FIRST TAKE/gi, ' ');
@@ -279,6 +285,7 @@ export function cleanSongTitle(rawTitle, rawChannel = '') {
       .replace(/\s*(?:feat\.?|ft\.?)\s+.*$/i, '')
       .replace(/\s*（(?:CV|feat|ft).*?）/gi, '')
       .replace(/\s*\((?:CV|feat|ft).*?\)/gi, '')
+      .replace(/[（\(][^）\)]*[）\)]/g, '')
       .replace(/[/／|｜].*$/, '')
       .trim();
   };

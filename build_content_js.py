@@ -778,6 +778,12 @@ content_code = """/**
       clean = clean.replace(/[【】]/g, ' ').trim();
     }
 
+    // Strip anime theme metadata in parentheses if there is text outside of it
+    const withoutAnimeParens = clean.replace(/[（\\(](?:TVアニメ|アニメ|TV Anime|Anime|主題歌|OP|ED|挿入歌|テーマ|Character Song).*?[）\\)]/gi, ' ').trim();
+    if (withoutAnimeParens) {
+      clean = withoutAnimeParens;
+    }
+
     clean = clean.replace(/\\[(?:Official|MV|Music Video|Full|Audio|Lyric Video|4K|HD|Remastered|Live).*?\\]/gi, ' ');
     clean = clean.replace(/\\((?:Official|Music Video|MV|Audio|Lyric Video|Full Ver\\.?|Live|Visualizer|THE FIRST TAKE).*?\\)/gi, ' ');
     clean = clean.replace(/THE FIRST TAKE/gi, ' ');
@@ -833,6 +839,7 @@ content_code = """/**
         .replace(/\\s*(?:feat\\.?|ft\\.?)\\s+.*$/i, '')
         .replace(/\\s*（(?:CV|feat|ft).*?）/gi, '')
         .replace(/\\s*\\((?:CV|feat|ft).*?\\)/gi, '')
+        .replace(/[（\\(][^）\\)]*[）\\)]/g, '')
         .replace(/[/／|｜].*$/, '')
         .trim();
     };
@@ -2056,18 +2063,50 @@ content_code = """/**
             <button id="lp-paste-submit-btn" style="margin-top:8px; width:100%; background:#059669; color:#fff; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">Apply Pasted Lyrics</button>
           </div>
 
-          <!-- Timing Offset -->
-          <div style="background:#1e293b; padding:12px 14px; border-radius:12px; border:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-size:11px; color:#cbd5e1;">
-              <span>Audio Timing Offset:</span>
-              <strong id="lp-modal-offset-val" style="color:#f59e0b; margin-left:4px; font-family:monospace;">0.0s</strong>
+          <!-- Option 4: Audio Timing & Auto-Sync -->
+          <div style="background:#1e293b; padding:14px; border-radius:12px; border:1px solid #334155;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <label style="font-size:12px; font-weight:600; color:#f59e0b; display:flex; align-items:center; gap:6px;">
+                <span>⏱️ Option 4: Audio Timing & Auto-Sync</span>
+              </label>
+              <div style="font-size:12px; color:#cbd5e1;">
+                Offset: <strong id="lp-modal-offset-val" style="color:#f59e0b; font-family:monospace; font-size:13px;">+0.0s</strong>
+              </div>
             </div>
-            <div style="display:flex; gap:4px;">
-              <button class="lp-offset-adj-btn" data-delta="-0.5" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">-0.5s</button>
-              <button class="lp-offset-adj-btn" data-delta="-0.1" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">-0.1s</button>
-              <button class="lp-offset-adj-btn" data-delta="0" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">Reset</button>
-              <button class="lp-offset-adj-btn" data-delta="0.1" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">+0.1s</button>
-              <button class="lp-offset-adj-btn" data-delta="0.5" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">+0.5s</button>
+
+            <!-- 1-Click Sync Anchor -->
+            <div style="background:#0f172a; border:1px solid #3b82f6; border-radius:8px; padding:10px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <div style="font-size:11px; color:#94a3b8; line-height:1.4;">
+                <span style="color:#60a5fa; font-weight:600;">🎯 1-Click Anchor:</span> When Line 1 starts singing, click:
+              </div>
+              <button id="lp-sync-playhead-btn" style="background:#2563eb; color:#fff; border:none; padding:7px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+                <span>🎯 Sync Line 1 to Playhead</span>
+              </button>
+            </div>
+
+            <!-- Manual Numeric Input & Fine-Tuning Macros -->
+            <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
+              <span style="font-size:11px; color:#94a3b8;">Set Offset:</span>
+              <input type="number" id="lp-offset-manual-input" step="0.1" value="0.0" style="width:75px; background:#0f172a; border:1px solid #475569; border-radius:6px; padding:5px 8px; color:#fff; font-size:11.5px; font-family:monospace; outline:none;">
+              <button id="lp-offset-manual-set-btn" style="background:#475569; color:#fff; border:none; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;">Set</button>
+              <div style="flex:1;"></div>
+              <span id="lp-offset-save-status" style="font-size:10px; color:#34d399;"></span>
+            </div>
+
+            <!-- Macro adjustment buttons -->
+            <div style="display:flex; flex-wrap:wrap; gap:4px; justify-content:center;">
+              <button class="lp-offset-adj-btn" data-delta="-5.0" style="background:#334155; color:#cbd5e1; border:none; padding:4px 7px; border-radius:6px; font-size:10.5px; cursor:pointer;">-5s</button>
+              <button class="lp-offset-adj-btn" data-delta="-1.0" style="background:#334155; color:#cbd5e1; border:none; padding:4px 7px; border-radius:6px; font-size:10.5px; cursor:pointer;">-1s</button>
+              <button class="lp-offset-adj-btn" data-delta="-0.5" style="background:#334155; color:#cbd5e1; border:none; padding:4px 7px; border-radius:6px; font-size:10.5px; cursor:pointer;">-0.5s</button>
+              <button class="lp-offset-adj-btn" data-delta="-0.1" style="background:#334155; color:#cbd5e1; border:none; padding:4px 7px; border-radius:6px; font-size:10.5px; cursor:pointer;">-0.1s</button>
+              <button class="lp-offset-adj-btn" data-delta="0" style="background:#475569; color:#fff; border:none; padding:4px 9px; border-radius:6px; font-size:10.5px; font-weight:600; cursor:pointer;">Reset (0s)</button>
+              <button class="lp-offset-adj-btn" data-delta="0.1" style="background:#334155; color:#cbd5e1; border:none; padding:4px 7px; border-radius:6px; font-size:10.5px; cursor:pointer;">+0.1s</button>
+              <button class="lp-offset-adj-btn" data-delta="0.5" style="background:#334155; color:#cbd5e1; border:none; padding:4px 7px; border-radius:6px; font-size:10.5px; cursor:pointer;">+0.5s</button>
+              <button class="lp-offset-adj-btn" data-delta="1.0" style="background:#334155; color:#cbd5e1; border:none; padding:4px 7px; border-radius:6px; font-size:10.5px; cursor:pointer;">+1s</button>
+              <button class="lp-offset-adj-btn" data-delta="5.0" style="background:#334155; color:#cbd5e1; border:none; padding:4px 7px; border-radius:6px; font-size:10.5px; cursor:pointer;">+5s</button>
+            </div>
+            <div style="font-size:10px; color:#64748b; text-align:center; margin-top:6px;">
+              💡 Hotkeys: <kbd style="background:#0f172a; padding:1px 4px; border-radius:3px;">[</kbd> / <kbd style="background:#0f172a; padding:1px 4px; border-radius:3px;">]</kbd> for ±0.1s | <kbd style="background:#0f172a; padding:1px 4px; border-radius:3px;">Shift+[</kbd> / <kbd style="background:#0f172a; padding:1px 4px; border-radius:3px;">Shift+]</kbd> for ±1.0s
             </div>
           </div>
         </div>
@@ -2173,16 +2212,47 @@ content_code = """/**
         }
       });
 
+      function setTimingOffset(newOffset) {
+        timingOffset = Math.round(newOffset * 10) / 10;
+        updateOffsetDisplay();
+        const modalOffset = document.getElementById('lp-modal-offset-val');
+        if (modalOffset) modalOffset.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+        const manualInp = document.getElementById('lp-offset-manual-input');
+        if (manualInp && document.activeElement !== manualInp) manualInp.value = timingOffset.toFixed(1);
+
+        if (currentVideoId && chrome.storage?.local) {
+          chrome.storage.local.set({ [`lp_offset_${currentVideoId}`]: timingOffset }, () => {
+            const status = document.getElementById('lp-offset-save-status');
+            if (status) {
+              status.textContent = '✓ Saved';
+              setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+            }
+          });
+        }
+      }
+
+      document.getElementById('lp-sync-playhead-btn')?.addEventListener('click', () => {
+        if (!activeVideoEl || subtitleTimeline.length === 0) {
+          alert('Please load subtitles or lyrics first before anchoring!');
+          return;
+        }
+        const playhead = activeVideoEl.currentTime;
+        const firstCueStart = subtitleTimeline[0].start;
+        const newOffset = playhead - firstCueStart;
+        setTimingOffset(newOffset);
+        alert(`Anchored Line 1 to video playhead (${playhead.toFixed(2)}s)!\nTiming offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`);
+      });
+
+      document.getElementById('lp-offset-manual-set-btn')?.addEventListener('click', () => {
+        const val = parseFloat(document.getElementById('lp-offset-manual-input')?.value || '0');
+        if (!isNaN(val)) setTimingOffset(val);
+      });
+
       document.querySelectorAll('.lp-offset-adj-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const delta = parseFloat(btn.dataset.delta);
-          if (delta === 0) timingOffset = 0.0;
-          else timingOffset += delta;
-          timingOffset = Math.round(timingOffset * 10) / 10;
-          const offsetDisp = document.getElementById('linguaplay-offset-display');
-          if (offsetDisp) offsetDisp.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
-          const modalOffset = document.getElementById('lp-modal-offset-val');
-          if (modalOffset) modalOffset.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+          if (delta === 0) setTimingOffset(0.0);
+          else setTimingOffset(timingOffset + delta);
         });
       });
     }
@@ -2198,6 +2268,8 @@ content_code = """/**
       }
       const offsetEl = document.getElementById('lp-modal-offset-val');
       if (offsetEl) offsetEl.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+      const manualInp = document.getElementById('lp-offset-manual-input');
+      if (manualInp && document.activeElement !== manualInp) manualInp.value = timingOffset.toFixed(1);
     }
 
     function openLyricsModal() {
@@ -3059,6 +3131,23 @@ Respond with ONLY valid JSON:
       updateSenseiChatControls();
       updateLyricsModalStatus();
 
+      // Load stored offset for this video
+      if (chrome.storage?.local) {
+        chrome.storage.local.get([`lp_offset_${vid}`], (res) => {
+          if (typeof res[`lp_offset_${vid}`] === 'number') {
+            timingOffset = res[`lp_offset_${vid}`];
+          } else {
+            timingOffset = 0.0;
+          }
+          updateOffsetDisplay();
+          updateLyricsModalStatus();
+        });
+      } else {
+        timingOffset = 0.0;
+        updateOffsetDisplay();
+        updateLyricsModalStatus();
+      }
+
       inspectAndSwitchPlayerTracks();
 
       let cues = await fetchYouTubeCaptions(vid);
@@ -3109,6 +3198,38 @@ Respond with ONLY valid JSON:
       }
     }
   }
+
+  function showOffsetHUD() {
+    let hud = document.getElementById('lp-offset-hud');
+    if (!hud) {
+      hud = document.createElement('div');
+      hud.id = 'lp-offset-hud';
+      hud.style.cssText = 'position:fixed; top:70px; left:50%; transform:translateX(-50%); background:rgba(15,23,42,0.92); color:#f59e0b; border:1px solid #f59e0b; padding:8px 16px; border-radius:20px; font-size:13px; font-weight:700; z-index:9999999; pointer-events:none; transition:opacity 0.3s; font-family:monospace; box-shadow:0 4px 12px rgba(0,0,0,0.5);';
+      document.body.appendChild(hud);
+    }
+    hud.textContent = `⏱️ Subtitle Offset: ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+    hud.style.opacity = '1';
+    clearTimeout(hud._timer);
+    hud._timer = setTimeout(() => { hud.style.opacity = '0'; }, 1500);
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName) || e.target?.isContentEditable) return;
+    if (e.key === '[' || e.key === ']') {
+      const step = e.shiftKey ? 1.0 : 0.1;
+      const delta = e.key === ']' ? step : -step;
+      timingOffset = Math.round((timingOffset + delta) * 10) / 10;
+      updateOffsetDisplay();
+      const modalOffset = document.getElementById('lp-modal-offset-val');
+      if (modalOffset) modalOffset.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+      const manualInp = document.getElementById('lp-offset-manual-input');
+      if (manualInp && document.activeElement !== manualInp) manualInp.value = timingOffset.toFixed(1);
+      if (currentVideoId && chrome.storage?.local) {
+        chrome.storage.local.set({ [`lp_offset_${currentVideoId}`]: timingOffset });
+      }
+      showOffsetHUD();
+    }
+  });
 
   setInterval(checkAndInitVideo, 1000);
   window.addEventListener('yt-navigate-finish', checkAndInitVideo);

@@ -96,6 +96,11 @@ test('cleanSongTitle sanitizes YouTube music video titles and extracts artist/tr
   const t7 = cleanSongTitle('土岐麻子 / HOME【TVアニメ「フルーツバスケット」2nd Season 第2クール OP ver.】 - YouTube', '土岐麻子');
   assert.equal(t7.trackName, 'HOME');
   assert.equal(t7.artistName, '土岐麻子');
+
+  // Case 8: Anime OP theme in parentheses with quoted anime title
+  const t8 = cleanSongTitle('Beverly（ビバリー） / Again（TVアニメ「フルーツバスケット」OPテーマ） - YouTube', 'avex');
+  assert.equal(t8.trackName, 'Again');
+  assert.equal(t8.artistName, 'Beverly');
 });
 
 test('manifest.json includes host permissions for https://lrclib.net/* and arbitrary lyrics URLs', () => {
@@ -351,5 +356,13 @@ test('background.js falls back to Kugou Music when LRCLIB has no synced lyrics',
     globalThis.fetch = originalFetch;
   }
 });
+
+test('content.js includes Option 4 1-click anchor sync, macro buttons, and storage persistence', () => {
+  const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+  assert.ok(contentJs.includes('lp-sync-playhead-btn'), 'content.js must define 1-click anchor sync button #lp-sync-playhead-btn');
+  assert.ok(contentJs.includes('lp-offset-manual-input'), 'content.js must define direct numeric offset input #lp-offset-manual-input');
+  assert.ok(contentJs.includes('lp_offset_'), 'content.js must persist timing offset per video in storage');
+});
+
 
 
