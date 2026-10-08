@@ -303,7 +303,8 @@ test('native controls are placed before CC and reattached without duplicate butt
   const right = player.querySelector('.ytp-right-controls');
   assert.equal(right.firstChild, group);
   assert.equal(group.children[0].id, 'linguaplay-visibility-toggle');
-  assert.equal(group.children[1].id, 'linguaplay-toggle-trigger');
+  assert.equal(group.children[1].id, 'linguaplay-sub-status');
+  assert.equal(group.children[2].id, 'linguaplay-toggle-trigger');
   h.injectUI();
   h.injectUI();
   assert.equal(right.children.filter(child => child === group).length, 1);

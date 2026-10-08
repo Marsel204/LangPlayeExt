@@ -2028,7 +2028,6 @@ Respond in JSON only:
         <button class="linguaplay-bar-btn" id="linguaplay-fetch-lyrics-btn" title="Lyrics Manager (Search Synced Lyrics & Audio Timing)" style="background:rgba(124,58,237,0.35); border-color:#a78bfa; color:#fff; font-weight:600;">🎵 Lyrics</button>
         <button class="linguaplay-bar-btn" id="linguaplay-open-app-btn" title="Open in Full LinguaPlay Player Tab" style="background: rgba(124,58,237,0.4); border-color:#a78bfa; color:#fff;">🚀</button>
         <button class="linguaplay-bar-btn" id="linguaplay-open-settings-btn" title="Open Extension Settings" style="background: rgba(124,58,237,0.25); border-color:rgba(167,139,250,0.5); color:#fff;">⚙️</button>
-        <span id="linguaplay-sub-status" style="font-size: 10px; color: #6ee7b7; margin-left: 2px; cursor:pointer;" title="Click to open Lyrics Manager"></span>
         <button class="linguaplay-bar-btn linguaplay-collapse-btn" id="linguaplay-collapse-btn" title="Collapse Bar">✕</button>
       </div>
     `;
@@ -2047,6 +2046,7 @@ Respond in JSON only:
           <path d="m3 3 18 18M10.6 5.1A12 12 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-3 4M6.5 6.5A18 18 0 0 0 2 12s3.5 7 10 7a12 12 0 0 0 5.5-1.5M10 10a3 3 0 0 0 4 4"/>
         </svg>
       </button>
+      <span id="linguaplay-sub-status" class="linguaplay-sub-status-badge" title="Click to open Lyrics Manager" role="button" tabindex="0"></span>
       <button type="button" class="ytp-button" id="linguaplay-toggle-trigger" title="LinguaPlay settings" aria-label="LinguaPlay settings" aria-controls="linguaplay-yt-bar" aria-expanded="false">
         <span aria-hidden="true">言</span>
       </button>
@@ -2488,42 +2488,6 @@ Respond in JSON only:
       });
     }
 
-    function updateLyricsModalStatus() {
-      const countEl = document.getElementById('lp-modal-active-count');
-      const typeEl = document.getElementById('lp-modal-active-type');
-      if (countEl) countEl.textContent = `${subtitleTimeline.length} cues`;
-      if (typeEl) {
-        typeEl.textContent = subtitleTimeline.length > 0
-          ? (document.getElementById('linguaplay-sub-status')?.textContent || 'Active')
-          : 'None';
-      }
-      const offsetEl = document.getElementById('lp-modal-offset-val');
-      if (offsetEl) offsetEl.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
-      const manualInp = document.getElementById('lp-offset-manual-input');
-      if (manualInp && document.activeElement !== manualInp) manualInp.value = timingOffset.toFixed(1);
-
-      if (currentVideoId && chrome.storage?.local) {
-        chrome.storage.local.get([`lp_lyrics_cache_${currentVideoId}`], (res) => {
-          const cached = res[`lp_lyrics_cache_${currentVideoId}`];
-          const cacheBadge = document.getElementById('lp-modal-cache-badge');
-          const clearBtn = document.getElementById('lp-clear-cache-btn');
-          if (cached && cached.syncedLyrics && subtitleTimeline.length > 0) {
-            if (cacheBadge) {
-              cacheBadge.style.display = 'inline-block';
-              cacheBadge.style.background = 'rgba(52,211,153,0.18)';
-              cacheBadge.style.color = '#34d399';
-              cacheBadge.style.border = '1px solid rgba(52,211,153,0.4)';
-              cacheBadge.textContent = '💾 Saved in Cache';
-            }
-            if (clearBtn) clearBtn.style.display = 'inline-block';
-          } else {
-            if (cacheBadge) cacheBadge.style.display = 'none';
-            if (clearBtn) clearBtn.style.display = 'none';
-          }
-        });
-      }
-    }
-
     function openLyricsModal() {
       const modal = document.getElementById('linguaplay-lyrics-modal');
       if (!modal) return;
@@ -2559,7 +2523,17 @@ Respond in JSON only:
     }
     const subStatusBadge = document.getElementById('linguaplay-sub-status');
     if (subStatusBadge) {
-      subStatusBadge.addEventListener('click', openLyricsModal);
+      subStatusBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openLyricsModal();
+      });
+      subStatusBadge.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          openLyricsModal();
+        }
+      });
     }
 
     function openExtensionSettings() {
@@ -3140,6 +3114,42 @@ Respond with ONLY valid JSON:
     updateWidgetState();
     ensurePlayerControls();
     setupLiveCaptionHooking();
+  }
+
+  function updateLyricsModalStatus() {
+    const countEl = document.getElementById('lp-modal-active-count');
+    const typeEl = document.getElementById('lp-modal-active-type');
+    if (countEl) countEl.textContent = `${subtitleTimeline.length} cues`;
+    if (typeEl) {
+      typeEl.textContent = subtitleTimeline.length > 0
+        ? (document.getElementById('linguaplay-sub-status')?.textContent || 'Active')
+        : 'None';
+    }
+    const offsetEl = document.getElementById('lp-modal-offset-val');
+    if (offsetEl) offsetEl.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+    const manualInp = document.getElementById('lp-offset-manual-input');
+    if (manualInp && document.activeElement !== manualInp) manualInp.value = timingOffset.toFixed(1);
+
+    if (currentVideoId && chrome.storage?.local) {
+      chrome.storage.local.get([`lp_lyrics_cache_${currentVideoId}`], (res) => {
+        const cached = res[`lp_lyrics_cache_${currentVideoId}`];
+        const cacheBadge = document.getElementById('lp-modal-cache-badge');
+        const clearBtn = document.getElementById('lp-clear-cache-btn');
+        if (cached && cached.syncedLyrics && subtitleTimeline.length > 0) {
+          if (cacheBadge) {
+            cacheBadge.style.display = 'inline-block';
+            cacheBadge.style.background = 'rgba(52,211,153,0.18)';
+            cacheBadge.style.color = '#34d399';
+            cacheBadge.style.border = '1px solid rgba(52,211,153,0.4)';
+            cacheBadge.textContent = '💾 Saved in Cache';
+          }
+          if (clearBtn) clearBtn.style.display = 'inline-block';
+        } else {
+          if (cacheBadge) cacheBadge.style.display = 'none';
+          if (clearBtn) clearBtn.style.display = 'none';
+        }
+      });
+    }
   }
 
   function updateOffsetDisplay() {

@@ -442,5 +442,33 @@ test('content.js includes per-video lyrics caching with storage persistence', ()
   assert.ok(contentJs.includes('lp_lyrics_cache_'), 'content.js must check and persist lp_lyrics_cache_ in storage');
 });
 
+test('content.js places #linguaplay-sub-status badge inside #linguaplay-yt-controls next to the eye icon', () => {
+  const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+  assert.ok(contentJs.includes('id="linguaplay-visibility-toggle"'), 'Eye icon must exist');
+  assert.ok(contentJs.includes('id="linguaplay-sub-status"'), 'Sub status badge must exist');
+
+  // Verify linguaplay-sub-status is within linguaplay-yt-controls
+  const controlsMatch = contentJs.match(/controls\.innerHTML\s*=\s*`([\s\S]*?)`;/);
+  assert.ok(controlsMatch, 'controls.innerHTML must be defined');
+  const controlsHtml = controlsMatch[1];
+  assert.ok(controlsHtml.includes('id="linguaplay-visibility-toggle"'), 'visibility-toggle in controls');
+  assert.ok(controlsHtml.includes('id="linguaplay-sub-status"'), 'sub-status in controls');
+  assert.ok(controlsHtml.includes('id="linguaplay-toggle-trigger"'), 'toggle-trigger in controls');
+
+  // Verify visibility-toggle comes right before sub-status
+  const eyeIndex = controlsHtml.indexOf('linguaplay-visibility-toggle');
+  const statusIndex = controlsHtml.indexOf('linguaplay-sub-status');
+  const triggerIndex = controlsHtml.indexOf('linguaplay-toggle-trigger');
+  assert.ok(eyeIndex < statusIndex, 'Eye icon must precede sub-status badge');
+  assert.ok(statusIndex < triggerIndex, 'Sub-status badge must precede settings trigger');
+
+  // Verify sub-status was removed from linguaplay-yt-bar
+  const barMatch = contentJs.match(/id="linguaplay-yt-bar"[\s\S]*?<\/div>/);
+  if (barMatch) {
+    assert.ok(!barMatch[0].includes('id="linguaplay-sub-status"'), 'Bar must not have duplicate linguaplay-sub-status');
+  }
+});
+
+
 
 

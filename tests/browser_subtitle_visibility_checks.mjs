@@ -115,7 +115,7 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   assert.equal(current.shadow, 'none');
   assert.equal(current.buttonWidth, current.nativeWidth);
   assert.equal(await evaluate('document.getElementById("linguaplay-yt-controls").nextElementSibling.classList.contains("ytp-subtitles-button")'), true);
-  assert.deepEqual(await evaluate('Array.from(document.getElementById("linguaplay-yt-controls").children, el => el.id)'), ['linguaplay-visibility-toggle', 'linguaplay-toggle-trigger']);
+  assert.deepEqual(await evaluate('Array.from(document.getElementById("linguaplay-yt-controls").children, el => el.id)'), ['linguaplay-visibility-toggle', 'linguaplay-sub-status', 'linguaplay-toggle-trigger']);
   await evaluate('document.querySelector(".linguaplay-yt-token").click()');
   assert.notEqual((await state()).drawer, 'none');
   if (localAiUrl) {
