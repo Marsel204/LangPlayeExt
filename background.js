@@ -240,6 +240,75 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // async sendResponse
   }
 
+function decodeKugouLrc(base64Content) {
+  if (!base64Content || typeof base64Content !== 'string') return '';
+  let decoded = '';
+  if (typeof Buffer !== 'undefined') {
+    decoded = Buffer.from(base64Content, 'base64').toString('utf8');
+  } else {
+    const bin = atob(base64Content);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    decoded = new TextDecoder('utf-8').decode(bytes);
+  }
+  return decoded
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+async function fetchKugouLyrics(keyword, duration = 0) {
+  if (!keyword || typeof keyword !== 'string' || !keyword.trim()) return null;
+  const cleanQ = keyword.trim();
+  try {
+    const searchUrl = `http://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=${encodeURIComponent(cleanQ)}`;
+    const searchRes = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!searchRes.ok) return null;
+    const searchData = await searchRes.json();
+    if (!searchData || !Array.isArray(searchData.candidates) || searchData.candidates.length === 0) {
+      return null;
+    }
+
+    let candidate = null;
+    if (duration && Number(duration) > 0) {
+      candidate = searchData.candidates.find(c => Math.abs(Number(c.duration) - Number(duration)) < 5);
+    }
+    if (!candidate) candidate = searchData.candidates[0];
+    if (!candidate || !candidate.id || !candidate.accesskey) return null;
+
+    const downloadUrl = `http://lyrics.kugou.com/download?ver=1&client=pc&id=${candidate.id}&accesskey=${candidate.accesskey}&fmt=lrc&charset=utf8`;
+    const dlRes = await fetch(downloadUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!dlRes.ok) return null;
+    const dlData = await dlRes.json();
+    if (!dlData || !dlData.content) return null;
+
+    const lrcText = decodeKugouLrc(dlData.content);
+    if (!lrcText) return null;
+
+    return {
+      provider: 'kugou',
+      trackName: candidate.song || candidate.singer || cleanQ,
+      artistName: candidate.singer || '',
+      syncedLyrics: lrcText
+    };
+  } catch (err) {
+    console.warn('[LinguaPlay] Kugou lyrics fetch error:', err);
+    return null;
+  }
+}
+
   if (request.action === 'FETCH_LRCLIB_LYRICS') {
     (async () => {
       try {
@@ -279,6 +348,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (data && data.syncedLyrics) {
               sendResponse({
                 success: true,
+                provider: 'lrclib',
                 trackName: data.trackName || trackName,
                 artistName: data.artistName || artistName,
                 syncedLyrics: data.syncedLyrics,
@@ -289,7 +359,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           } catch (e) { /* fallback to search */ }
         }
 
-        // 2. Search fallback
+        // 2. LRCLIB Search fallback
         const searchQ = (query || `${artistName || ''} ${trackName || ''}`).trim();
         if (searchQ) {
           const searchParams = new URLSearchParams();
@@ -309,6 +379,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               if (candidate && (candidate.syncedLyrics || candidate.plainLyrics)) {
                 sendResponse({
                   success: true,
+                  provider: 'lrclib',
                   trackName: candidate.trackName || trackName,
                   artistName: candidate.artistName || artistName,
                   syncedLyrics: candidate.syncedLyrics,
@@ -320,7 +391,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           }
         }
 
-        sendResponse({ success: false, error: 'No matching synced lyrics found' });
+        // 3. Kugou Music fallback (High coverage for Anime, Covers & J-Pop)
+        const kugouQ = (query || `${artistName || ''} ${trackName || ''}`).trim();
+        if (kugouQ) {
+          const kugouResult = await fetchKugouLyrics(kugouQ, duration);
+          if (kugouResult && kugouResult.syncedLyrics) {
+            sendResponse({
+              success: true,
+              provider: 'kugou',
+              trackName: kugouResult.trackName || trackName,
+              artistName: kugouResult.artistName || artistName,
+              syncedLyrics: kugouResult.syncedLyrics
+            });
+            return;
+          }
+        }
+
+        sendResponse({ success: false, error: 'No matching synced lyrics found on LRCLIB or Kugou Music' });
       } catch (err) {
         sendResponse({ success: false, error: err.message });
       }

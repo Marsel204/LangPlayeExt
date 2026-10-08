@@ -269,3 +269,87 @@ test('content.js includes lyrics modal UI, retry polling state, and URL fetching
   assert.ok(contentJs.includes('FETCH_LYRICS_URL'), 'content.js must send FETCH_LYRICS_URL to background worker');
 });
 
+test('background.js falls back to Kugou Music when LRCLIB has no synced lyrics', async () => {
+  const bgCode = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+
+  let messageListener = null;
+  const mockChrome = {
+    runtime: {
+      onInstalled: { addListener: () => {} },
+      onMessage: { addListener: (cb) => { messageListener = cb; } },
+      getURL: (p) => `chrome-extension://mock/${p}`
+    },
+    tabs: { create: () => {} },
+    storage: { local: { get: async () => ({}) } },
+    permissions: { contains: async () => true }
+  };
+
+  const evalFn = new Function('chrome', bgCode);
+  evalFn(mockChrome);
+  assert.ok(messageListener);
+
+  const originalFetch = globalThis.fetch;
+  const fetchUrls = [];
+  try {
+    globalThis.fetch = async (url) => {
+      fetchUrls.push(url);
+      if (url.includes('lrclib.net')) {
+        // LRCLIB returns 404 / empty search
+        return { ok: false, status: 404, json: async () => ({ message: 'Not found' }) };
+      }
+      if (url.includes('lyrics.kugou.com/search')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            status: 200,
+            candidates: [
+              {
+                id: '62589475',
+                accesskey: '5DC756726B71A4435EA15921245BC375',
+                singer: '土岐麻子',
+                song: 'HOME',
+                duration: 291
+              }
+            ]
+          })
+        };
+      }
+      if (url.includes('lyrics.kugou.com/download')) {
+        // Base64 encoding for "[00:14.71]胸の奥で人知れず\n[00:18.52]揺れていた\n"
+        const rawLrc = '[00:14.71]胸の奥で人知れず\n[00:18.52]揺れていた\n';
+        const b64 = Buffer.from(rawLrc, 'utf8').toString('base64');
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            status: 200,
+            content: b64
+          })
+        };
+      }
+      return { ok: false, status: 500 };
+    };
+
+    const response = await new Promise(resolve => {
+      messageListener({
+        action: 'FETCH_LRCLIB_LYRICS',
+        trackName: 'HOME',
+        artistName: '土岐麻子',
+        query: '土岐麻子 HOME'
+      }, { id: 'mock-id' }, resolve);
+    });
+
+    assert.equal(response.success, true, 'Kugou fallback should return success: true');
+    assert.equal(response.provider, 'kugou', 'Response provider should be kugou');
+    assert.equal(response.trackName, 'HOME');
+    assert.equal(response.artistName, '土岐麻子');
+    assert.ok(response.syncedLyrics.includes('[00:14.71]胸の奥で人知れず'), 'syncedLyrics should contain decoded UTF-8 Japanese');
+    assert.ok(fetchUrls.some(u => u.includes('lyrics.kugou.com/search')), 'Must have searched Kugou');
+    assert.ok(fetchUrls.some(u => u.includes('lyrics.kugou.com/download')), 'Must have downloaded from Kugou');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+

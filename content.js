@@ -1295,7 +1295,7 @@
       if (response && response.success && response.syncedLyrics) {
         const cues = parseLRC(response.syncedLyrics);
         if (cues && cues.length > 0) {
-          return { cues, trackName: response.trackName, artistName: response.artistName };
+          return { cues, trackName: response.trackName, artistName: response.artistName, provider: response.provider || 'lrclib' };
         }
       }
     } catch (e) {
@@ -2201,11 +2201,14 @@
             <div id="lp-lyrics-url-feedback" style="font-size:11px; margin-top:6px; min-height:14px;"></div>
           </div>
 
-          <!-- Option 2: Search LRCLIB -->
+          <!-- Option 2: Search Synced Lyrics (LRCLIB & Kugou) -->
           <div style="margin-bottom:14px; background:#1e293b; padding:14px; border-radius:12px; border:1px solid #334155;">
-            <label style="display:block; font-size:12px; font-weight:600; color:#a78bfa; margin-bottom:4px;">
-              🔍 Option 2: Search LRCLIB Database
-            </label>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <label style="font-size:12px; font-weight:600; color:#a78bfa;">
+                🔍 Option 2: Search Synced Lyrics
+              </label>
+              <span style="font-size:10px; color:#38bdf8; background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.3); padding:1px 6px; border-radius:4px;">LRCLIB + Kugou Music</span>
+            </div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
               <div>
                 <span style="font-size:10px; color:#94a3b8; display:block; margin-bottom:2px;">Track Name:</span>
@@ -2216,7 +2219,7 @@
                 <input type="text" id="lp-search-artist-input" placeholder="Artist name" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; border-radius:8px; padding:7px 10px; color:#fff; font-size:12px; outline:none;">
               </div>
             </div>
-            <button id="lp-search-submit-btn" style="width:100%; background:#7c3aed; color:#fff; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">Search & Sync</button>
+            <button id="lp-search-submit-btn" style="width:100%; background:#7c3aed; color:#fff; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">Search & Sync (LRCLIB + Kugou)</button>
             <div id="lp-search-results-list" style="margin-top:10px; max-height:140px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
           </div>
 
@@ -2281,7 +2284,7 @@
         const track = document.getElementById('lp-search-track-input')?.value?.trim();
         const artist = document.getElementById('lp-search-artist-input')?.value?.trim();
         const listContainer = document.getElementById('lp-search-results-list');
-        if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#a78bfa;">Searching LRCLIB...</div>';
+        if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#a78bfa;">Searching LRCLIB & Kugou Music...</div>';
 
         const query = [artist, track].filter(Boolean).join(' ');
         const response = await new Promise(resolve => {
@@ -2299,12 +2302,13 @@
           if (cues && cues.length > 0) {
             subtitleTimeline = cues;
             currentSubIndex = -1;
+            const provName = response.provider === 'kugou' ? 'Kugou Music' : 'LRCLIB';
             const statusBadge = document.getElementById('linguaplay-sub-status');
             if (statusBadge) statusBadge.textContent = `🎵 ${response.trackName || 'Lyrics'} (${cues.length})`;
             if (listContainer) {
               listContainer.innerHTML = `
                 <div style="background:rgba(52,211,153,0.15); border:1px solid #34d399; padding:8px 10px; border-radius:8px; font-size:11px; color:#34d399;">
-                  ✓ Applied: <strong>${response.trackName}</strong> by ${response.artistName} (${cues.length} cues)
+                  ✓ Found on ${provName}: <strong>${response.trackName}</strong> ${response.artistName ? 'by ' + response.artistName : ''} (${cues.length} cues)
                 </div>
               `;
             }
@@ -2313,7 +2317,7 @@
             return;
           }
         }
-        if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">No synced lyrics found on LRCLIB for this search query.</div>';
+        if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">No synced lyrics found on LRCLIB or Kugou Music for this search query.</div>';
       });
 
       document.getElementById('lp-paste-submit-btn')?.addEventListener('click', () => {
@@ -3262,7 +3266,8 @@ Respond with ONLY valid JSON:
           if (lyricsInfo && lyricsInfo.cues && lyricsInfo.cues.length > 0) {
             subtitleTimeline = lyricsInfo.cues;
             if (statusBadge) {
-              statusBadge.textContent = `🎵 ${lyricsInfo.trackName || 'Lyrics'} (${lyricsInfo.cues.length})`;
+              const provTag = lyricsInfo.provider === 'kugou' ? ' [Kugou]' : '';
+              statusBadge.textContent = `🎵 ${lyricsInfo.trackName || 'Lyrics'}${provTag} (${lyricsInfo.cues.length})`;
             }
           } else {
             if (statusBadge) {

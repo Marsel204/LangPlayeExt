@@ -66,6 +66,7 @@
   "host_permissions": [
     "https://*.youtube.com/*",
     "https://lrclib.net/*",
+    "http://lyrics.kugou.com/*",
     "http://*/*",
     "https://*/*",
     "https://generativelanguage.googleapis.com/*",
