@@ -66,6 +66,8 @@
   "host_permissions": [
     "https://*.youtube.com/*",
     "https://lrclib.net/*",
+    "http://*/*",
+    "https://*/*",
     "https://generativelanguage.googleapis.com/*",
     "https://openrouter.ai/*",
     "https://api.deepseek.com/*",

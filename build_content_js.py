@@ -558,6 +558,8 @@ content_code = """/**
   let timingOffset = 0.0;
   let readingMode = 'furigana';
   let currentVideoId = null;
+  let lyricsFetchAttemptedVid = null;
+  let isFetchingLyrics = false;
   let lastAiData = null;
   let senseiChatHistory = [];
   let activeSenseiChatRequest = null;
@@ -751,6 +753,14 @@ content_code = """/**
     return cues;
   }
 
+  function parseSubtitleFile(raw, filename = '') {
+    const isVtt = filename.toLowerCase().endsWith('.vtt') || raw.trim().startsWith('WEBVTT');
+    if (isVtt) return parseVTT(raw);
+    const isLrc = filename.toLowerCase().endsWith('.lrc') || /\\[\\d{1,2}:\\d{2}[.:]\\d{2,3}\\]/.test(raw);
+    if (isLrc) return parseLRC(raw);
+    return parseSRT(raw);
+  }
+
   function cleanSongTitle(rawTitle, rawChannel = '') {
     if (!rawTitle || typeof rawTitle !== 'string') {
       const fallback = (rawChannel || '').trim();
@@ -758,6 +768,7 @@ content_code = """/**
     }
 
     let clean = rawTitle.trim();
+    clean = clean.replace(/\\s*-\\s*YouTube$/i, '').trim();
 
     // Strip sumitsuki kakko 【...】 if there is text outside of it
     const withoutSumitsuki = clean.replace(/【[^】]*】/g, ' ').trim();
@@ -1113,6 +1124,71 @@ content_code = """/**
       }
     } catch (e) {
       console.warn('[LinguaPlay] LRCLIB lyrics fetch failed:', e);
+    }
+    return null;
+  }
+
+  function getYouTubeVideoMetadata() {
+    let title = '';
+    let channel = '';
+
+    const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
+                    document.querySelector('h1.title yt-formatted-string') ||
+                    document.querySelector('#title h1 yt-formatted-string') ||
+                    document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
+                    document.querySelector('h1.ytd-video-primary-info-renderer');
+    if (titleEl && titleEl.textContent && titleEl.textContent.trim()) {
+      title = titleEl.textContent.trim();
+    }
+
+    if (!title) {
+      const metaTitle = document.querySelector('meta[name="title"]') || document.querySelector('meta[property="og:title"]');
+      if (metaTitle && metaTitle.content && metaTitle.content.trim()) {
+        title = metaTitle.content.trim();
+      }
+    }
+
+    if (!title && document.title) {
+      const docT = document.title.replace(/\\s*-\\s*YouTube$/i, '').trim();
+      if (docT && !/^YouTube$/i.test(docT)) {
+        title = docT;
+      }
+    }
+
+    const channelEl = document.querySelector('#upload-info #channel-name a') ||
+                      document.querySelector('ytd-channel-name a') ||
+                      document.querySelector('#owner-name a');
+    if (channelEl && channelEl.textContent && channelEl.textContent.trim()) {
+      channel = channelEl.textContent.trim();
+    }
+
+    return { title, channel };
+  }
+
+  async function fetchLyricsFromUrl(targetUrl) {
+    try {
+      if (!targetUrl || typeof targetUrl !== 'string') return null;
+      const response = await new Promise(resolve => {
+        chrome.runtime.sendMessage({
+          action: 'FETCH_LYRICS_URL',
+          url: targetUrl.trim()
+        }, res => {
+          if (chrome.runtime?.lastError) {
+            resolve({ success: false, error: chrome.runtime.lastError.message });
+          } else {
+            resolve(res);
+          }
+        });
+      });
+
+      if (response && response.success && response.content) {
+        const cues = parseSubtitleFile(response.content, targetUrl);
+        if (cues && cues.length > 0) return cues;
+        const lrcCues = parseLRC(response.content);
+        if (lrcCues && lrcCues.length > 0) return lrcCues;
+      }
+    } catch (e) {
+      console.warn('[LinguaPlay] Fetch lyrics from URL failed:', e);
     }
     return null;
   }
@@ -1663,10 +1739,10 @@ content_code = """/**
     const moviePlayer = document.querySelector('#movie_player') || document.querySelector('.html5-video-player') || document.querySelector('video')?.parentElement;
     if (!moviePlayer) return;
 
-    // 1. Hidden file input for manual .srt/.vtt upload on YouTube
+    // 1. Hidden file input for manual .srt/.vtt/.lrc upload on YouTube
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = '.srt,.vtt';
+    fileInput.accept = '.srt,.vtt,.lrc';
     fileInput.id = 'linguaplay-manual-sub-input';
     fileInput.style.display = 'none';
     document.body.appendChild(fileInput);
@@ -1677,11 +1753,12 @@ content_code = """/**
       const reader = new FileReader();
       reader.onload = (evt) => {
         const content = evt.target.result;
-        const cues = file.name.endsWith('.srt') ? parseSRT(content) : (file.name.endsWith('.lrc') ? parseLRC(content) : parseVTT(content));
+        const cues = parseSubtitleFile(content, file.name);
         if (cues.length > 0) {
           subtitleTimeline = cues;
           const statusBadge = document.getElementById('linguaplay-sub-status');
           if (statusBadge) statusBadge.textContent = `Subs (${cues.length})`;
+          updateLyricsModalStatus();
           ensureYouTubeCCEnabled();
           alert(`Loaded ${cues.length} subtitle cues from ${file.name}!`);
         }
@@ -1714,10 +1791,10 @@ content_code = """/**
         <button class="linguaplay-bar-btn" id="linguaplay-offset-add" title="Delay +0.1s">+0.1s</button>
         <button class="linguaplay-bar-btn" id="linguaplay-repeat-btn" title="Repeat Cue (Shortcut: R)">🔁</button>
         <button class="linguaplay-bar-btn" id="linguaplay-upload-sub-btn" title="Upload Japanese .srt/.vtt/.lrc subtitle file">📁</button>
-        <button class="linguaplay-bar-btn" id="linguaplay-fetch-lyrics-btn" title="Fetch Synced Lyrics from LRCLIB">🎵</button>
+        <button class="linguaplay-bar-btn" id="linguaplay-fetch-lyrics-btn" title="Lyrics Manager (Search, Paste Link or Lyrics)" style="background:rgba(124,58,237,0.35); border-color:#a78bfa; color:#fff; font-weight:600;">🎵 Lyrics</button>
         <button class="linguaplay-bar-btn" id="linguaplay-open-app-btn" title="Open in Full LinguaPlay Player Tab" style="background: rgba(124,58,237,0.4); border-color:#a78bfa; color:#fff;">🚀</button>
         <button class="linguaplay-bar-btn" id="linguaplay-open-settings-btn" title="Open Extension Settings" style="background: rgba(124,58,237,0.25); border-color:rgba(167,139,250,0.5); color:#fff;">⚙️</button>
-        <span id="linguaplay-sub-status" style="font-size: 10px; color: #6ee7b7; margin-left: 2px;"></span>
+        <span id="linguaplay-sub-status" style="font-size: 10px; color: #6ee7b7; margin-left: 2px; cursor:pointer;" title="Click to open Lyrics Manager"></span>
         <button class="linguaplay-bar-btn linguaplay-collapse-btn" id="linguaplay-collapse-btn" title="Collapse Bar">✕</button>
       </div>
     `;
@@ -1912,29 +1989,235 @@ content_code = """/**
       fileInput.click();
     });
 
-    const fetchLyricsBtn = document.getElementById('linguaplay-fetch-lyrics-btn');
-    if (fetchLyricsBtn) {
-      fetchLyricsBtn.addEventListener('click', async () => {
-        const statusBadge = document.getElementById('linguaplay-sub-status');
-        if (statusBadge) statusBadge.textContent = 'Searching lyrics...';
-        const videoTitle = document.querySelector('h1.ytd-watch-metadata yt-formatted-string')?.textContent ||
-                           document.querySelector('h1.title yt-formatted-string')?.textContent ||
-                           document.title || '';
-        const channelName = document.querySelector('#upload-info #channel-name a')?.textContent ||
-                            document.querySelector('ytd-channel-name a')?.textContent || '';
-        const duration = activeVideoEl?.duration || 0;
+    // 4. Lyrics Manager Modal Setup
+    let lyricsModal = document.getElementById('linguaplay-lyrics-modal');
+    if (!lyricsModal) {
+      lyricsModal = document.createElement('div');
+      lyricsModal.id = 'linguaplay-lyrics-modal';
+      lyricsModal.className = 'hidden';
+      lyricsModal.innerHTML = `
+        <div style="background:#0f172a; border:1px solid #334155; border-radius:16px; width:92%; max-width:540px; max-height:85vh; overflow-y:auto; padding:20px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.8); font-family:system-ui,-apple-system,sans-serif; color:#f8fafc; z-index:1000000;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid #1e293b; padding-bottom:12px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:22px;">🎵</span>
+              <h3 style="margin:0; font-size:17px; font-weight:700; color:#fff;">LinguaPlay Lyrics Manager</h3>
+            </div>
+            <button id="lp-lyrics-modal-close" style="background:rgba(255,255,255,0.08); border:none; color:#cbd5e1; font-size:16px; width:28px; height:28px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+          </div>
 
-        const info = await fetchLrclibLyrics(videoTitle, channelName, duration);
-        if (info && info.cues && info.cues.length > 0) {
-          subtitleTimeline = info.cues;
+          <div id="lp-lyrics-modal-status" style="margin-bottom:14px; padding:10px 14px; background:rgba(30,27,75,0.5); border:1px solid rgba(139,92,246,0.3); border-radius:10px; font-size:12px; color:#c7d2fe; display:flex; justify-content:space-between; align-items:center;">
+            <span>Active Subtitles: <strong id="lp-modal-active-count">0 cues</strong></span>
+            <span id="lp-modal-active-type" style="color:#34d399; font-weight:600;">None</span>
+          </div>
+
+          <!-- Option 1: URL / Link -->
+          <div style="margin-bottom:14px; background:#1e293b; padding:14px; border-radius:12px; border:1px solid #334155;">
+            <label style="display:block; font-size:12px; font-weight:600; color:#38bdf8; margin-bottom:4px;">
+              🔗 Option 1: Provide Lyrics Web Link / URL
+            </label>
+            <div style="font-size:11px; color:#94a3b8; margin-bottom:8px;">
+              Paste any URL with .lrc lyrics or raw text (e.g. GitHub raw, Pastebin, Megalobiz, or lyrics web page):
+            </div>
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="lp-lyrics-url-input" placeholder="https://example.com/lyrics.lrc or web link" style="flex:1; background:#0f172a; border:1px solid #475569; border-radius:8px; padding:8px 10px; color:#fff; font-size:12px; outline:none;">
+              <button id="lp-lyrics-url-fetch-btn" style="background:#2563eb; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;">Fetch Link</button>
+            </div>
+            <div id="lp-lyrics-url-feedback" style="font-size:11px; margin-top:6px; min-height:14px;"></div>
+          </div>
+
+          <!-- Option 2: Search LRCLIB -->
+          <div style="margin-bottom:14px; background:#1e293b; padding:14px; border-radius:12px; border:1px solid #334155;">
+            <label style="display:block; font-size:12px; font-weight:600; color:#a78bfa; margin-bottom:4px;">
+              🔍 Option 2: Search LRCLIB Database
+            </label>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+              <div>
+                <span style="font-size:10px; color:#94a3b8; display:block; margin-bottom:2px;">Track Name:</span>
+                <input type="text" id="lp-search-track-input" placeholder="Song title" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; border-radius:8px; padding:7px 10px; color:#fff; font-size:12px; outline:none;">
+              </div>
+              <div>
+                <span style="font-size:10px; color:#94a3b8; display:block; margin-bottom:2px;">Artist:</span>
+                <input type="text" id="lp-search-artist-input" placeholder="Artist name" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; border-radius:8px; padding:7px 10px; color:#fff; font-size:12px; outline:none;">
+              </div>
+            </div>
+            <button id="lp-search-submit-btn" style="width:100%; background:#7c3aed; color:#fff; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">Search & Sync</button>
+            <div id="lp-search-results-list" style="margin-top:10px; max-height:140px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
+          </div>
+
+          <!-- Option 3: Direct Paste -->
+          <div style="margin-bottom:14px; background:#1e293b; padding:14px; border-radius:12px; border:1px solid #334155;">
+            <label style="display:block; font-size:12px; font-weight:600; color:#34d399; margin-bottom:4px;">
+              📝 Option 3: Paste LRC or Plain Lyrics
+            </label>
+            <textarea id="lp-paste-lyrics-input" rows="3" placeholder="Paste [00:14.62] 胸の奥で... or plain Japanese text" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; border-radius:8px; padding:8px 10px; color:#fff; font-size:12px; outline:none; resize:vertical; font-family:monospace;"></textarea>
+            <button id="lp-paste-submit-btn" style="margin-top:8px; width:100%; background:#059669; color:#fff; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">Apply Pasted Lyrics</button>
+          </div>
+
+          <!-- Timing Offset -->
+          <div style="background:#1e293b; padding:12px 14px; border-radius:12px; border:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:11px; color:#cbd5e1;">
+              <span>Audio Timing Offset:</span>
+              <strong id="lp-modal-offset-val" style="color:#f59e0b; margin-left:4px; font-family:monospace;">0.0s</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <button class="lp-offset-adj-btn" data-delta="-0.5" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">-0.5s</button>
+              <button class="lp-offset-adj-btn" data-delta="-0.1" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">-0.1s</button>
+              <button class="lp-offset-adj-btn" data-delta="0" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">Reset</button>
+              <button class="lp-offset-adj-btn" data-delta="0.1" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">+0.1s</button>
+              <button class="lp-offset-adj-btn" data-delta="0.5" style="background:#334155; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">+0.5s</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(lyricsModal);
+
+      document.getElementById('lp-lyrics-modal-close')?.addEventListener('click', () => {
+        lyricsModal.classList.add('hidden');
+      });
+      lyricsModal.addEventListener('click', (e) => {
+        if (e.target === lyricsModal) lyricsModal.classList.add('hidden');
+      });
+
+      document.getElementById('lp-lyrics-url-fetch-btn')?.addEventListener('click', async () => {
+        const urlInput = document.getElementById('lp-lyrics-url-input');
+        const feedback = document.getElementById('lp-lyrics-url-feedback');
+        const targetUrl = urlInput?.value?.trim();
+        if (!targetUrl) {
+          if (feedback) feedback.innerHTML = '<span style="color:#ef4444;">Please enter a valid URL.</span>';
+          return;
+        }
+        if (feedback) feedback.innerHTML = '<span style="color:#38bdf8;">Fetching lyrics from link...</span>';
+        const cues = await fetchLyricsFromUrl(targetUrl);
+        if (cues && cues.length > 0) {
+          subtitleTimeline = cues;
           currentSubIndex = -1;
-          if (statusBadge) statusBadge.textContent = `🎵 ${info.trackName || 'Lyrics'} (${info.cues.length})`;
-          alert(`Loaded ${info.cues.length} synced lyric lines for "${info.trackName || 'Song'}" from LRCLIB!`);
+          const statusBadge = document.getElementById('linguaplay-sub-status');
+          if (statusBadge) statusBadge.textContent = `🎵 Link (${cues.length})`;
+          if (feedback) feedback.innerHTML = `<span style="color:#34d399;">✓ Loaded ${cues.length} subtitle cues from link!</span>`;
+          updateLyricsModalStatus();
+          ensureYouTubeCCEnabled();
         } else {
-          if (statusBadge) statusBadge.textContent = 'No lyrics found';
-          alert('No synced lyrics found for this video on LRCLIB.');
+          if (feedback) feedback.innerHTML = '<span style="color:#ef4444;">Failed to parse lyrics or no cues found at that URL.</span>';
         }
       });
+
+      document.getElementById('lp-search-submit-btn')?.addEventListener('click', async () => {
+        const track = document.getElementById('lp-search-track-input')?.value?.trim();
+        const artist = document.getElementById('lp-search-artist-input')?.value?.trim();
+        const listContainer = document.getElementById('lp-search-results-list');
+        if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#a78bfa;">Searching LRCLIB...</div>';
+
+        const query = [artist, track].filter(Boolean).join(' ');
+        const response = await new Promise(resolve => {
+          chrome.runtime.sendMessage({
+            action: 'FETCH_LRCLIB_LYRICS',
+            trackName: track,
+            artistName: artist,
+            query: query,
+            duration: activeVideoEl?.duration || 0
+          }, res => resolve(res));
+        });
+
+        if (response && response.success && response.syncedLyrics) {
+          const cues = parseLRC(response.syncedLyrics);
+          if (cues && cues.length > 0) {
+            subtitleTimeline = cues;
+            currentSubIndex = -1;
+            const statusBadge = document.getElementById('linguaplay-sub-status');
+            if (statusBadge) statusBadge.textContent = `🎵 ${response.trackName || 'Lyrics'} (${cues.length})`;
+            if (listContainer) {
+              listContainer.innerHTML = `
+                <div style="background:rgba(52,211,153,0.15); border:1px solid #34d399; padding:8px 10px; border-radius:8px; font-size:11px; color:#34d399;">
+                  ✓ Applied: <strong>${response.trackName}</strong> by ${response.artistName} (${cues.length} cues)
+                </div>
+              `;
+            }
+            updateLyricsModalStatus();
+            ensureYouTubeCCEnabled();
+            return;
+          }
+        }
+        if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">No synced lyrics found on LRCLIB for this search query.</div>';
+      });
+
+      document.getElementById('lp-paste-submit-btn')?.addEventListener('click', () => {
+        const text = document.getElementById('lp-paste-lyrics-input')?.value?.trim();
+        if (!text) return;
+        let cues = parseLRC(text);
+        if (cues.length === 0) {
+          const lines = text.split(/\\n+/).map(l => l.trim()).filter(Boolean);
+          if (lines.length > 0) {
+            const totalDur = activeVideoEl?.duration || (lines.length * 4);
+            const perLine = totalDur / lines.length;
+            cues = lines.map((line, idx) => ({
+              start: idx * perLine,
+              end: (idx + 1) * perLine,
+              text: line
+            }));
+          }
+        }
+        if (cues.length > 0) {
+          subtitleTimeline = cues;
+          currentSubIndex = -1;
+          const statusBadge = document.getElementById('linguaplay-sub-status');
+          if (statusBadge) statusBadge.textContent = `🎵 Pasted (${cues.length})`;
+          alert(`Successfully applied ${cues.length} lyrics cues!`);
+          updateLyricsModalStatus();
+          ensureYouTubeCCEnabled();
+        } else {
+          alert('Could not parse any lyrics lines from pasted content.');
+        }
+      });
+
+      document.querySelectorAll('.lp-offset-adj-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const delta = parseFloat(btn.dataset.delta);
+          if (delta === 0) timingOffset = 0.0;
+          else timingOffset += delta;
+          timingOffset = Math.round(timingOffset * 10) / 10;
+          const offsetDisp = document.getElementById('linguaplay-offset-display');
+          if (offsetDisp) offsetDisp.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+          const modalOffset = document.getElementById('lp-modal-offset-val');
+          if (modalOffset) modalOffset.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+        });
+      });
+    }
+
+    function updateLyricsModalStatus() {
+      const countEl = document.getElementById('lp-modal-active-count');
+      const typeEl = document.getElementById('lp-modal-active-type');
+      if (countEl) countEl.textContent = `${subtitleTimeline.length} cues`;
+      if (typeEl) {
+        typeEl.textContent = subtitleTimeline.length > 0
+          ? (document.getElementById('linguaplay-sub-status')?.textContent || 'Active')
+          : 'None';
+      }
+      const offsetEl = document.getElementById('lp-modal-offset-val');
+      if (offsetEl) offsetEl.textContent = `${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+    }
+
+    function openLyricsModal() {
+      const modal = document.getElementById('linguaplay-lyrics-modal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+
+      const meta = getYouTubeVideoMetadata();
+      const cleaned = cleanSongTitle(meta.title, meta.channel);
+      const trackInp = document.getElementById('lp-search-track-input');
+      const artistInp = document.getElementById('lp-search-artist-input');
+      if (trackInp && !trackInp.value) trackInp.value = cleaned.trackName || '';
+      if (artistInp && !artistInp.value) artistInp.value = cleaned.artistName || '';
+
+      updateLyricsModalStatus();
+    }
+
+    const fetchLyricsBtn = document.getElementById('linguaplay-fetch-lyrics-btn');
+    if (fetchLyricsBtn) {
+      fetchLyricsBtn.addEventListener('click', openLyricsModal);
+    }
+    const subStatusBadge = document.getElementById('linguaplay-sub-status');
+    if (subStatusBadge) {
+      subStatusBadge.addEventListener('click', openLyricsModal);
     }
 
     function openExtensionSettings() {
@@ -2755,6 +3038,8 @@ Respond with ONLY valid JSON:
 
     if (vid !== currentVideoId) {
       currentVideoId = vid;
+      lyricsFetchAttemptedVid = null;
+      isFetchingLyrics = false;
       japaneseParser?.reset();
       subtitleRenderVersion++;
       renderedSentence = '';
@@ -2768,42 +3053,54 @@ Respond with ONLY valid JSON:
       senseiChatHistory = [];
       activeSenseiChatRequest = null;
       updateSenseiChatControls();
+      updateLyricsModalStatus();
 
       inspectAndSwitchPlayerTracks();
 
       let cues = await fetchYouTubeCaptions(vid);
-      let isLyrics = false;
-      let lyricsInfo = null;
-
-      if (!cues || cues.length === 0) {
-        const videoTitle = document.querySelector('h1.ytd-watch-metadata yt-formatted-string')?.textContent ||
-                           document.querySelector('h1.title yt-formatted-string')?.textContent ||
-                           document.title || '';
-        const channelName = document.querySelector('#upload-info #channel-name a')?.textContent ||
-                            document.querySelector('ytd-channel-name a')?.textContent || '';
-        const duration = activeVideoEl?.duration || 0;
-
-        lyricsInfo = await fetchLrclibLyrics(videoTitle, channelName, duration);
-        if (lyricsInfo && lyricsInfo.cues && lyricsInfo.cues.length > 0) {
-          cues = lyricsInfo.cues;
-          isLyrics = true;
-        }
-      }
-
       if (cues && cues.length > 0) {
         subtitleTimeline = cues;
+        lyricsFetchAttemptedVid = vid;
         const statusBadge = document.getElementById('linguaplay-sub-status');
         if (statusBadge) {
-          statusBadge.textContent = isLyrics
-            ? `🎵 ${lyricsInfo?.trackName || 'Lyrics'} (${cues.length})`
-            : `Auto Sub (${cues.length})`;
+          statusBadge.textContent = `Auto Sub (${cues.length})`;
         }
-        if (!isLyrics) ensureYouTubeCCEnabled();
-      } else {
-        subtitleTimeline = [];
+        ensureYouTubeCCEnabled();
+        updateLyricsModalStatus();
+        return;
+      }
+    }
+
+    // If native subtitles are absent and we haven't fetched lyrics for this video yet:
+    if (currentVideoId && subtitleTimeline.length === 0 && lyricsFetchAttemptedVid !== currentVideoId && !isFetchingLyrics) {
+      const meta = getYouTubeVideoMetadata();
+      // Ensure YouTube SPA DOM has actually rendered the video title and is not a generic placeholder
+      if (meta && meta.title && !/^youtube$/i.test(meta.title)) {
+        isFetchingLyrics = true;
         const statusBadge = document.getElementById('linguaplay-sub-status');
-        if (statusBadge) statusBadge.textContent = '';
-        renderSentenceTokens('');
+        if (statusBadge) statusBadge.textContent = '🎵 Searching lyrics...';
+
+        try {
+          const duration = activeVideoEl?.duration || 0;
+          const lyricsInfo = await fetchLrclibLyrics(meta.title, meta.channel, duration);
+          if (lyricsInfo && lyricsInfo.cues && lyricsInfo.cues.length > 0) {
+            subtitleTimeline = lyricsInfo.cues;
+            if (statusBadge) {
+              statusBadge.textContent = `🎵 ${lyricsInfo.trackName || 'Lyrics'} (${lyricsInfo.cues.length})`;
+            }
+          } else {
+            if (statusBadge) {
+              statusBadge.textContent = '🎵 No lyrics (Click)';
+            }
+          }
+        } catch (e) {
+          console.warn('[LinguaPlay] Auto lyrics fetch failed:', e);
+          if (statusBadge) statusBadge.textContent = '🎵 No lyrics (Click)';
+        } finally {
+          lyricsFetchAttemptedVid = currentVideoId;
+          isFetchingLyrics = false;
+          updateLyricsModalStatus();
+        }
       }
     }
   }

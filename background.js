@@ -248,30 +248,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           'User-Agent': 'LinguaPlay/1.0.0 (https://github.com/Marsel204/LangPlayeExt)'
         };
 
-        // 1. Try exact get if trackName is provided
+        // 1. Try exact get if trackName is provided (with duration, then without duration)
         if (trackName) {
-          const params = new URLSearchParams();
-          params.set('track_name', trackName);
-          if (artistName) params.set('artist_name', artistName);
-          if (duration && Number(duration) > 0) params.set('duration', Math.round(Number(duration)));
-
-          try {
-            const getRes = await fetch(`https://lrclib.net/api/get?${params.toString()}`, {
+          const fetchExact = async (includeDuration) => {
+            const params = new URLSearchParams();
+            params.set('track_name', trackName);
+            if (artistName) params.set('artist_name', artistName);
+            if (includeDuration && duration && Number(duration) > 0) {
+              params.set('duration', Math.round(Number(duration)));
+            }
+            const res = await fetch(`https://lrclib.net/api/get?${params.toString()}`, {
               headers,
               signal: AbortSignal.timeout(4000)
             });
-            if (getRes.ok) {
-              const data = await getRes.json();
-              if (data && data.syncedLyrics) {
-                sendResponse({
-                  success: true,
-                  trackName: data.trackName || trackName,
-                  artistName: data.artistName || artistName,
-                  syncedLyrics: data.syncedLyrics,
-                  plainLyrics: data.plainLyrics
-                });
-                return;
-              }
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.syncedLyrics) return data;
+            }
+            return null;
+          };
+
+          try {
+            let data = null;
+            if (duration && Number(duration) > 0) {
+              data = await fetchExact(true);
+            }
+            if (!data) {
+              data = await fetchExact(false);
+            }
+            if (data && data.syncedLyrics) {
+              sendResponse({
+                success: true,
+                trackName: data.trackName || trackName,
+                artistName: data.artistName || artistName,
+                syncedLyrics: data.syncedLyrics,
+                plainLyrics: data.plainLyrics
+              });
+              return;
             }
           } catch (e) { /* fallback to search */ }
         }
@@ -313,6 +326,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     })();
     return true; // async sendResponse
+  }
+
+  if (request.action === 'FETCH_LYRICS_URL' && request.url) {
+    (async () => {
+      try {
+        const targetUrl = new URL(request.url.trim());
+        if (!['http:', 'https:'].includes(targetUrl.protocol)) {
+          throw new Error('Invalid URL protocol. Must be HTTP or HTTPS.');
+        }
+        const response = await fetch(targetUrl.href, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/plain, text/html, */*'
+          },
+          signal: AbortSignal.timeout(10000)
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch lyrics link (HTTP ${response.status})`);
+        }
+        const content = await response.text();
+        sendResponse({ success: true, content });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
   }
 
   if (request.action === 'OPEN_OPTIONS_PAGE') {

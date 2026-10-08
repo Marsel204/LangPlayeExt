@@ -763,7 +763,57 @@ console.log('✅ Test 13c: Live video captions decoupled from drawer context sta
 }
 console.log('✅ Test 13d: Runtime word click -> subtitle advance -> prompt isolation verified');
 
-console.log(`\n🎉 ALL 13 TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n`);
+console.log('\n🎵 Running Test Suite 14: Synced Lyrics (LRCLIB), External Link Fetching & Modal UI...');
+
+// 1. Verify cleanSongTitle on YouTube metadata
+const { cleanSongTitle, parseLRC, parseSubtitleFile } = require('./js/subtitles.js');
+
+const cleanedToki = cleanSongTitle('土岐麻子 / HOME【TVアニメ「フルーツバスケット」2nd Season 第2クール OP ver.】 - YouTube', 'avex');
+assert.strictEqual(cleanedToki.trackName, 'HOME');
+assert.strictEqual(cleanedToki.artistName, '土岐麻子');
+console.log('✅ Test 14a: cleanSongTitle strips sumitsuki brackets and YouTube suffix for user video');
+
+const cleanedTuki = cleanSongTitle('tuki. 『愛の賞味期限』Official Music Video', 'tuki.');
+assert.strictEqual(cleanedTuki.trackName, '愛の賞味期限');
+assert.strictEqual(cleanedTuki.artistName, 'tuki.');
+console.log('✅ Test 14b: cleanSongTitle extracts Japanese quotes and channel');
+
+// 2. Verify parseLRC
+const sampleLrc = `
+[00:14.62]胸の奥で人知れず 揺れていた
+[00:20.52]僕のかすかな灯りをきみは
+[00:26.08]掌で守るようにして
+`;
+const lrcCues = parseLRC(sampleLrc);
+assert.strictEqual(lrcCues.length, 3);
+assert.strictEqual(lrcCues[0].start, 14.62);
+assert.strictEqual(lrcCues[0].end, 20.52);
+assert.strictEqual(lrcCues[0].text, '胸の奥で人知れず 揺れていた');
+console.log('✅ Test 14c: parseLRC calculates start/end cues accurately');
+
+// 3. Verify parseSubtitleFile auto-detection
+const recognizedLrc = parseSubtitleFile(sampleLrc, 'song.lrc');
+assert.strictEqual(recognizedLrc.length, 3);
+console.log('✅ Test 14d: parseSubtitleFile routes .lrc format correctly');
+
+// 4. Verify content.js lyrics modal and retry logic
+assert.ok(contentJsCode.includes('linguaplay-lyrics-modal'), 'content.js must define lyrics modal');
+assert.ok(contentJsCode.includes('lp-lyrics-url-input'), 'content.js must define lyrics URL input');
+assert.ok(contentJsCode.includes('lp-lyrics-url-fetch-btn'), 'content.js must define fetch link button');
+assert.ok(contentJsCode.includes('lp-search-track-input'), 'content.js must define track search input');
+assert.ok(contentJsCode.includes('lp-paste-lyrics-input'), 'content.js must define paste lyrics input');
+assert.ok(contentJsCode.includes('lyricsFetchAttemptedVid'), 'content.js must include lyricsFetchAttemptedVid retry mechanism');
+console.log('✅ Test 14e: content.js contains full Lyrics Manager modal UI and SPA DOM retry');
+
+// 5. Verify background.js handlers and manifest permissions
+const bgCode = fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8');
+assert.ok(bgCode.includes('FETCH_LRCLIB_LYRICS'), 'background.js must implement FETCH_LRCLIB_LYRICS');
+assert.ok(bgCode.includes('FETCH_LYRICS_URL'), 'background.js must implement FETCH_LYRICS_URL');
+const manifestJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'manifest.json'), 'utf8'));
+assert.ok(manifestJson.host_permissions.includes('https://lrclib.net/*'), 'manifest must include lrclib.net permission');
+console.log('✅ Test 14f: background.js and manifest.json support lyrics API and arbitrary URL link fetching');
+
+console.log(`\n🎉 ALL 14 TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n`);
 process.exit(0);
 
 

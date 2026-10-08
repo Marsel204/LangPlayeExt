@@ -91,11 +91,21 @@ test('cleanSongTitle sanitizes YouTube music video titles and extracts artist/tr
   const t6 = cleanSongTitle('土岐麻子 / HOME【TVアニメ「フルーツバスケット」2nd Season 第2クール OP ver.】', '土岐麻子');
   assert.equal(t6.trackName, 'HOME');
   assert.equal(t6.artistName, '土岐麻子');
+
+  // Case 7: Title with trailing - YouTube suffix
+  const t7 = cleanSongTitle('土岐麻子 / HOME【TVアニメ「フルーツバスケット」2nd Season 第2クール OP ver.】 - YouTube', '土岐麻子');
+  assert.equal(t7.trackName, 'HOME');
+  assert.equal(t7.artistName, '土岐麻子');
 });
 
-test('manifest.json includes host permissions for https://lrclib.net/*', () => {
+test('manifest.json includes host permissions for https://lrclib.net/* and arbitrary lyrics URLs', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
   assert.ok(manifest.host_permissions.includes('https://lrclib.net/*'), 'Manifest must allow https://lrclib.net/*');
+  assert.ok(
+    manifest.host_permissions.includes('<all_urls>') ||
+    (manifest.host_permissions.includes('http://*/*') && manifest.host_permissions.includes('https://*/*')),
+    'Manifest must permit fetching user-provided lyrics URLs'
+  );
 });
 
 test('background.js registers and dispatches FETCH_LRCLIB_LYRICS correctly', async () => {
@@ -147,3 +157,115 @@ test('background.js registers and dispatches FETCH_LRCLIB_LYRICS correctly', asy
     globalThis.fetch = originalFetch;
   }
 });
+
+test('background.js handles FETCH_LYRICS_URL action to fetch external lyrics from links', async () => {
+  const bgCode = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+
+  let messageListener = null;
+  const mockChrome = {
+    runtime: {
+      onInstalled: { addListener: () => {} },
+      onMessage: { addListener: (cb) => { messageListener = cb; } },
+      getURL: (p) => `chrome-extension://mock/${p}`
+    },
+    tabs: { create: () => {} },
+    storage: { local: { get: async () => ({}) } },
+    permissions: { contains: async () => true }
+  };
+
+  const evalFn = new Function('chrome', bgCode);
+  evalFn(mockChrome);
+  assert.ok(messageListener);
+
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url) => {
+      assert.equal(url, 'https://example.com/custom_song.lrc');
+      return {
+        ok: true,
+        text: async () => '[00:05.00]テスト歌詞リンク'
+      };
+    };
+
+    const response = await new Promise(resolve => {
+      messageListener({
+        action: 'FETCH_LYRICS_URL',
+        url: 'https://example.com/custom_song.lrc'
+      }, { id: 'mock-id' }, resolve);
+    });
+
+    assert.equal(response.success, true);
+    assert.ok(response.content.includes('[00:05.00]テスト歌詞リンク'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('background.js falls back to querying without duration if duration query fails', async () => {
+  const bgCode = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+
+  let messageListener = null;
+  const mockChrome = {
+    runtime: {
+      onInstalled: { addListener: () => {} },
+      onMessage: { addListener: (cb) => { messageListener = cb; } },
+      getURL: (p) => `chrome-extension://mock/${p}`
+    },
+    tabs: { create: () => {} },
+    storage: { local: { get: async () => ({}) } },
+    permissions: { contains: async () => true }
+  };
+
+  const evalFn = new Function('chrome', bgCode);
+  evalFn(mockChrome);
+  assert.ok(messageListener);
+
+  const fetchCalls = [];
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url) => {
+      fetchCalls.push(url);
+      if (url.includes('duration=')) {
+        return { ok: false, status: 404, json: async () => ({ message: 'Not found' }) };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          trackName: 'HOME',
+          artistName: '土岐麻子',
+          syncedLyrics: '[00:14.62]胸の奥で人知れず 揺れていた'
+        })
+      };
+    };
+
+    const response = await new Promise(resolve => {
+      messageListener({
+        action: 'FETCH_LRCLIB_LYRICS',
+        trackName: 'HOME',
+        artistName: '土岐麻子',
+        duration: 90
+      }, { id: 'mock-id' }, resolve);
+    });
+
+    assert.equal(response.success, true);
+    assert.equal(response.trackName, 'HOME');
+    assert.equal(fetchCalls.length, 2, 'Should attempt with duration, then retry without duration');
+    assert.ok(fetchCalls[0].includes('duration=90'));
+    assert.ok(!fetchCalls[1].includes('duration='));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('content.js includes lyrics modal UI, retry polling state, and URL fetching hooks', () => {
+  const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+
+  assert.ok(contentJs.includes('linguaplay-lyrics-modal'), 'content.js must define #linguaplay-lyrics-modal');
+  assert.ok(contentJs.includes('lp-lyrics-url-input'), 'content.js must define #lp-lyrics-url-input for URL input');
+  assert.ok(contentJs.includes('lp-lyrics-url-fetch-btn'), 'content.js must define #lp-lyrics-url-fetch-btn');
+  assert.ok(contentJs.includes('lp-search-track-input'), 'content.js must define track search input');
+  assert.ok(contentJs.includes('lp-paste-lyrics-input'), 'content.js must define direct paste textarea');
+  assert.ok(contentJs.includes('lyricsFetchAttemptedVid'), 'content.js must track lyricsFetchAttemptedVid for retry on SPA DOM load');
+  assert.ok(contentJs.includes('FETCH_LYRICS_URL'), 'content.js must send FETCH_LYRICS_URL to background worker');
+});
+

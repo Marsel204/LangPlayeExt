@@ -596,3 +596,20 @@
   padding-left: 2px;
   line-height: 1.4;
 }
+
+/* ── Lyrics Manager Modal ── */
+#linguaplay-lyrics-modal.hidden {
+  display: none !important;
+}
+
+#linguaplay-lyrics-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+

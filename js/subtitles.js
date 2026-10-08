@@ -214,6 +214,7 @@ export function cleanSongTitle(rawTitle, rawChannel = '') {
   }
 
   let clean = rawTitle.trim();
+  clean = clean.replace(/\s*-\s*YouTube$/i, '').trim();
 
   // Strip sumitsuki kakko 【...】 if there is text outside of it
   const withoutSumitsuki = clean.replace(/【[^】]*】/g, ' ').trim();
