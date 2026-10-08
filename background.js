@@ -240,6 +240,81 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // async sendResponse
   }
 
+  if (request.action === 'FETCH_LRCLIB_LYRICS') {
+    (async () => {
+      try {
+        const { trackName, artistName, query, duration } = request;
+        const headers = {
+          'User-Agent': 'LinguaPlay/1.0.0 (https://github.com/Marsel204/LangPlayeExt)'
+        };
+
+        // 1. Try exact get if trackName is provided
+        if (trackName) {
+          const params = new URLSearchParams();
+          params.set('track_name', trackName);
+          if (artistName) params.set('artist_name', artistName);
+          if (duration && Number(duration) > 0) params.set('duration', Math.round(Number(duration)));
+
+          try {
+            const getRes = await fetch(`https://lrclib.net/api/get?${params.toString()}`, {
+              headers,
+              signal: AbortSignal.timeout(4000)
+            });
+            if (getRes.ok) {
+              const data = await getRes.json();
+              if (data && data.syncedLyrics) {
+                sendResponse({
+                  success: true,
+                  trackName: data.trackName || trackName,
+                  artistName: data.artistName || artistName,
+                  syncedLyrics: data.syncedLyrics,
+                  plainLyrics: data.plainLyrics
+                });
+                return;
+              }
+            }
+          } catch (e) { /* fallback to search */ }
+        }
+
+        // 2. Search fallback
+        const searchQ = (query || `${artistName || ''} ${trackName || ''}`).trim();
+        if (searchQ) {
+          const searchParams = new URLSearchParams();
+          searchParams.set('q', searchQ);
+          const searchRes = await fetch(`https://lrclib.net/api/search?${searchParams.toString()}`, {
+            headers,
+            signal: AbortSignal.timeout(5000)
+          });
+          if (searchRes.ok) {
+            const list = await searchRes.json();
+            if (Array.isArray(list) && list.length > 0) {
+              // Pick best match: prefer item with syncedLyrics, Japanese text if present
+              let candidate = list.find(item => item.syncedLyrics && /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(item.syncedLyrics));
+              if (!candidate) candidate = list.find(item => item.syncedLyrics);
+              if (!candidate) candidate = list[0];
+
+              if (candidate && (candidate.syncedLyrics || candidate.plainLyrics)) {
+                sendResponse({
+                  success: true,
+                  trackName: candidate.trackName || trackName,
+                  artistName: candidate.artistName || artistName,
+                  syncedLyrics: candidate.syncedLyrics,
+                  plainLyrics: candidate.plainLyrics
+                });
+                return;
+              }
+            }
+          }
+        }
+
+        sendResponse({ success: false, error: 'No matching synced lyrics found' });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true; // async sendResponse
+  }
+
   if (request.action === 'OPEN_OPTIONS_PAGE') {
     const optionsUrl = chrome.runtime.getURL('options.html');
     if (chrome.tabs && chrome.tabs.create) {

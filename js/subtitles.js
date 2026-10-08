@@ -147,10 +147,149 @@ export function parseJSON3(json) {
   return cues.sort((a, b) => a.start - b.start);
 }
 
+export function parseLRC(raw) {
+  if (!raw) return [];
+  const lines = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const rawCues = [];
+  let globalOffset = 0.0;
+  const timeRegex = /\[(\d{1,2}):(\d{2})(?:[.:](\d{2,3}))?\]/g;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const offsetMatch = trimmed.match(/^\[offset:\s*([+-]?\d+)\s*\]/i);
+    if (offsetMatch) {
+      globalOffset = (parseInt(offsetMatch[1], 10) || 0) / 1000;
+      continue;
+    }
+
+    if (/^\[[a-z]{2,8}:/i.test(trimmed)) continue;
+
+    const matches = [...trimmed.matchAll(timeRegex)];
+    if (matches.length === 0) continue;
+
+    const text = trimmed.replace(timeRegex, '').replace(/<[^>]+>/g, '').trim();
+    if (!text) continue;
+
+    for (const m of matches) {
+      const minutes = parseInt(m[1], 10);
+      const seconds = parseInt(m[2], 10);
+      let millis = 0;
+      if (m[3]) {
+        if (m[3].length === 2) {
+          millis = parseInt(m[3], 10) * 10;
+        } else {
+          millis = parseInt(m[3].padEnd(3, '0').slice(0, 3), 10);
+        }
+      }
+      const start = Math.max(0, minutes * 60 + seconds + (millis / 1000) + globalOffset);
+      rawCues.push({ start, text });
+    }
+  }
+
+  if (rawCues.length === 0) return [];
+  rawCues.sort((a, b) => a.start - b.start);
+
+  const cues = [];
+  for (let i = 0; i < rawCues.length; i++) {
+    const curr = rawCues[i];
+    let end;
+    if (i + 1 < rawCues.length) {
+      const nextStart = rawCues[i + 1].start;
+      end = nextStart > curr.start ? Math.min(nextStart, curr.start + 8.0) : curr.start + 3.0;
+    } else {
+      end = curr.start + 4.0;
+    }
+    cues.push({ start: curr.start, end, text: curr.text });
+  }
+
+  return cues;
+}
+
+export function cleanSongTitle(rawTitle, rawChannel = '') {
+  if (!rawTitle || typeof rawTitle !== 'string') {
+    const fallback = (rawChannel || '').trim();
+    return { trackName: '', artistName: fallback, query: fallback };
+  }
+
+  let clean = rawTitle.trim();
+
+  clean = clean.replace(/【(?:Official|MV|Music Video|Full|Audio|Lyric Video|アニメ|オリジナル曲|歌ってみた|ノンクレジット|PV).*?】/gi, ' ');
+  clean = clean.replace(/\[(?:Official|MV|Music Video|Full|Audio|Lyric Video|4K|HD|Remastered|Live).*?\]/gi, ' ');
+  clean = clean.replace(/\((?:Official|Music Video|MV|Audio|Lyric Video|Full Ver\.?|Live|Visualizer|THE FIRST TAKE).*?\)/gi, ' ');
+  clean = clean.replace(/THE FIRST TAKE/gi, ' ');
+  clean = clean.replace(/\b(?:Official Music Video|Official Video|Music Video|Lyric Video|Official Audio)\b/gi, ' ');
+
+  const cleanChannel = (rawChannel || '')
+    .replace(/(?:\s*-\s*Topic|Official Channel|OFFICIAL CHANNEL|Official YouTube Channel|OFFICIAL|Official|チャンネル)/gi, '')
+    .trim();
+
+  let trackName = '';
+  let artistName = '';
+
+  const quoteMatch = clean.match(/[『「]([^』」]+)[』」]/);
+  if (quoteMatch) {
+    trackName = quoteMatch[1].trim();
+    const before = clean.slice(0, quoteMatch.index).replace(/[-/／|｜~～\s]+$/, '').trim();
+    const after = clean.slice(quoteMatch.index + quoteMatch[0].length).replace(/^[-/／|｜~～\s]+/, '').trim();
+    if (before && !/^(?:MV|Official)$/i.test(before)) {
+      artistName = before.replace(/\s*(?:x|feat\.?|ft\.?).*$/i, '').trim();
+    } else if (after) {
+      const candidate = after.split(/[/／|｜]/)[0].replace(/\s*(?:x|feat\.?|ft\.?).*$/i, '').trim();
+      if (candidate && !/^(?:MV|Official)$/i.test(candidate)) {
+        artistName = candidate;
+      }
+    }
+  }
+
+  if (!trackName) {
+    const parts = clean.split(/\s*[-—／|｜]\s*|\s+\/\s+/).map(p => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const chLower = cleanChannel.toLowerCase();
+      if (chLower && parts[0].toLowerCase().includes(chLower)) {
+        artistName = parts[0];
+        trackName = parts[1];
+      } else if (chLower && parts[1].toLowerCase().includes(chLower)) {
+        artistName = parts[1];
+        trackName = parts[0];
+      } else {
+        artistName = parts[0];
+        trackName = parts[1];
+      }
+    } else {
+      trackName = clean;
+    }
+  }
+
+  if (!artistName && cleanChannel) {
+    artistName = cleanChannel;
+  }
+
+  const stripFeatures = (str) => {
+    return str
+      .replace(/\s*(?:feat\.?|ft\.?)\s+.*$/i, '')
+      .replace(/\s*（(?:CV|feat|ft).*?）/gi, '')
+      .replace(/\s*\((?:CV|feat|ft).*?\)/gi, '')
+      .replace(/[/／|｜].*$/, '')
+      .trim();
+  };
+
+  trackName = stripFeatures(trackName);
+  artistName = stripFeatures(artistName);
+
+  const query = [artistName, trackName].filter(Boolean).join(' ') || clean;
+  return { trackName, artistName, query };
+}
+
 export function parseSubtitleFile(raw, filename = '') {
   const isVtt = filename.toLowerCase().endsWith('.vtt') || raw.trim().startsWith('WEBVTT');
   if (isVtt) {
     return parseVTT(raw);
+  }
+  const isLrc = filename.toLowerCase().endsWith('.lrc') || /\[\d{1,2}:\d{2}[.:]\d{2,3}\]/.test(raw);
+  if (isLrc) {
+    return parseLRC(raw);
   }
   return parseSRT(raw);
 }

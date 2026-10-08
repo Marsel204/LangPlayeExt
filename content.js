@@ -867,6 +867,141 @@
     return cues.sort((a, b) => a.start - b.start);
   }
 
+  function parseLRC(raw) {
+    if (!raw) return [];
+    const lines = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    const rawCues = [];
+    let globalOffset = 0.0;
+    const timeRegex = /\[(\d{1,2}):(\d{2})(?:[.:](\d{2,3}))?\]/g;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      const offsetMatch = trimmed.match(/^\[offset:\s*([+-]?\d+)\s*\]/i);
+      if (offsetMatch) {
+        globalOffset = (parseInt(offsetMatch[1], 10) || 0) / 1000;
+        continue;
+      }
+
+      if (/^\[[a-z]{2,8}:/i.test(trimmed)) continue;
+
+      const matches = [...trimmed.matchAll(timeRegex)];
+      if (matches.length === 0) continue;
+
+      const text = trimmed.replace(timeRegex, '').replace(/<[^>]+>/g, '').trim();
+      if (!text) continue;
+
+      for (const m of matches) {
+        const minutes = parseInt(m[1], 10);
+        const seconds = parseInt(m[2], 10);
+        let millis = 0;
+        if (m[3]) {
+          if (m[3].length === 2) {
+            millis = parseInt(m[3], 10) * 10;
+          } else {
+            millis = parseInt(m[3].padEnd(3, '0').slice(0, 3), 10);
+          }
+        }
+        const start = Math.max(0, minutes * 60 + seconds + (millis / 1000) + globalOffset);
+        rawCues.push({ start, text });
+      }
+    }
+
+    if (rawCues.length === 0) return [];
+    rawCues.sort((a, b) => a.start - b.start);
+
+    const cues = [];
+    for (let i = 0; i < rawCues.length; i++) {
+      const curr = rawCues[i];
+      let end;
+      if (i + 1 < rawCues.length) {
+        const nextStart = rawCues[i + 1].start;
+        end = nextStart > curr.start ? Math.min(nextStart, curr.start + 8.0) : curr.start + 3.0;
+      } else {
+        end = curr.start + 4.0;
+      }
+      cues.push({ start: curr.start, end, text: curr.text });
+    }
+
+    return cues;
+  }
+
+  function cleanSongTitle(rawTitle, rawChannel = '') {
+    if (!rawTitle || typeof rawTitle !== 'string') {
+      const fallback = (rawChannel || '').trim();
+      return { trackName: '', artistName: fallback, query: fallback };
+    }
+
+    let clean = rawTitle.trim();
+
+    clean = clean.replace(/【(?:Official|MV|Music Video|Full|Audio|Lyric Video|アニメ|オリジナル曲|歌ってみた|ノンクレジット|PV).*?】/gi, ' ');
+    clean = clean.replace(/\[(?:Official|MV|Music Video|Full|Audio|Lyric Video|4K|HD|Remastered|Live).*?\]/gi, ' ');
+    clean = clean.replace(/\((?:Official|Music Video|MV|Audio|Lyric Video|Full Ver\.?|Live|Visualizer|THE FIRST TAKE).*?\)/gi, ' ');
+    clean = clean.replace(/THE FIRST TAKE/gi, ' ');
+    clean = clean.replace(/\b(?:Official Music Video|Official Video|Music Video|Lyric Video|Official Audio)\b/gi, ' ');
+
+    const cleanChannel = (rawChannel || '')
+      .replace(/(?:\s*-\s*Topic|Official Channel|OFFICIAL CHANNEL|Official YouTube Channel|OFFICIAL|Official|チャンネル)/gi, '')
+      .trim();
+
+    let trackName = '';
+    let artistName = '';
+
+    const quoteMatch = clean.match(/[『「]([^』」]+)[』」]/);
+    if (quoteMatch) {
+      trackName = quoteMatch[1].trim();
+      const before = clean.slice(0, quoteMatch.index).replace(/[-/／|｜~～\s]+$/, '').trim();
+      const after = clean.slice(quoteMatch.index + quoteMatch[0].length).replace(/^[-/／|｜~～\s]+/, '').trim();
+      if (before && !/^(?:MV|Official)$/i.test(before)) {
+        artistName = before.replace(/\s*(?:x|feat\.?|ft\.?).*$/i, '').trim();
+      } else if (after) {
+        const candidate = after.split(/[/／|｜]/)[0].replace(/\s*(?:x|feat\.?|ft\.?).*$/i, '').trim();
+        if (candidate && !/^(?:MV|Official)$/i.test(candidate)) {
+          artistName = candidate;
+        }
+      }
+    }
+
+    if (!trackName) {
+      const parts = clean.split(/\s*[-—／|｜]\s*|\s+\/\s+/).map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const chLower = cleanChannel.toLowerCase();
+        if (chLower && parts[0].toLowerCase().includes(chLower)) {
+          artistName = parts[0];
+          trackName = parts[1];
+        } else if (chLower && parts[1].toLowerCase().includes(chLower)) {
+          artistName = parts[1];
+          trackName = parts[0];
+        } else {
+          artistName = parts[0];
+          trackName = parts[1];
+        }
+      } else {
+        trackName = clean;
+      }
+    }
+
+    if (!artistName && cleanChannel) {
+      artistName = cleanChannel;
+    }
+
+    const stripFeatures = (str) => {
+      return str
+        .replace(/\s*(?:feat\.?|ft\.?)\s+.*$/i, '')
+        .replace(/\s*（(?:CV|feat|ft).*?）/gi, '')
+        .replace(/\s*\((?:CV|feat|ft).*?\)/gi, '')
+        .replace(/[/／|｜].*$/, '')
+        .trim();
+    };
+
+    trackName = stripFeatures(trackName);
+    artistName = stripFeatures(artistName);
+
+    const query = [artistName, trackName].filter(Boolean).join(' ') || clean;
+    return { trackName, artistName, query };
+  }
+
   // ── Language Detection Helper ──
   function hasJapaneseCharacters(text) {
     if (!text || typeof text !== 'string') return false;
@@ -1115,6 +1250,40 @@
     } catch (e) { /* ignore */ }
 
     return [];
+  }
+
+  // ── Fetch Synced Lyrics from LRCLIB ──
+  async function fetchLrclibLyrics(title, channel, duration) {
+    try {
+      const meta = cleanSongTitle(title, channel);
+      if (!meta.trackName && !meta.query) return null;
+
+      const response = await new Promise(resolve => {
+        chrome.runtime.sendMessage({
+          action: 'FETCH_LRCLIB_LYRICS',
+          trackName: meta.trackName,
+          artistName: meta.artistName,
+          query: meta.query,
+          duration: duration || 0
+        }, res => {
+          if (chrome.runtime?.lastError) {
+            resolve({ success: false, error: chrome.runtime.lastError.message });
+          } else {
+            resolve(res);
+          }
+        });
+      });
+
+      if (response && response.success && response.syncedLyrics) {
+        const cues = parseLRC(response.syncedLyrics);
+        if (cues && cues.length > 0) {
+          return { cues, trackName: response.trackName, artistName: response.artistName };
+        }
+      }
+    } catch (e) {
+      console.warn('[LinguaPlay] LRCLIB lyrics fetch failed:', e);
+    }
+    return null;
   }
 
   // ── Render Tokens into Subtitle Overlay ──
@@ -1677,7 +1846,7 @@
       const reader = new FileReader();
       reader.onload = (evt) => {
         const content = evt.target.result;
-        const cues = file.name.endsWith('.srt') ? parseSRT(content) : parseVTT(content);
+        const cues = file.name.endsWith('.srt') ? parseSRT(content) : (file.name.endsWith('.lrc') ? parseLRC(content) : parseVTT(content));
         if (cues.length > 0) {
           subtitleTimeline = cues;
           const statusBadge = document.getElementById('linguaplay-sub-status');
@@ -1713,7 +1882,8 @@
         <span id="linguaplay-offset-display" style="font-size: 10px; font-family: monospace; color: #cbd5e1; padding: 0 1px;">0.0s</span>
         <button class="linguaplay-bar-btn" id="linguaplay-offset-add" title="Delay +0.1s">+0.1s</button>
         <button class="linguaplay-bar-btn" id="linguaplay-repeat-btn" title="Repeat Cue (Shortcut: R)">🔁</button>
-        <button class="linguaplay-bar-btn" id="linguaplay-upload-sub-btn" title="Upload Japanese .srt/.vtt subtitle file">📁</button>
+        <button class="linguaplay-bar-btn" id="linguaplay-upload-sub-btn" title="Upload Japanese .srt/.vtt/.lrc subtitle file">📁</button>
+        <button class="linguaplay-bar-btn" id="linguaplay-fetch-lyrics-btn" title="Fetch Synced Lyrics from LRCLIB">🎵</button>
         <button class="linguaplay-bar-btn" id="linguaplay-open-app-btn" title="Open in Full LinguaPlay Player Tab" style="background: rgba(124,58,237,0.4); border-color:#a78bfa; color:#fff;">🚀</button>
         <button class="linguaplay-bar-btn" id="linguaplay-open-settings-btn" title="Open Extension Settings" style="background: rgba(124,58,237,0.25); border-color:rgba(167,139,250,0.5); color:#fff;">⚙️</button>
         <span id="linguaplay-sub-status" style="font-size: 10px; color: #6ee7b7; margin-left: 2px;"></span>
@@ -1910,6 +2080,31 @@
     document.getElementById('linguaplay-upload-sub-btn').addEventListener('click', () => {
       fileInput.click();
     });
+
+    const fetchLyricsBtn = document.getElementById('linguaplay-fetch-lyrics-btn');
+    if (fetchLyricsBtn) {
+      fetchLyricsBtn.addEventListener('click', async () => {
+        const statusBadge = document.getElementById('linguaplay-sub-status');
+        if (statusBadge) statusBadge.textContent = 'Searching lyrics...';
+        const videoTitle = document.querySelector('h1.ytd-watch-metadata yt-formatted-string')?.textContent ||
+                           document.querySelector('h1.title yt-formatted-string')?.textContent ||
+                           document.title || '';
+        const channelName = document.querySelector('#upload-info #channel-name a')?.textContent ||
+                            document.querySelector('ytd-channel-name a')?.textContent || '';
+        const duration = activeVideoEl?.duration || 0;
+
+        const info = await fetchLrclibLyrics(videoTitle, channelName, duration);
+        if (info && info.cues && info.cues.length > 0) {
+          subtitleTimeline = info.cues;
+          currentSubIndex = -1;
+          if (statusBadge) statusBadge.textContent = `🎵 ${info.trackName || 'Lyrics'} (${info.cues.length})`;
+          alert(`Loaded ${info.cues.length} synced lyric lines for "${info.trackName || 'Song'}" from LRCLIB!`);
+        } else {
+          if (statusBadge) statusBadge.textContent = 'No lyrics found';
+          alert('No synced lyrics found for this video on LRCLIB.');
+        }
+      });
+    }
 
     function openExtensionSettings() {
       console.log('[LinguaPlay] Opening extension settings...');
@@ -2745,12 +2940,34 @@ Respond with ONLY valid JSON:
 
       inspectAndSwitchPlayerTracks();
 
-      const cues = await fetchYouTubeCaptions(vid);
+      let cues = await fetchYouTubeCaptions(vid);
+      let isLyrics = false;
+      let lyricsInfo = null;
+
+      if (!cues || cues.length === 0) {
+        const videoTitle = document.querySelector('h1.ytd-watch-metadata yt-formatted-string')?.textContent ||
+                           document.querySelector('h1.title yt-formatted-string')?.textContent ||
+                           document.title || '';
+        const channelName = document.querySelector('#upload-info #channel-name a')?.textContent ||
+                            document.querySelector('ytd-channel-name a')?.textContent || '';
+        const duration = activeVideoEl?.duration || 0;
+
+        lyricsInfo = await fetchLrclibLyrics(videoTitle, channelName, duration);
+        if (lyricsInfo && lyricsInfo.cues && lyricsInfo.cues.length > 0) {
+          cues = lyricsInfo.cues;
+          isLyrics = true;
+        }
+      }
+
       if (cues && cues.length > 0) {
         subtitleTimeline = cues;
         const statusBadge = document.getElementById('linguaplay-sub-status');
-        if (statusBadge) statusBadge.textContent = `Auto Sub (${cues.length})`;
-        ensureYouTubeCCEnabled();
+        if (statusBadge) {
+          statusBadge.textContent = isLyrics
+            ? `🎵 ${lyricsInfo?.trackName || 'Lyrics'} (${cues.length})`
+            : `Auto Sub (${cues.length})`;
+        }
+        if (!isLyrics) ensureYouTubeCCEnabled();
       } else {
         subtitleTimeline = [];
         const statusBadge = document.getElementById('linguaplay-sub-status');
