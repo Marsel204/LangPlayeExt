@@ -215,7 +215,14 @@ export function cleanSongTitle(rawTitle, rawChannel = '') {
 
   let clean = rawTitle.trim();
 
-  clean = clean.replace(/【(?:Official|MV|Music Video|Full|Audio|Lyric Video|アニメ|オリジナル曲|歌ってみた|ノンクレジット|PV).*?】/gi, ' ');
+  // Strip sumitsuki kakko 【...】 if there is text outside of it
+  const withoutSumitsuki = clean.replace(/【[^】]*】/g, ' ').trim();
+  if (withoutSumitsuki) {
+    clean = withoutSumitsuki;
+  } else {
+    clean = clean.replace(/[【】]/g, ' ').trim();
+  }
+
   clean = clean.replace(/\[(?:Official|MV|Music Video|Full|Audio|Lyric Video|4K|HD|Remastered|Live).*?\]/gi, ' ');
   clean = clean.replace(/\((?:Official|Music Video|MV|Audio|Lyric Video|Full Ver\.?|Live|Visualizer|THE FIRST TAKE).*?\)/gi, ' ');
   clean = clean.replace(/THE FIRST TAKE/gi, ' ');

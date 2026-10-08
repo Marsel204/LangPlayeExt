@@ -86,6 +86,11 @@ test('cleanSongTitle sanitizes YouTube music video titles and extracts artist/tr
   const t5 = cleanSongTitle('【MV】可愛くてごめん feat. ちゅーたん（CV：早見沙織）／HoneyWorks', 'HoneyWorks OFFICIAL');
   assert.equal(t5.trackName, '可愛くてごめん');
   assert.equal(t5.artistName, 'HoneyWorks');
+
+  // Case 6: Anime metadata with sumitsuki brackets
+  const t6 = cleanSongTitle('土岐麻子 / HOME【TVアニメ「フルーツバスケット」2nd Season 第2クール OP ver.】', '土岐麻子');
+  assert.equal(t6.trackName, 'HOME');
+  assert.equal(t6.artistName, '土岐麻子');
 });
 
 test('manifest.json includes host permissions for https://lrclib.net/*', () => {
