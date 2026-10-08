@@ -796,14 +796,16 @@ const recognizedLrc = parseSubtitleFile(sampleLrc, 'song.lrc');
 assert.strictEqual(recognizedLrc.length, 3);
 console.log('✅ Test 14d: parseSubtitleFile routes .lrc format correctly');
 
-// 4. Verify content.js lyrics modal and retry logic
+// 4. Verify content.js lyrics modal, search inputs, and timing sync
 assert.ok(contentJsCode.includes('linguaplay-lyrics-modal'), 'content.js must define lyrics modal');
-assert.ok(contentJsCode.includes('lp-lyrics-url-input'), 'content.js must define lyrics URL input');
-assert.ok(contentJsCode.includes('lp-lyrics-url-fetch-btn'), 'content.js must define fetch link button');
 assert.ok(contentJsCode.includes('lp-search-track-input'), 'content.js must define track search input');
-assert.ok(contentJsCode.includes('lp-paste-lyrics-input'), 'content.js must define paste lyrics input');
+assert.ok(contentJsCode.includes('lp-search-artist-input'), 'content.js must define artist search input');
+assert.ok(contentJsCode.includes('lp-sync-playhead-btn'), 'content.js must define sync playhead button');
+assert.ok(contentJsCode.includes('lp-offset-manual-input'), 'content.js must define manual offset input');
 assert.ok(contentJsCode.includes('lyricsFetchAttemptedVid'), 'content.js must include lyricsFetchAttemptedVid retry mechanism');
-console.log('✅ Test 14e: content.js contains full Lyrics Manager modal UI and SPA DOM retry');
+assert.ok(!contentJsCode.includes('lp-lyrics-url-input'), 'content.js must not include removed Option 1 URL input');
+assert.ok(!contentJsCode.includes('lp-paste-lyrics-input'), 'content.js must not include removed Option 3 paste input');
+console.log('✅ Test 14e: content.js contains streamlined Lyrics Manager modal UI and Audio Timing sync');
 
 // 5. Verify background.js handlers and manifest permissions
 const bgCode = fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8');

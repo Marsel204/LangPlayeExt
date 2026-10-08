@@ -262,16 +262,16 @@ test('background.js falls back to querying without duration if duration query fa
   }
 });
 
-test('content.js includes lyrics modal UI, retry polling state, and URL fetching hooks', () => {
+test('content.js includes lyrics modal UI, search inputs, and retry polling state', () => {
   const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
 
   assert.ok(contentJs.includes('linguaplay-lyrics-modal'), 'content.js must define #linguaplay-lyrics-modal');
-  assert.ok(contentJs.includes('lp-lyrics-url-input'), 'content.js must define #lp-lyrics-url-input for URL input');
-  assert.ok(contentJs.includes('lp-lyrics-url-fetch-btn'), 'content.js must define #lp-lyrics-url-fetch-btn');
   assert.ok(contentJs.includes('lp-search-track-input'), 'content.js must define track search input');
-  assert.ok(contentJs.includes('lp-paste-lyrics-input'), 'content.js must define direct paste textarea');
+  assert.ok(contentJs.includes('lp-search-artist-input'), 'content.js must define artist search input');
+  assert.ok(contentJs.includes('lp-search-submit-btn'), 'content.js must define search submit button');
   assert.ok(contentJs.includes('lyricsFetchAttemptedVid'), 'content.js must track lyricsFetchAttemptedVid for retry on SPA DOM load');
-  assert.ok(contentJs.includes('FETCH_LYRICS_URL'), 'content.js must send FETCH_LYRICS_URL to background worker');
+  assert.ok(!contentJs.includes('lp-lyrics-url-input'), 'content.js must not include removed Option 1 URL input');
+  assert.ok(!contentJs.includes('lp-paste-lyrics-input'), 'content.js must not include removed Option 3 paste input');
 });
 
 test('background.js falls back to Kugou Music when LRCLIB has no synced lyrics', async () => {
@@ -357,7 +357,7 @@ test('background.js falls back to Kugou Music when LRCLIB has no synced lyrics',
   }
 });
 
-test('content.js includes Option 4 1-click anchor sync, macro buttons, and storage persistence', () => {
+test('content.js includes Audio Timing 1-click anchor sync, macro buttons, and storage persistence', () => {
   const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
   assert.ok(contentJs.includes('lp-sync-playhead-btn'), 'content.js must define 1-click anchor sync button #lp-sync-playhead-btn');
   assert.ok(contentJs.includes('lp-offset-manual-input'), 'content.js must define direct numeric offset input #lp-offset-manual-input');

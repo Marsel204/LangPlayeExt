@@ -1348,34 +1348,6 @@
     return { title, channel };
   }
 
-  async function fetchLyricsFromUrl(targetUrl) {
-    try {
-      if (!targetUrl || typeof targetUrl !== 'string') return null;
-      const response = await new Promise(resolve => {
-        chrome.runtime.sendMessage({
-          action: 'FETCH_LYRICS_URL',
-          url: targetUrl.trim()
-        }, res => {
-          if (chrome.runtime?.lastError) {
-            resolve({ success: false, error: chrome.runtime.lastError.message });
-          } else {
-            resolve(res);
-          }
-        });
-      });
-
-      if (response && response.success && response.content) {
-        const cues = parseSubtitleFile(response.content, targetUrl);
-        if (cues && cues.length > 0) return cues;
-        const lrcCues = parseLRC(response.content);
-        if (lrcCues && lrcCues.length > 0) return lrcCues;
-      }
-    } catch (e) {
-      console.warn('[LinguaPlay] Fetch lyrics from URL failed:', e);
-    }
-    return null;
-  }
-
   // ── Render Tokens into Subtitle Overlay ──
   function renderSentenceTokens(sentenceText) {
     const renderVersion = ++subtitleRenderVersion;
@@ -1974,7 +1946,7 @@
         <button class="linguaplay-bar-btn" id="linguaplay-offset-add" title="Delay +0.1s">+0.1s</button>
         <button class="linguaplay-bar-btn" id="linguaplay-repeat-btn" title="Repeat Cue (Shortcut: R)">🔁</button>
         <button class="linguaplay-bar-btn" id="linguaplay-upload-sub-btn" title="Upload Japanese .srt/.vtt/.lrc subtitle file">📁</button>
-        <button class="linguaplay-bar-btn" id="linguaplay-fetch-lyrics-btn" title="Lyrics Manager (Search, Paste Link or Lyrics)" style="background:rgba(124,58,237,0.35); border-color:#a78bfa; color:#fff; font-weight:600;">🎵 Lyrics</button>
+        <button class="linguaplay-bar-btn" id="linguaplay-fetch-lyrics-btn" title="Lyrics Manager (Search Synced Lyrics & Audio Timing)" style="background:rgba(124,58,237,0.35); border-color:#a78bfa; color:#fff; font-weight:600;">🎵 Lyrics</button>
         <button class="linguaplay-bar-btn" id="linguaplay-open-app-btn" title="Open in Full LinguaPlay Player Tab" style="background: rgba(124,58,237,0.4); border-color:#a78bfa; color:#fff;">🚀</button>
         <button class="linguaplay-bar-btn" id="linguaplay-open-settings-btn" title="Open Extension Settings" style="background: rgba(124,58,237,0.25); border-color:rgba(167,139,250,0.5); color:#fff;">⚙️</button>
         <span id="linguaplay-sub-status" style="font-size: 10px; color: #6ee7b7; margin-left: 2px; cursor:pointer;" title="Click to open Lyrics Manager"></span>
@@ -2193,26 +2165,11 @@
             <span id="lp-modal-active-type" style="color:#34d399; font-weight:600;">None</span>
           </div>
 
-          <!-- Option 1: URL / Link -->
-          <div style="margin-bottom:14px; background:#1e293b; padding:14px; border-radius:12px; border:1px solid #334155;">
-            <label style="display:block; font-size:12px; font-weight:600; color:#38bdf8; margin-bottom:4px;">
-              🔗 Option 1: Provide Lyrics Web Link / URL
-            </label>
-            <div style="font-size:11px; color:#94a3b8; margin-bottom:8px;">
-              Paste any URL with .lrc lyrics or raw text (e.g. GitHub raw, Pastebin, Megalobiz, or lyrics web page):
-            </div>
-            <div style="display:flex; gap:8px;">
-              <input type="text" id="lp-lyrics-url-input" placeholder="https://example.com/lyrics.lrc or web link" style="flex:1; background:#0f172a; border:1px solid #475569; border-radius:8px; padding:8px 10px; color:#fff; font-size:12px; outline:none;">
-              <button id="lp-lyrics-url-fetch-btn" style="background:#2563eb; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;">Fetch Link</button>
-            </div>
-            <div id="lp-lyrics-url-feedback" style="font-size:11px; margin-top:6px; min-height:14px;"></div>
-          </div>
-
-          <!-- Option 2: Search Synced Lyrics (LRCLIB & Kugou) -->
+          <!-- Search Synced Lyrics (LRCLIB & Kugou) -->
           <div style="margin-bottom:14px; background:#1e293b; padding:14px; border-radius:12px; border:1px solid #334155;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
               <label style="font-size:12px; font-weight:600; color:#a78bfa;">
-                🔍 Option 2: Search Synced Lyrics
+                🔍 Search Synced Lyrics
               </label>
               <span style="font-size:10px; color:#38bdf8; background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.3); padding:1px 6px; border-radius:4px;">LRCLIB + Kugou Music</span>
             </div>
@@ -2226,24 +2183,15 @@
                 <input type="text" id="lp-search-artist-input" placeholder="Artist name" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; border-radius:8px; padding:7px 10px; color:#fff; font-size:12px; outline:none;">
               </div>
             </div>
-            <button id="lp-search-submit-btn" style="width:100%; background:#7c3aed; color:#fff; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">Search & Sync (LRCLIB + Kugou)</button>
+            <button id="lp-search-submit-btn" style="width:100%; background:#7c3aed; color:#fff; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">Search & Sync</button>
             <div id="lp-search-results-list" style="margin-top:10px; max-height:140px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
           </div>
 
-          <!-- Option 3: Direct Paste -->
-          <div style="margin-bottom:14px; background:#1e293b; padding:14px; border-radius:12px; border:1px solid #334155;">
-            <label style="display:block; font-size:12px; font-weight:600; color:#34d399; margin-bottom:4px;">
-              📝 Option 3: Paste LRC or Plain Lyrics
-            </label>
-            <textarea id="lp-paste-lyrics-input" rows="3" placeholder="Paste [00:14.62] 胸の奥で... or plain Japanese text" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; border-radius:8px; padding:8px 10px; color:#fff; font-size:12px; outline:none; resize:vertical; font-family:monospace;"></textarea>
-            <button id="lp-paste-submit-btn" style="margin-top:8px; width:100%; background:#059669; color:#fff; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">Apply Pasted Lyrics</button>
-          </div>
-
-          <!-- Option 4: Audio Timing & Auto-Sync -->
+          <!-- Audio Timing & Auto-Sync -->
           <div style="background:#1e293b; padding:14px; border-radius:12px; border:1px solid #334155;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
               <label style="font-size:12px; font-weight:600; color:#f59e0b; display:flex; align-items:center; gap:6px;">
-                <span>⏱️ Option 4: Audio Timing & Auto-Sync</span>
+                <span>⏱️ Audio Timing & Auto-Sync</span>
               </label>
               <div style="font-size:12px; color:#cbd5e1;">
                 Offset: <strong id="lp-modal-offset-val" style="color:#f59e0b; font-family:monospace; font-size:13px;">+0.0s</strong>
@@ -2296,29 +2244,6 @@
         if (e.target === lyricsModal) lyricsModal.classList.add('hidden');
       });
 
-      document.getElementById('lp-lyrics-url-fetch-btn')?.addEventListener('click', async () => {
-        const urlInput = document.getElementById('lp-lyrics-url-input');
-        const feedback = document.getElementById('lp-lyrics-url-feedback');
-        const targetUrl = urlInput?.value?.trim();
-        if (!targetUrl) {
-          if (feedback) feedback.innerHTML = '<span style="color:#ef4444;">Please enter a valid URL.</span>';
-          return;
-        }
-        if (feedback) feedback.innerHTML = '<span style="color:#38bdf8;">Fetching lyrics from link...</span>';
-        const cues = await fetchLyricsFromUrl(targetUrl);
-        if (cues && cues.length > 0) {
-          subtitleTimeline = cues;
-          currentSubIndex = -1;
-          const statusBadge = document.getElementById('linguaplay-sub-status');
-          if (statusBadge) statusBadge.textContent = `🎵 Link (${cues.length})`;
-          if (feedback) feedback.innerHTML = `<span style="color:#34d399;">✓ Loaded ${cues.length} subtitle cues from link!</span>`;
-          updateLyricsModalStatus();
-          ensureYouTubeCCEnabled();
-        } else {
-          if (feedback) feedback.innerHTML = '<span style="color:#ef4444;">Failed to parse lyrics or no cues found at that URL.</span>';
-        }
-      });
-
       document.getElementById('lp-search-submit-btn')?.addEventListener('click', async () => {
         const track = document.getElementById('lp-search-track-input')?.value?.trim();
         const artist = document.getElementById('lp-search-artist-input')?.value?.trim();
@@ -2357,35 +2282,6 @@
           }
         }
         if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">No synced lyrics found on LRCLIB or Kugou Music for this search query.</div>';
-      });
-
-      document.getElementById('lp-paste-submit-btn')?.addEventListener('click', () => {
-        const text = document.getElementById('lp-paste-lyrics-input')?.value?.trim();
-        if (!text) return;
-        let cues = parseLRC(text);
-        if (cues.length === 0) {
-          const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
-          if (lines.length > 0) {
-            const totalDur = activeVideoEl?.duration || (lines.length * 4);
-            const perLine = totalDur / lines.length;
-            cues = lines.map((line, idx) => ({
-              start: idx * perLine,
-              end: (idx + 1) * perLine,
-              text: line
-            }));
-          }
-        }
-        if (cues.length > 0) {
-          subtitleTimeline = cues;
-          currentSubIndex = -1;
-          const statusBadge = document.getElementById('linguaplay-sub-status');
-          if (statusBadge) statusBadge.textContent = `🎵 Pasted (${cues.length})`;
-          alert(`Successfully applied ${cues.length} lyrics cues!`);
-          updateLyricsModalStatus();
-          ensureYouTubeCCEnabled();
-        } else {
-          alert('Could not parse any lyrics lines from pasted content.');
-        }
       });
 
       function setTimingOffset(newOffset) {
