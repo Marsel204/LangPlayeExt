@@ -2,12 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-import { parseLRC, cleanSongTitle, parseSubtitleFile } from '../js/subtitles.js';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const extRoot = fs.existsSync(path.join(__dirname, '..', 'extension', 'manifest.json'))
+  ? path.join(__dirname, '..', 'extension')
+  : path.join(__dirname, '..');
+
+const { parseLRC, cleanSongTitle, parseSubtitleFile } = await import(
+  pathToFileURL(path.join(extRoot, 'js', 'subtitles.js')).href
+);
 
 test('parseLRC parses standard and multi-timestamp LRC cues with duration calculations', () => {
   const lrcSample = `
@@ -104,7 +109,7 @@ test('cleanSongTitle sanitizes YouTube music video titles and extracts artist/tr
 });
 
 test('manifest.json includes host permissions for https://lrclib.net/* and arbitrary lyrics URLs', () => {
-  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(path.join(extRoot, 'manifest.json'), 'utf8'));
   assert.ok(manifest.host_permissions.includes('https://lrclib.net/*'), 'Manifest must allow https://lrclib.net/*');
   assert.ok(
     manifest.host_permissions.includes('<all_urls>') ||
@@ -114,7 +119,7 @@ test('manifest.json includes host permissions for https://lrclib.net/* and arbit
 });
 
 test('background.js registers and dispatches FETCH_LRCLIB_LYRICS correctly', async () => {
-  const bgCode = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+  const bgCode = fs.readFileSync(path.join(extRoot, 'background.js'), 'utf8');
 
   let messageListener = null;
   const mockChrome = {
@@ -164,7 +169,7 @@ test('background.js registers and dispatches FETCH_LRCLIB_LYRICS correctly', asy
 });
 
 test('background.js handles FETCH_LYRICS_URL action to fetch external lyrics from links', async () => {
-  const bgCode = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+  const bgCode = fs.readFileSync(path.join(extRoot, 'background.js'), 'utf8');
 
   let messageListener = null;
   const mockChrome = {
@@ -207,7 +212,7 @@ test('background.js handles FETCH_LYRICS_URL action to fetch external lyrics fro
 });
 
 test('background.js falls back to querying without duration if duration query fails', async () => {
-  const bgCode = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+  const bgCode = fs.readFileSync(path.join(extRoot, 'background.js'), 'utf8');
 
   let messageListener = null;
   const mockChrome = {
@@ -263,7 +268,7 @@ test('background.js falls back to querying without duration if duration query fa
 });
 
 test('content.js includes lyrics modal UI, search inputs, and retry polling state', () => {
-  const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+  const contentJs = fs.readFileSync(path.join(extRoot, 'content.js'), 'utf8');
 
   assert.ok(contentJs.includes('linguaplay-lyrics-modal'), 'content.js must define #linguaplay-lyrics-modal');
   assert.ok(contentJs.includes('lp-search-track-input'), 'content.js must define track search input');
@@ -275,7 +280,7 @@ test('content.js includes lyrics modal UI, search inputs, and retry polling stat
 });
 
 test('background.js falls back to Kugou Music when LRCLIB has no synced lyrics', async () => {
-  const bgCode = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+  const bgCode = fs.readFileSync(path.join(extRoot, 'background.js'), 'utf8');
 
   let messageListener = null;
   const mockChrome = {
@@ -358,14 +363,14 @@ test('background.js falls back to Kugou Music when LRCLIB has no synced lyrics',
 });
 
 test('content.js includes Audio Timing 1-click anchor sync, macro buttons, and storage persistence', () => {
-  const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+  const contentJs = fs.readFileSync(path.join(extRoot, 'content.js'), 'utf8');
   assert.ok(contentJs.includes('lp-sync-playhead-btn'), 'content.js must define 1-click anchor sync button #lp-sync-playhead-btn');
   assert.ok(contentJs.includes('lp-offset-manual-input'), 'content.js must define direct numeric offset input #lp-offset-manual-input');
   assert.ok(contentJs.includes('lp_offset_'), 'content.js must persist timing offset per video in storage');
 });
 
 test('background.js cascades to track-only search if composite query yields 0 results', async () => {
-  const bgCode = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+  const bgCode = fs.readFileSync(path.join(extRoot, 'background.js'), 'utf8');
 
   let messageListener = null;
   const mockChrome = {
@@ -432,18 +437,18 @@ test('background.js cascades to track-only search if composite query yields 0 re
 });
 
 test('content.js includes Sensei AI song identifier and 1-click modal button', () => {
-  const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+  const contentJs = fs.readFileSync(path.join(extRoot, 'content.js'), 'utf8');
   assert.ok(contentJs.includes('identifySongWithSensei'), 'content.js must define identifySongWithSensei');
   assert.ok(contentJs.includes('lp-ai-identify-btn'), 'content.js must define 1-click Sensei button #lp-ai-identify-btn');
 });
 
 test('content.js includes per-video lyrics caching with storage persistence', () => {
-  const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+  const contentJs = fs.readFileSync(path.join(extRoot, 'content.js'), 'utf8');
   assert.ok(contentJs.includes('lp_lyrics_cache_'), 'content.js must check and persist lp_lyrics_cache_ in storage');
 });
 
 test('content.js places #linguaplay-sub-status badge inside #linguaplay-yt-controls next to the eye icon', () => {
-  const contentJs = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+  const contentJs = fs.readFileSync(path.join(extRoot, 'content.js'), 'utf8');
   assert.ok(contentJs.includes('id="linguaplay-visibility-toggle"'), 'Eye icon must exist');
   assert.ok(contentJs.includes('id="linguaplay-sub-status"'), 'Sub status badge must exist');
 
@@ -467,6 +472,213 @@ test('content.js places #linguaplay-sub-status badge inside #linguaplay-yt-contr
   if (barMatch) {
     assert.ok(!barMatch[0].includes('id="linguaplay-sub-status"'), 'Bar must not have duplicate linguaplay-sub-status');
   }
+});
+
+test('clicking the green #linguaplay-sub-status button opens the modal, replaces stale inputs, and autosearches with LLM', async () => {
+  const vm = await import('node:vm');
+  const { createRequire } = await import('node:module');
+  const require = createRequire(import.meta.url);
+  const wanakana = require(path.join(extRoot, 'lib', 'wanakana.min.js'));
+  const contentJs = fs.readFileSync(path.join(extRoot, 'content.js'), 'utf8');
+
+  const elements = new Map();
+  class Element {
+    constructor() {
+      this.style = { setProperty(n, v) { this[n] = v; } };
+      this.children = [];
+      this.listeners = {};
+      this.value = '';
+      this.dataset = {};
+      this.attributes = {};
+      this.offsetParent = {};
+      this.disabled = false;
+      const classes = new Set();
+      this.classList = {
+        add: (...names) => names.forEach(n => classes.add(n)),
+        remove: (...names) => names.forEach(n => classes.delete(n)),
+        contains: n => classes.has(n),
+        toggle(n, force = !classes.has(n)) { if (force) classes.add(n); else classes.delete(n); return force; }
+      };
+      this._html = '';
+      this._text = '';
+    }
+    set id(v) { this._id = v; elements.set(v, this); }
+    get id() { return this._id; }
+    set className(v) { this.classList.add(...v.split(/\s+/).filter(Boolean)); }
+    setAttribute(n, v) { this.attributes[n] = String(v); }
+    getAttribute(n) { return this.attributes[n] ?? null; }
+    set innerHTML(v) {
+      this._html = v;
+      this._text = v.replace(/<[^>]*>/g, '');
+      this.children = [];
+      for (const m of v.matchAll(/id="([^"]+)"/g)) {
+        const c = new Element();
+        c.id = m[1];
+        this.appendChild(c);
+      }
+    }
+    get innerHTML() { return this._html; }
+    set textContent(v) { this._text = v; this._html = v; }
+    get textContent() { return this._text; }
+    get firstChild() { return this.children[0] || null; }
+    get nextElementSibling() { return this.parentElement?.children[this.parentElement.children.indexOf(this) + 1] || null; }
+    appendChild(c) { c.remove(); c.parentElement = this; this.children.push(c); return c; }
+    insertBefore(c, a) { if (!a) return this.appendChild(c); c.remove(); c.parentElement = this; this.children.splice(this.children.indexOf(a), 0, c); return c; }
+    addEventListener(n, cb) { this.listeners[n] = cb; }
+    click() { this.listeners.click?.({ stopPropagation() {}, preventDefault() {} }); }
+    querySelectorAll(sel) {
+      const desc = this.children.flatMap(c => [c, ...c.querySelectorAll('*')]);
+      return desc.filter(c => sel === '*' || (sel.startsWith('#') ? c.id === sel.slice(1) : sel.startsWith('.') && c.classList.contains(sel.slice(1))));
+    }
+    querySelector(sel) { return this.querySelectorAll(sel)[0] || null; }
+    contains(el) { return this === el || this.children.some(c => c.contains(el)); }
+    getBoundingClientRect() { return { top: 470, bottom: 510, left: 0, right: 900, width: 40, height: 40 }; }
+    scrollIntoView() {}
+    focus() {}
+    remove() {
+      if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(c => c !== this);
+      this.parentElement = null;
+    }
+  }
+
+  const body = new Element();
+  const player = new Element();
+  const nativeBar = new Element();
+  nativeBar.className = 'ytp-chrome-bottom';
+  const nativeControls = new Element();
+  nativeControls.className = 'ytp-right-controls';
+  const nativeCC = new Element();
+  nativeCC.className = 'ytp-button ytp-subtitles-button';
+  nativeControls.appendChild(nativeCC);
+  nativeBar.appendChild(nativeControls);
+  player.appendChild(nativeBar);
+
+  const titleNode = new Element();
+  titleNode.textContent = 'Oregairu Season 2 OP - Harumodoki [HD]';
+  const channelNode = new Element();
+  channelNode.textContent = 'AnimeThemes';
+
+  const fetchCalls = [];
+  const runtimeMessages = [];
+
+  const documentElement = new Element();
+  documentElement.appendChild(body);
+  body.appendChild(player);
+
+  const isConnectedToDocument = (el) => {
+    let cur = el;
+    while (cur) {
+      if (cur === documentElement || cur === body) return true;
+      cur = cur.parentElement;
+    }
+    return false;
+  };
+
+  const sandbox = {
+    console,
+    window: { wanakana, location: { search: '?v=vid_harumodoki', href: 'https://www.youtube.com/watch?v=vid_harumodoki' }, addEventListener() {} },
+    document: {
+      body,
+      title: 'Oregairu Season 2 OP - Harumodoki [HD] - YouTube',
+      documentElement,
+      getElementById: id => {
+        const el = elements.get(id) || null;
+        return (el && isConnectedToDocument(el)) ? el : null;
+      },
+      querySelector: sel => {
+        if (sel === '#movie_player') return player;
+        if (sel.includes('yt-formatted-string') || sel.includes('title')) return titleNode;
+        if (sel.includes('channel-name') || sel.includes('owner-name')) return channelNode;
+        return null;
+      },
+      querySelectorAll: () => [],
+      createElement: () => new Element(),
+      addEventListener() {},
+    },
+    chrome: {
+      storage: {
+        local: {
+          get: (_keys, cb) => cb({ linguaplay_ai_provider: 'antigravity' }),
+          set: (_obj, cb) => cb?.(),
+        }
+      },
+      runtime: {
+        sendMessage(msg, cb) {
+          runtimeMessages.push(msg);
+          if (msg.action === 'ENSURE_LOCAL_SERVER') {
+            cb?.({ success: true });
+            return;
+          }
+          if (msg.action === 'FETCH_LRCLIB_LYRICS') {
+            cb?.({
+              success: true,
+              provider: 'lrclib',
+              trackName: msg.trackName,
+              artistName: msg.artistName,
+              syncedLyrics: '[00:01.00]探しに行くんだ そこへ\n[00:05.00]空欄を埋め完成した定食'
+            });
+            return;
+          }
+          cb?.({ success: true });
+        }
+      }
+    },
+    MutationObserver: class { observe() {} disconnect() {} },
+    AbortSignal,
+    URLSearchParams,
+    setInterval() {},
+    setTimeout() {},
+    fetch: async (url, options) => {
+      fetchCalls.push({ url, options });
+      if (url.endsWith('/api/ai/analyze')) {
+        const bodyJson = JSON.parse(options.body);
+        assert.ok(bodyJson.prompt && bodyJson.prompt.includes('trackName'), 'Must forward song identification prompt to /api/ai/analyze');
+        return {
+          ok: true,
+          json: async () => ({
+            status: 'success',
+            data: {
+              trackName: '春擬き',
+              artistName: 'やなぎなぎ',
+              animeName: 'やはり俺の青春ラブコメはまちがっている。続'
+            }
+          })
+        };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    }
+  };
+
+  const instrumented = contentJs.replace(/\}\)\(\);\s*$/, 'globalThis.testApi = { injectUI, identifySongWithSensei };})();');
+  vm.default.runInNewContext(instrumented, sandbox, { filename: 'content.js' });
+  sandbox.testApi.injectUI();
+
+  // Simulate stale inputs from a previous video ("Those Eyes" by "New West")
+  const trackInp = elements.get('lp-search-track-input');
+  const artistInp = elements.get('lp-search-artist-input');
+  trackInp.value = 'Those Eyes';
+  artistInp.value = 'New West';
+
+  const statusBadge = sandbox.document.getElementById('linguaplay-sub-status');
+  assert.ok(statusBadge, '#linguaplay-sub-status must be connected to document after injectUI');
+  assert.equal(typeof statusBadge.listeners.click, 'function', '#linguaplay-sub-status must have click listener attached even though controls is attached at end of injectUI');
+  statusBadge.textContent = '🎵 No lyrics (Click)';
+
+  // Click the green button (#linguaplay-sub-status)
+  await statusBadge.listeners.click({ stopPropagation() {} });
+  await new Promise(r => setImmediate(r));
+  await new Promise(r => setImmediate(r));
+
+  const modal = elements.get('linguaplay-lyrics-modal');
+  assert.equal(modal.classList.contains('hidden'), false, 'Modal must open when green button is clicked');
+  assert.equal(trackInp.value, '春擬き', 'Track input must be updated to LLM-identified song title');
+  assert.equal(artistInp.value, 'やなぎなぎ', 'Artist input must be updated to LLM-identified artist');
+
+  const lrclibCall = runtimeMessages.find(m => m.action === 'FETCH_LRCLIB_LYRICS');
+  assert.ok(lrclibCall, 'Must automatically dispatch FETCH_LRCLIB_LYRICS after LLM identification');
+  assert.equal(lrclibCall.trackName, '春擬き');
+  assert.equal(lrclibCall.artistName, 'やなぎなぎ');
+  assert.ok(statusBadge.textContent.includes('春擬き'), `Badge should update to synced song, got: ${statusBadge.textContent}`);
 });
 
 

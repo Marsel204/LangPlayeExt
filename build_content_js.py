@@ -1106,7 +1106,7 @@ content_code = """/**
     return config.linguaplay_ai_provider || (config.linguaplay_gemini_key ? 'gemini' : 'antigravity');
   }
 
-  async function callSenseiLlmApi({ messages, isJson, config, word, romaji, sentence }) {
+   async function callSenseiLlmApi({ messages, isJson, config, word, romaji, sentence, prompt }) {
     const provider = getSenseiProvider(config);
     const geminiKey = (config.linguaplay_gemini_key || '').trim();
     const deepseekKey = (config.linguaplay_deepseek_key || '').trim();
@@ -1231,7 +1231,7 @@ content_code = """/**
           const res = await fetch(`${serverUrl}/api/ai/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ word, romaji, sentence, provider: 'antigravity' }),
+            body: JSON.stringify({ word, romaji, sentence, ...(prompt ? { prompt } : {}), provider: 'antigravity' }),
             signal: AbortSignal.timeout(localAiTimeout)
           });
           const raw = await res.json().catch(() => ({}));
@@ -1260,7 +1260,35 @@ content_code = """/**
   }
 
   // ── Sensei AI Song Identification ──
-  async function identifySongWithSensei(title, channel) {
+  function parseSongMetadataJson(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    const cleaned = raw.replace(/```json|```/gi, '').trim();
+    const extractFields = (obj) => {
+      const data = obj?.data && typeof obj.data === 'object' ? obj.data : obj;
+      if (data && typeof data === 'object' && (data.trackName || data.artistName)) {
+        return {
+          trackName: String(data.trackName || '').trim(),
+          artistName: String(data.artistName || '').trim(),
+          animeName: String(data.animeName || '').trim()
+        };
+      }
+      return null;
+    };
+    try {
+      const parsed = extractFields(JSON.parse(cleaned));
+      if (parsed) return parsed;
+    } catch { /* try regex extraction */ }
+    const match = cleaned.match(/\\{[\\s\\S]*\\}/);
+    if (match) {
+      try {
+        const parsed = extractFields(JSON.parse(match[0]));
+        if (parsed) return parsed;
+      } catch { /* ignore */ }
+    }
+    return null;
+  }
+
+  async function identifySongWithSensei(title, channel, options = {}) {
     if (!title || typeof title !== 'string') return null;
     return new Promise((resolve) => {
       if (!chrome.storage?.local) {
@@ -1279,8 +1307,8 @@ content_code = """/**
         'linguaplay_server_url'
       ], async (cfg) => {
         try {
-          const provider = getSenseiProvider(cfg);
-          const hasKey = cfg.linguaplay_gemini_key || cfg.linguaplay_deepseek_key || cfg.linguaplay_openrouter_key || cfg.linguaplay_opencode_key || provider === 'antigravity';
+          const primaryProvider = getSenseiProvider(cfg);
+          const hasKey = cfg.linguaplay_gemini_key || cfg.linguaplay_deepseek_key || cfg.linguaplay_openrouter_key || cfg.linguaplay_opencode_key || cfg.linguaplay_opencode_url || primaryProvider === 'antigravity' || primaryProvider === 'opencode';
           if (!hasKey) {
             resolve({ error: 'Please set up an AI API key (Gemini, DeepSeek, etc.) in LinguaPlay settings to use Sensei AI.' });
             return;
@@ -1292,29 +1320,71 @@ Title: "${title.replace(/"/g, '\\"')}"
 Channel: "${(channel || '').replace(/"/g, '\\"')}"
 
 Extract the song metadata:
-1. "trackName": The real Japanese song title (strip "OP", "ED", "Theme", "MV", "Full", etc.).
+1. "trackName": The real Japanese song title (strip "OP", "ED", "Theme", "MV", "Full", parenthetical translations, etc.).
 2. "artistName": The actual performing music artist/singer (NOT the anime series name, anime studio, or YouTube reposter). If the song is an anime theme and the singer is not named in the title, use your knowledge of the official soundtrack release to provide the real artist name.
 3. "animeName": The anime series name if applicable, or empty string.
 
 Respond in JSON only:
 {"trackName": "...", "artistName": "...", "animeName": "..."}`;
 
-          const raw = await callSenseiLlmApi({
-            messages: [{ role: 'user', content: prompt }],
-            isJson: true,
-            config: cfg,
-            word: title,
-            romaji: '',
-            sentence: title
-          });
+          const candidateProviders = [primaryProvider];
+          if (cfg.linguaplay_gemini_key && !candidateProviders.includes('gemini')) candidateProviders.push('gemini');
+          if (cfg.linguaplay_deepseek_key && !candidateProviders.includes('deepseek')) candidateProviders.push('deepseek');
+          if (cfg.linguaplay_openrouter_key && !candidateProviders.includes('openrouter')) candidateProviders.push('openrouter');
+          if ((cfg.linguaplay_opencode_key || cfg.linguaplay_opencode_url) && !candidateProviders.includes('opencode')) candidateProviders.push('opencode');
+          if (!candidateProviders.includes('antigravity')) candidateProviders.push('antigravity');
 
-          const json = JSON.parse(raw.replace(/```json|```/g, '').trim());
-          if (json && (json.trackName || json.artistName)) {
-            resolve({
-              trackName: (json.trackName || '').trim(),
-              artistName: (json.artistName || '').trim(),
-              animeName: (json.animeName || '').trim()
-            });
+          let lastError = null;
+          for (const prov of candidateProviders) {
+            try {
+              if (prov === 'antigravity' && options?.ensureServer && chrome.runtime?.sendMessage) {
+                await new Promise(r => {
+                  try {
+                    chrome.runtime.sendMessage({ action: 'ENSURE_LOCAL_SERVER' }, () => {
+                      void chrome.runtime?.lastError;
+                      r();
+                    });
+                  } catch {
+                    r();
+                  }
+                });
+              }
+
+              const raw = await callSenseiLlmApi({
+                messages: [{ role: 'user', content: prompt }],
+                isJson: true,
+                config: { ...cfg, linguaplay_ai_provider: prov },
+                word: title,
+                romaji: '',
+                sentence: title,
+                prompt
+              });
+
+              let parsed = parseSongMetadataJson(raw);
+              if (!parsed && prov === 'antigravity') {
+                const chatRaw = await callSenseiLlmApi({
+                  messages: [{ role: 'user', content: prompt }],
+                  isJson: false,
+                  config: { ...cfg, linguaplay_ai_provider: 'antigravity' },
+                  word: title,
+                  romaji: '',
+                  sentence: title
+                });
+                parsed = parseSongMetadataJson(chatRaw);
+              }
+
+              if (parsed && (parsed.trackName || parsed.artistName)) {
+                resolve(parsed);
+                return;
+              }
+            } catch (err) {
+              lastError = err;
+              console.warn(`[LinguaPlay] identifySongWithSensei (${prov}) error:`, err);
+            }
+          }
+
+          if (lastError) {
+            resolve({ error: lastError.message });
             return;
           }
           resolve(null);
@@ -1394,34 +1464,45 @@ Respond in JSON only:
     let title = '';
     let channel = '';
 
-    const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
-                    document.querySelector('h1.title yt-formatted-string') ||
-                    document.querySelector('#title h1 yt-formatted-string') ||
-                    document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
-                    document.querySelector('h1.ytd-video-primary-info-renderer');
-    if (titleEl && titleEl.textContent && titleEl.textContent.trim()) {
-      title = titleEl.textContent.trim();
+    const watchFlexy = document.querySelector('ytd-watch-flexy');
+    const flexyVideoId = watchFlexy?.getAttribute?.('video-id');
+    const isWatchDomCurrent = !flexyVideoId || !currentVideoId || flexyVideoId === currentVideoId;
+
+    if (isWatchDomCurrent) {
+      const titleEl = document.querySelector('ytd-watch-metadata h1 yt-formatted-string') ||
+                      document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
+                      document.querySelector('h1.title yt-formatted-string') ||
+                      document.querySelector('#title h1 yt-formatted-string') ||
+                      document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
+                      document.querySelector('h1.ytd-video-primary-info-renderer');
+      if (titleEl && titleEl.textContent && titleEl.textContent.trim()) {
+        title = titleEl.textContent.trim();
+      }
     }
 
-    if (!title) {
+    if (!title && document.title) {
+      const docT = document.title.replace(/^\\(\\d+\\)\\s*/, '').replace(/\\s*-\\s*YouTube$/i, '').trim();
+      if (docT && !/^YouTube$/i.test(docT)) {
+        title = docT;
+      }
+    }
+
+    if (!title && isWatchDomCurrent) {
       const metaTitle = document.querySelector('meta[name="title"]') || document.querySelector('meta[property="og:title"]');
       if (metaTitle && metaTitle.content && metaTitle.content.trim()) {
         title = metaTitle.content.trim();
       }
     }
 
-    if (!title && document.title) {
-      const docT = document.title.replace(/\\s*-\\s*YouTube$/i, '').trim();
-      if (docT && !/^YouTube$/i.test(docT)) {
-        title = docT;
+    if (isWatchDomCurrent) {
+      const channelEl = document.querySelector('ytd-watch-metadata #upload-info #channel-name a') ||
+                        document.querySelector('ytd-watch-metadata ytd-channel-name a') ||
+                        document.querySelector('#upload-info #channel-name a') ||
+                        document.querySelector('ytd-channel-name a') ||
+                        document.querySelector('#owner-name a');
+      if (channelEl && channelEl.textContent && channelEl.textContent.trim()) {
+        channel = channelEl.textContent.trim();
       }
-    }
-
-    const channelEl = document.querySelector('#upload-info #channel-name a') ||
-                      document.querySelector('ytd-channel-name a') ||
-                      document.querySelector('#owner-name a');
-    if (channelEl && channelEl.textContent && channelEl.textContent.trim()) {
-      channel = channelEl.textContent.trim();
     }
 
     return { title, channel };
@@ -2052,8 +2133,9 @@ Respond in JSON only:
       </button>
     `;
     const visibilityToggle = controls.querySelector('#linguaplay-visibility-toggle');
+    const subStatusBadge = controls.querySelector('#linguaplay-sub-status');
     const settingsToggle = controls.querySelector('#linguaplay-toggle-trigger');
-    playerUI = { player: moviePlayer, controls, widget, overlay, visibilityToggle, settingsToggle };
+    playerUI = { player: moviePlayer, controls, widget, overlay, visibilityToggle, subStatusBadge, settingsToggle };
 
     // 4. Translation Panel (Defaults to Native Sidebar or Body)
     const drawer = document.createElement('div');
@@ -2332,101 +2414,13 @@ Respond in JSON only:
         if (e.target === lyricsModal) lyricsModal.classList.add('hidden');
       });
 
-      document.getElementById('lp-search-submit-btn')?.addEventListener('click', async () => {
-        const track = document.getElementById('lp-search-track-input')?.value?.trim();
-        const artist = document.getElementById('lp-search-artist-input')?.value?.trim();
-        const listContainer = document.getElementById('lp-search-results-list');
-        if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#a78bfa;">Searching LRCLIB & Kugou Music...</div>';
-
-        const query = [artist, track].filter(Boolean).join(' ');
-        const response = await new Promise(resolve => {
-          chrome.runtime.sendMessage({
-            action: 'FETCH_LRCLIB_LYRICS',
-            trackName: track,
-            artistName: artist,
-            query: query,
-            duration: activeVideoEl?.duration || 0
-          }, res => resolve(res));
-        });
-
-        if (response && response.success && response.syncedLyrics) {
-          const cues = parseLRC(response.syncedLyrics);
-          if (cues && cues.length > 0) {
-            subtitleTimeline = cues;
-            currentSubIndex = -1;
-            const provName = response.provider === 'kugou' ? 'Kugou Music' : 'LRCLIB';
-            const statusBadge = document.getElementById('linguaplay-sub-status');
-            if (statusBadge) statusBadge.textContent = `🎵 ${response.trackName || 'Lyrics'} (${cues.length})`;
-            if (listContainer) {
-              listContainer.innerHTML = `
-                <div style="background:rgba(52,211,153,0.15); border:1px solid #34d399; padding:8px 10px; border-radius:8px; font-size:11px; color:#34d399;">
-                  ✓ Found on ${provName}: <strong>${response.trackName}</strong> ${response.artistName ? 'by ' + response.artistName : ''} (${cues.length} cues)
-                </div>
-              `;
-            }
-
-            // Persist to local cache so user never has to re-search this video
-            if (currentVideoId && chrome.storage?.local) {
-              chrome.storage.local.set({
-                [`lp_lyrics_cache_${currentVideoId}`]: {
-                  trackName: response.trackName || track,
-                  artistName: response.artistName || artist,
-                  provider: response.provider || 'lrclib',
-                  syncedLyrics: response.syncedLyrics,
-                  cachedAt: Date.now()
-                }
-              }, () => {
-                updateLyricsModalStatus();
-              });
-            } else {
-              updateLyricsModalStatus();
-            }
-
-            ensureYouTubeCCEnabled();
-            return;
-          }
-        }
-        if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">No synced lyrics found on LRCLIB or Kugou Music for this search query.</div>';
+      document.getElementById('lp-search-submit-btn')?.addEventListener('click', () => {
+        return runModalLyricsSearch('');
       });
 
       // 1-Click AI Identification via Sensei LLM
-      document.getElementById('lp-ai-identify-btn')?.addEventListener('click', async () => {
-        const listContainer = document.getElementById('lp-search-results-list');
-        const meta = getYouTubeVideoMetadata();
-        if (!meta.title) {
-          if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">Could not read video title from YouTube page.</div>';
-          return;
-        }
-
-        if (listContainer) {
-          listContainer.innerHTML = '<div style="font-size:11px; color:#ec4899; display:flex; align-items:center; gap:6px;"><span>✨</span> Sensei AI is analyzing video title and identifying artist...</div>';
-        }
-
-        const ai = await identifySongWithSensei(meta.title, meta.channel);
-        if (!ai) {
-          if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">Sensei AI could not identify song. Please check extension settings.</div>';
-          return;
-        }
-        if (ai.error) {
-          if (listContainer) listContainer.innerHTML = `<div style="font-size:11px; color:#ef4444;">⚠️ Sensei AI Notice: ${ai.error}</div>`;
-          return;
-        }
-
-        const trackInp = document.getElementById('lp-search-track-input');
-        const artistInp = document.getElementById('lp-search-artist-input');
-        if (trackInp) trackInp.value = ai.trackName || '';
-        if (artistInp) artistInp.value = ai.artistName || '';
-
-        if (listContainer) {
-          listContainer.innerHTML = `
-            <div style="font-size:11px; color:#c084fc; margin-bottom:4px;">
-              ✨ Identified: <strong>${ai.trackName}</strong> by <strong>${ai.artistName}</strong> ${ai.animeName ? '(' + ai.animeName + ')' : ''}
-            </div>
-          `;
-        }
-
-        // Trigger search automatically with AI identified metadata
-        document.getElementById('lp-search-submit-btn')?.click();
+      document.getElementById('lp-ai-identify-btn')?.addEventListener('click', () => {
+        return runModalAiIdentifyAndSearch();
       });
 
       // Clear cached lyrics for current video
@@ -2436,7 +2430,7 @@ Respond in JSON only:
           subtitleTimeline = [];
           currentSubIndex = -1;
           const statusBadge = document.getElementById('linguaplay-sub-status');
-          if (statusBadge) statusBadge.textContent = '';
+          if (statusBadge) statusBadge.textContent = '🎵 No lyrics (Click)';
           updateLyricsModalStatus();
           const listContainer = document.getElementById('lp-search-results-list');
           if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#94a3b8;">Cleared cached lyrics for this video.</div>';
@@ -2488,50 +2482,219 @@ Respond in JSON only:
       });
     }
 
-    function openLyricsModal() {
+    let isModalAiIdentifying = false;
+
+    async function runModalLyricsSearch(prefixBannerHtml = '') {
+      const track = document.getElementById('lp-search-track-input')?.value?.trim() || '';
+      const artist = document.getElementById('lp-search-artist-input')?.value?.trim() || '';
+      const listContainer = document.getElementById('lp-search-results-list');
+      if (!track && !artist) {
+        if (listContainer) {
+          listContainer.innerHTML = `${prefixBannerHtml}<div style="font-size:11px; color:#ef4444;">Please enter a Track Name or Artist to search.</div>`;
+        }
+        return false;
+      }
+      if (listContainer) {
+        listContainer.innerHTML = `${prefixBannerHtml}<div style="font-size:11px; color:#a78bfa;">Searching LRCLIB & Kugou Music...</div>`;
+      }
+
+      const searchVid = currentVideoId;
+      const query = [artist, track].filter(Boolean).join(' ');
+      const response = await new Promise(resolve => {
+        if (!chrome.runtime?.sendMessage) {
+          resolve({ success: false, error: 'Extension runtime unavailable' });
+          return;
+        }
+        chrome.runtime.sendMessage({
+          action: 'FETCH_LRCLIB_LYRICS',
+          trackName: track,
+          artistName: artist,
+          query: query,
+          duration: activeVideoEl?.duration || 0
+        }, res => {
+          if (chrome.runtime?.lastError) {
+            resolve({ success: false, error: chrome.runtime.lastError.message });
+          } else {
+            resolve(res);
+          }
+        });
+      });
+
+      if (searchVid && currentVideoId && searchVid !== currentVideoId) return false;
+
+      if (response && response.success && response.syncedLyrics) {
+        const cues = parseLRC(response.syncedLyrics);
+        if (cues && cues.length > 0) {
+          subtitleTimeline = cues;
+          currentSubIndex = -1;
+          const provName = response.provider === 'kugou' ? 'Kugou Music' : 'LRCLIB';
+          const provTag = response.provider === 'kugou' ? ' [Kugou]' : (prefixBannerHtml ? ' [AI]' : '');
+          const statusBadge = playerUI?.subStatusBadge || document.getElementById('linguaplay-sub-status');
+          if (statusBadge) statusBadge.textContent = `🎵 ${response.trackName || track || 'Lyrics'}${provTag} (${cues.length})`;
+          if (listContainer) {
+            listContainer.innerHTML = `
+              ${prefixBannerHtml}
+              <div style="background:rgba(52,211,153,0.15); border:1px solid #34d399; padding:8px 10px; border-radius:8px; font-size:11px; color:#34d399;">
+                ✓ Found on ${provName}: <strong>${response.trackName || track}</strong> ${response.artistName ? 'by ' + response.artistName : ''} (${cues.length} cues)
+              </div>
+            `;
+          }
+
+          // Persist to local cache so user never has to re-search this video
+          if (currentVideoId && chrome.storage?.local) {
+            chrome.storage.local.set({
+              [`lp_lyrics_cache_${currentVideoId}`]: {
+                trackName: response.trackName || track,
+                artistName: response.artistName || artist,
+                provider: response.provider || 'lrclib',
+                isAi: Boolean(prefixBannerHtml),
+                syncedLyrics: response.syncedLyrics,
+                cachedAt: Date.now()
+              }
+            }, () => {
+              updateLyricsModalStatus();
+            });
+          } else {
+            updateLyricsModalStatus();
+          }
+
+          ensureYouTubeCCEnabled();
+          onTimeUpdate();
+          return true;
+        }
+      }
+      if (subtitleTimeline.length === 0) {
+        const statusBadge = playerUI?.subStatusBadge || document.getElementById('linguaplay-sub-status');
+        if (statusBadge) statusBadge.textContent = '🎵 No lyrics (Click)';
+      }
+      if (listContainer) {
+        listContainer.innerHTML = `${prefixBannerHtml}<div style="font-size:11px; color:#ef4444;">No synced lyrics found on LRCLIB or Kugou Music for this search query.</div>`;
+      }
+      return false;
+    }
+
+    async function runModalAiIdentifyAndSearch() {
+      if (isModalAiIdentifying) return;
+      const listContainer = document.getElementById('lp-search-results-list');
+      const aiBtn = document.getElementById('lp-ai-identify-btn');
+      const trackInp = document.getElementById('lp-search-track-input');
+      const artistInp = document.getElementById('lp-search-artist-input');
+      const statusBadge = playerUI?.subStatusBadge || document.getElementById('linguaplay-sub-status');
+      const meta = getYouTubeVideoMetadata();
+      const rawTitle = meta.title || trackInp?.value?.trim() || '';
+      const rawChannel = meta.channel || artistInp?.value?.trim() || '';
+
+      if (!rawTitle) {
+        if (listContainer) listContainer.innerHTML = '<div style="font-size:11px; color:#ef4444;">Could not read video title from YouTube page.</div>';
+        return;
+      }
+
+      isModalAiIdentifying = true;
+      if (statusBadge && subtitleTimeline.length === 0) {
+        statusBadge.textContent = '✨ AI Identifying...';
+      }
+      if (aiBtn) {
+        aiBtn.disabled = true;
+        aiBtn.textContent = '⏳ Identifying...';
+      }
+      if (listContainer) {
+        listContainer.innerHTML = '<div style="font-size:11px; color:#ec4899; display:flex; align-items:center; gap:6px;"><span>✨</span> Sensei AI is analyzing video title and identifying artist...</div>';
+      }
+
+      const identifyVid = currentVideoId;
+      let ai = null;
+      try {
+        ai = await identifySongWithSensei(rawTitle, rawChannel, { ensureServer: true });
+      } finally {
+        isModalAiIdentifying = false;
+        if (aiBtn) {
+          aiBtn.disabled = false;
+          aiBtn.textContent = '✨ AI Identify';
+        }
+      }
+
+      if (identifyVid && currentVideoId && identifyVid !== currentVideoId) return;
+
+      if (!ai || ai.error || (!ai.trackName && !ai.artistName)) {
+        const errMsg = ai?.error
+          ? `⚠️ Sensei AI Notice: ${ai.error}`
+          : 'Sensei AI could not identify song. Please check extension settings.';
+        const errBanner = `<div style="font-size:11px; color:#ef4444; margin-bottom:4px;">${errMsg}</div>`;
+        if (trackInp?.value?.trim() || artistInp?.value?.trim()) {
+          await runModalLyricsSearch(errBanner);
+        } else {
+          if (subtitleTimeline.length === 0 && statusBadge) {
+            statusBadge.textContent = '🎵 No lyrics (Click)';
+          }
+          if (listContainer) {
+            listContainer.innerHTML = errBanner;
+          }
+        }
+        return;
+      }
+
+      if (trackInp && ai.trackName) trackInp.value = ai.trackName;
+      if (artistInp && ai.artistName) artistInp.value = ai.artistName;
+
+      const identifiedBanner = `
+        <div style="font-size:11px; color:#c084fc; margin-bottom:4px;">
+          ✨ Identified: <strong>${ai.trackName || trackInp?.value || ''}</strong>${ai.artistName ? ' by <strong>' + ai.artistName + '</strong>' : ''} ${ai.animeName ? '(' + ai.animeName + ')' : ''}
+        </div>
+      `;
+      if (listContainer) {
+        listContainer.innerHTML = identifiedBanner;
+      }
+
+      // Trigger search automatically with AI identified metadata
+      await runModalLyricsSearch(identifiedBanner);
+    }
+
+    async function openLyricsModal(options = {}) {
       const modal = document.getElementById('linguaplay-lyrics-modal');
       if (!modal) return;
       modal.classList.remove('hidden');
 
+      const autoAiSearch = options === true || Boolean(options && options.autoAiSearch) || subtitleTimeline.length === 0;
       const meta = getYouTubeVideoMetadata();
       const cleaned = cleanSongTitle(meta.title, meta.channel);
       const trackInp = document.getElementById('lp-search-track-input');
       const artistInp = document.getElementById('lp-search-artist-input');
 
-      if (currentVideoId && chrome.storage?.local) {
+      if (trackInp) trackInp.value = cleaned.trackName || '';
+      if (artistInp) artistInp.value = cleaned.artistName || '';
+
+      if (currentVideoId && chrome.storage?.local && !autoAiSearch) {
         chrome.storage.local.get([`lp_lyrics_cache_${currentVideoId}`], (res) => {
           const cached = res[`lp_lyrics_cache_${currentVideoId}`];
           if (cached && (cached.trackName || cached.artistName)) {
-            if (trackInp && !trackInp.value) trackInp.value = cached.trackName || '';
-            if (artistInp && !artistInp.value) artistInp.value = cached.artistName || '';
-          } else {
-            if (trackInp && !trackInp.value) trackInp.value = cleaned.trackName || '';
-            if (artistInp && !artistInp.value) artistInp.value = cleaned.artistName || '';
+            if (trackInp) trackInp.value = cached.trackName || '';
+            if (artistInp) artistInp.value = cached.artistName || '';
           }
+          updateLyricsModalStatus();
         });
       } else {
-        if (trackInp && !trackInp.value) trackInp.value = cleaned.trackName || '';
-        if (artistInp && !artistInp.value) artistInp.value = cleaned.artistName || '';
+        updateLyricsModalStatus();
       }
 
-      updateLyricsModalStatus();
+      if (autoAiSearch) {
+        await runModalAiIdentifyAndSearch();
+      }
     }
 
     const fetchLyricsBtn = document.getElementById('linguaplay-fetch-lyrics-btn');
     if (fetchLyricsBtn) {
-      fetchLyricsBtn.addEventListener('click', openLyricsModal);
+      fetchLyricsBtn.addEventListener('click', () => openLyricsModal({ autoAiSearch: subtitleTimeline.length === 0 }));
     }
-    const subStatusBadge = document.getElementById('linguaplay-sub-status');
     if (subStatusBadge) {
       subStatusBadge.addEventListener('click', (e) => {
         e.stopPropagation();
-        openLyricsModal();
+        return openLyricsModal({ autoAiSearch: true });
       });
       subStatusBadge.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           e.stopPropagation();
-          openLyricsModal();
+          return openLyricsModal({ autoAiSearch: true });
         }
       });
     }
@@ -3122,7 +3285,7 @@ Respond with ONLY valid JSON:
     if (countEl) countEl.textContent = `${subtitleTimeline.length} cues`;
     if (typeEl) {
       typeEl.textContent = subtitleTimeline.length > 0
-        ? (document.getElementById('linguaplay-sub-status')?.textContent || 'Active')
+        ? ((playerUI?.subStatusBadge || document.getElementById('linguaplay-sub-status'))?.textContent || 'Active')
         : 'None';
     }
     const offsetEl = document.getElementById('lp-modal-offset-val');
@@ -3243,12 +3406,21 @@ Respond with ONLY valid JSON:
       refreshDrawerParsing = () => {};
       senseiChatHistory = [];
       activeSenseiChatRequest = null;
+      const trackInp = document.getElementById('lp-search-track-input');
+      const artistInp = document.getElementById('lp-search-artist-input');
+      const listContainer = document.getElementById('lp-search-results-list');
+      const statusBadge = playerUI?.subStatusBadge || document.getElementById('linguaplay-sub-status');
+      if (trackInp) trackInp.value = '';
+      if (artistInp) artistInp.value = '';
+      if (listContainer) listContainer.innerHTML = '';
+      if (statusBadge) statusBadge.textContent = '';
       updateSenseiChatControls();
       updateLyricsModalStatus();
 
       // Load stored offset and cached lyrics for this video
       if (chrome.storage?.local) {
         chrome.storage.local.get([`lp_offset_${vid}`, `lp_lyrics_cache_${vid}`], (res) => {
+          if (vid !== currentVideoId) return;
           if (typeof res[`lp_offset_${vid}`] === 'number') {
             timingOffset = res[`lp_offset_${vid}`];
           } else {
@@ -3262,10 +3434,10 @@ Respond with ONLY valid JSON:
             if (cues && cues.length > 0) {
               subtitleTimeline = cues;
               lyricsFetchAttemptedVid = vid;
-              const statusBadge = document.getElementById('linguaplay-sub-status');
-              if (statusBadge) {
+              const badge = playerUI?.subStatusBadge || document.getElementById('linguaplay-sub-status');
+              if (badge) {
                 const provTag = cached.provider === 'kugou' ? ' [Kugou]' : (cached.isAi ? ' [AI]' : '');
-                statusBadge.textContent = `🎵 ${cached.trackName || 'Lyrics'}${provTag} (${cues.length})`;
+                badge.textContent = `🎵 ${cached.trackName || 'Lyrics'}${provTag} (${cues.length})`;
               }
               ensureYouTubeCCEnabled();
             }
@@ -3281,12 +3453,13 @@ Respond with ONLY valid JSON:
       inspectAndSwitchPlayerTracks();
 
       let cues = await fetchYouTubeCaptions(vid);
+      if (vid !== currentVideoId) return;
       if (cues && cues.length > 0) {
         subtitleTimeline = cues;
         lyricsFetchAttemptedVid = vid;
-        const statusBadge = document.getElementById('linguaplay-sub-status');
-        if (statusBadge) {
-          statusBadge.textContent = `Auto Sub (${cues.length})`;
+        const badge = playerUI?.subStatusBadge || document.getElementById('linguaplay-sub-status');
+        if (badge) {
+          badge.textContent = `Auto Sub (${cues.length})`;
         }
         ensureYouTubeCCEnabled();
         updateLyricsModalStatus();
@@ -3299,13 +3472,15 @@ Respond with ONLY valid JSON:
       const meta = getYouTubeVideoMetadata();
       // Ensure YouTube SPA DOM has actually rendered the video title and is not a generic placeholder
       if (meta && meta.title && !/^youtube$/i.test(meta.title)) {
+        const fetchVid = currentVideoId;
         isFetchingLyrics = true;
-        const statusBadge = document.getElementById('linguaplay-sub-status');
+        const statusBadge = playerUI?.subStatusBadge || document.getElementById('linguaplay-sub-status');
         if (statusBadge) statusBadge.textContent = '🎵 Searching lyrics...';
 
         try {
           const duration = activeVideoEl?.duration || 0;
           const lyricsInfo = await fetchLrclibLyrics(meta.title, meta.channel, duration);
+          if (fetchVid !== currentVideoId) return;
           if (lyricsInfo && lyricsInfo.cues && lyricsInfo.cues.length > 0) {
             subtitleTimeline = lyricsInfo.cues;
             if (statusBadge) {
@@ -3314,9 +3489,9 @@ Respond with ONLY valid JSON:
             }
 
             // Cache to local storage so future views load instantly
-            if (currentVideoId && chrome.storage?.local && lyricsInfo.syncedLyrics) {
+            if (fetchVid && chrome.storage?.local && lyricsInfo.syncedLyrics) {
               chrome.storage.local.set({
-                [`lp_lyrics_cache_${currentVideoId}`]: {
+                [`lp_lyrics_cache_${fetchVid}`]: {
                   trackName: lyricsInfo.trackName,
                   artistName: lyricsInfo.artistName,
                   provider: lyricsInfo.provider || 'lrclib',
@@ -3333,11 +3508,13 @@ Respond with ONLY valid JSON:
           }
         } catch (e) {
           console.warn('[LinguaPlay] Auto lyrics fetch failed:', e);
-          if (statusBadge) statusBadge.textContent = '🎵 No lyrics (Click)';
+          if (fetchVid === currentVideoId && statusBadge) statusBadge.textContent = '🎵 No lyrics (Click)';
         } finally {
-          lyricsFetchAttemptedVid = currentVideoId;
-          isFetchingLyrics = false;
-          updateLyricsModalStatus();
+          if (fetchVid === currentVideoId) {
+            lyricsFetchAttemptedVid = fetchVid;
+            isFetchingLyrics = false;
+            updateLyricsModalStatus();
+          }
         }
       }
     }
