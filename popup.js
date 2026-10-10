@@ -3,20 +3,17 @@
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const openPlayerBtn = document.getElementById('open-player-btn');
+  const openYouTubeBtn = document.getElementById('open-youtube-btn');
   const openOptionsBtn = document.getElementById('open-options-btn');
   const exportTsvBtn = document.getElementById('export-tsv-btn');
   const ankiCardCount = document.getElementById('anki-card-count');
   const popupSearchForm = document.getElementById('popup-search-form');
   const popupSearchInput = document.getElementById('popup-search-input');
   const ytActiveBox = document.getElementById('yt-active-box');
-  const launchCurrentYtBtn = document.getElementById('launch-current-yt-btn');
 
-  let activeYouTubeId = null;
-
-  // 1. Open Player Tab
-  openPlayerBtn.addEventListener('click', () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('player.html') });
+  // 1. Open YouTube, where the extension runs.
+  openYouTubeBtn.addEventListener('click', () => {
+    chrome.tabs.create({ url: 'https://www.youtube.com/' });
   });
 
   // 2. Open Options Page
@@ -36,24 +33,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 3. Check Active Tab for YouTube Video ID
+  // 3. Show guidance only on an actual YouTube watch page.
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.url && tab.url.includes('youtube.com/watch')) {
+    if (tab?.url) {
       const url = new URL(tab.url);
-      const v = url.searchParams.get('v');
-      if (v) {
-        activeYouTubeId = v;
+      if (url.protocol === 'https:' && (url.hostname === 'youtube.com' || url.hostname.endsWith('.youtube.com')) && url.pathname === '/watch' && url.searchParams.get('v')) {
         ytActiveBox.style.display = 'block';
       }
     }
   } catch (e) { /* ignore */ }
-
-  if (launchCurrentYtBtn && activeYouTubeId) {
-    launchCurrentYtBtn.addEventListener('click', () => {
-      chrome.tabs.create({ url: chrome.runtime.getURL(`player.html?v=${activeYouTubeId}`) });
-    });
-  }
 
   // 4. Update Saved Anki Card Count
   try {
@@ -98,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       e.preventDefault();
       const q = popupSearchInput.value.trim();
       if (q) {
-        chrome.tabs.create({ url: chrome.runtime.getURL(`player.html?search=${encodeURIComponent(q)}`) });
+        chrome.tabs.create({ url: `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}` });
       }
     });
   }

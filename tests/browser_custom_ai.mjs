@@ -97,20 +97,13 @@ try {
   assert.equal(requests[0].method, 'POST');
   assert.equal(requests[0].url, '/v1/chat/completions');
   assert.notEqual(requests[0].origin, 'https://www.youtube.com');
-  const standalone = await evaluate(`(async () => {
-    const ai = await import(chrome.runtime.getURL('js/ai.js'));
-    ai.setAIProvider('opencode');
-    return await new Promise(resolve => ai.requestAIAnalysis({word:'猫',sentence:'猫がいる',onSuccess: data => resolve({success:true,data}),onError: error => resolve({success:false,error})}));
-  })()`);
-  assert.equal(standalone.success, true, JSON.stringify(standalone));
-  assert.equal(standalone.data.contextual_meaning, 'cat');
   const nativeStartup = await checkNativeStartup({ root, profile, extensionOrigin, evaluate });
   const subtitleVisibility = await checkSubtitleVisibility({ root, evaluate, rpc, sessionId, localAiUrl: `http://127.0.0.1:${port}` });
   const localAnalysis = requests.find(request => request.url === '/api/ai/analyze');
   assert.ok(localAnalysis);
   assert.ok(Object.hasOwn(JSON.parse(localAnalysis.body), 'romaji'), 'Send the reading using the backend romaji field');
   const japaneseParsing = process.env.PARSER_SERVER_DIR ? await checkJapaneseParsing({root,evaluate,backend:process.env.PARSER_SERVER_DIR}) : {skipped:'Set PARSER_SERVER_DIR to test a real Sudachi backend'};
-  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, workerRequest: answer.success, standaloneCustomRequest: standalone.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility, japaneseParsing }));
+  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, workerRequest: answer.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility, japaneseParsing }));
 } finally {
   ws?.close();
   browser.kill('SIGTERM');

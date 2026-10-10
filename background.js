@@ -4,39 +4,7 @@
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('🚀 LinguaPlay Extension installed.');
-
-  // Create context menu for analyzing selected Japanese text
-  try {
-    if (typeof chrome !== 'undefined' && chrome.contextMenus && chrome.contextMenus.create) {
-      chrome.contextMenus.create({
-        id: 'linguaplay-analyze-selection',
-        title: 'Analyze "%s" in LinguaPlay',
-        contexts: ['selection']
-      }, () => {
-        if (chrome.runtime.lastError) {
-          // Ignore duplicate item error on reload
-        }
-      });
-    }
-  } catch (e) {
-    console.warn('[LinguaPlay Background] Failed to create context menu:', e);
-  }
 });
-
-try {
-  if (typeof chrome !== 'undefined' && chrome.contextMenus && chrome.contextMenus.onClicked) {
-    chrome.contextMenus.onClicked.addListener((info, tab) => {
-      if (info.menuItemId === 'linguaplay-analyze-selection' && info.selectionText) {
-        const word = encodeURIComponent(info.selectionText.trim());
-        chrome.tabs.create({
-          url: chrome.runtime.getURL(`player.html?word=${word}`)
-        });
-      }
-    });
-  }
-} catch (e) {
-  console.warn('[LinguaPlay Background] Failed to register contextMenus onClicked listener:', e);
-}
 
 const serverStarts = new Map();
 const serverStartFailures = new Map();
@@ -46,7 +14,7 @@ function canRequestServerStart(sender) {
   if (sender.id !== chrome.runtime.id) return false;
   try {
     const url = new URL(sender.url || sender.origin);
-    return (url.protocol === 'chrome-extension:' && url.hostname === chrome.runtime.id && ['/player.html', '/options.html'].includes(url.pathname)) ||
+    return (url.protocol === 'chrome-extension:' && url.hostname === chrome.runtime.id && url.pathname === '/options.html') ||
       (url.protocol === 'https:' && (url.hostname === 'youtube.com' || url.hostname.endsWith('.youtube.com')) && url.pathname === '/watch');
   } catch { return false; }
 }

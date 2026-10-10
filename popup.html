@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>LinguaPlay</title>
+  <title>LinguaPlay for YouTube</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -15,27 +15,25 @@
       </div>
       <div>
         <div style="font-size: 13px; font-weight: bold; color: white;">LinguaPlay</div>
-        <div style="font-size: 9px; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.1em;">Japanese Immersion</div>
+        <div style="font-size: 9px; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.1em;">Japanese on YouTube</div>
       </div>
     </div>
     <span style="font-size: 10px; color: #34d399; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2); border-radius: 12px; padding: 2px 6px;">
-      Active
+      Extension
     </span>
   </div>
 
-  <!-- Primary Launch Button -->
-  <button id="open-player-btn" class="btn-primary" style="margin-bottom: 10px;">
-    <span>🚀</span> Open Immersion Player
+  <!-- Study on YouTube itself -->
+  <button id="open-youtube-btn" class="btn-primary" style="margin-bottom: 10px;">
+    <span>▶</span> Open YouTube
   </button>
 
-  <!-- YouTube Direct Launch (if active on YouTube) -->
+  <!-- Guidance for an active YouTube watch page -->
   <div id="yt-active-box" class="popup-card" style="display: none; border-color: rgba(52,211,153,0.3); background: rgba(6,78,59,0.2);">
     <div style="font-size: 11px; font-weight: 600; color: #6ee7b7; margin-bottom: 6px;">
-      ▶ YouTube Video Detected
+      Ready on this video
     </div>
-    <button id="launch-current-yt-btn" class="btn-secondary" style="background: rgba(52,211,153,0.15); border-color: rgba(52,211,153,0.3); color: #6ee7b7;">
-      Open This Video in LinguaPlay
-    </button>
+    <p style="font-size: 11px; line-height: 1.5; color: #cbd5e1;">Use the <strong>言</strong> control in the YouTube player, then click a Japanese subtitle word to study it.</p>
   </div>
 
   <!-- Search YouTube Box -->

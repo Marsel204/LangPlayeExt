@@ -498,61 +498,6 @@ test('IME confirmation does not submit an unfinished Japanese question', () => {
   assert.equal(h.pending.length, 0);
 });
 
-function createStandaloneHarness(provider) {
-  const calls = [];
-  const settings = {
-    linguaplay_ai_provider: provider,
-    linguaplay_deepseek_key: 'fake-deepseek-key',
-    linguaplay_opencode_url: 'http://127.0.0.1:11434/v1',
-    linguaplay_opencode_model: 'test-local-model',
-  };
-  const sandbox = {
-    console, AbortController, URL,
-    chrome: { storage: { local: {
-      get(keys, callback) {
-        const result = Object.fromEntries(keys.filter(key => key in settings).map(key => [key, settings[key]]));
-        if (callback) callback(result);
-        return Promise.resolve(result);
-      },
-      set(values) { Object.assign(settings, values); },
-    } } },
-    fetch: async (url, options) => {
-      calls.push({ url, options });
-      throw new Error('Test network stub');
-    },
-  };
-  const source = fs.readFileSync(path.join(root, 'js', 'ai.js'), 'utf8')
-    .replace(/^import .*;$/m, '')
-    .replace(/export /g, '');
-  vm.runInNewContext(source + '\nglobalThis.aiApi = { requestAIAnalysis, getSavedApiKey, saveApiKey, setAIProvider, getAIProvider };', sandbox, { filename: 'js/ai.js' });
-  return { calls, sandbox, ...sandbox.aiApi, analyze: sandbox.aiApi.requestAIAnalysis };
-}
-
-test('standalone providers save and retrieve their own keys', async () => {
-  const h = createStandaloneHarness('gemini');
-  for (const provider of ['deepseek', 'opencode']) {
-    assert.equal(h.setAIProvider(provider), provider);
-    h.saveApiKey(`test-${provider}`);
-    assert.equal(await h.getSavedApiKey(), `test-${provider}`);
-  }
-  assert.equal(await h.getSavedApiKey('deepseek'), 'test-deepseek');
-});
-
-test('standalone custom provider parses a JSON response without requiring a key', async () => {
-  const h = createStandaloneHarness('opencode');
-  const results = [];
-  const errors = [];
-  h.sandbox.fetch = async (url, options) => {
-    h.calls.push({ url, options });
-    return { ok: true, json: async () => ({ choices: [{ message: { content: '```json\n{"contextual_meaning":"cat"}\n```' } }] }) };
-  };
-  await h.analyze({ word: '猫', sentence: '猫がいる', onSuccess: result => results.push(result), onError: error => errors.push(error) });
-  assert.deepEqual(errors, []);
-  assert.equal(results[0].contextual_meaning, 'cat');
-  assert.equal(h.calls[0].options.headers.Authorization, undefined);
-  assert.equal(JSON.parse(h.calls[0].options.body).model, 'test-local-model');
-});
-
 test('content custom-provider requests use the worker instead of page fetch', async () => {
   const h = createContentHarness({ linguaplay_ai_provider: 'opencode' });
   let sent;
@@ -570,13 +515,13 @@ test('content custom-provider requests use the worker instead of page fetch', as
   assert.equal(h.calls.length, 0, 'No page-origin network request should occur');
 });
 
-function createBackgroundHarness({ url = 'http://127.0.0.1:11434/v1/', allowed = true } = {}) {
+function createBackgroundHarness({ url = 'http://127.0.0.1:11434/v1/', allowed = true, key = 'fake-test-key' } = {}) {
   const calls = [];
   const sandbox = {
     console, URL, AbortSignal,
     chrome: {
       runtime: { id: 'test-extension', onInstalled: { addListener() {} }, onMessage: { addListener(callback) { sandbox.listener = callback; } } },
-      storage: { local: { get: async () => ({ linguaplay_opencode_url: url, linguaplay_opencode_model: 'local-test-model', linguaplay_opencode_key: 'fake-test-key' }) } },
+      storage: { local: { get: async () => ({ linguaplay_opencode_url: url, linguaplay_opencode_model: 'local-test-model', linguaplay_opencode_key: key }) } },
       permissions: { contains: async () => allowed }
     },
     fetch: async (url, options) => {
@@ -586,7 +531,7 @@ function createBackgroundHarness({ url = 'http://127.0.0.1:11434/v1/', allowed =
   };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'background.js'), 'utf8'), sandbox);
   return {
-    calls,
+    calls, sandbox,
     request(message, sender = { id: 'test-extension' }) {
       return new Promise(resolve => assert.equal(sandbox.listener({ action: 'CALL_CUSTOM_AI', ...message }, sender, resolve), true));
     }
@@ -681,27 +626,48 @@ test('denied endpoint access does not replace existing settings', async () => {
   assert.ok(h.elements.get('opencode-status-text').textContent.includes('not allowed'));
 });
 
-test('standalone custom endpoint explains an empty 403 response', async () => {
-  const h = createStandaloneHarness('opencode');
-  const errors = [];
-  h.sandbox.fetch = async () => ({ ok: false, status: 403, json: async () => { throw new SyntaxError('Empty response'); } });
-  await h.analyze({ word: '猫', onSuccess() {}, onError: error => errors.push(error) });
-  assert.ok(errors[0].includes('403'));
-  assert.ok(errors[0].includes('OLLAMA_ORIGINS'));
-});
-
-test('standalone OpenRouter honors the model saved in Options', async () => {
-  const h = createStandaloneHarness('openrouter');
-  h.sandbox.chrome.storage.local.set({ linguaplay_openrouter_key: 'fake-test-key', linguaplay_openrouter_model: 'test/custom-model' });
-  await h.analyze({ word: '猫', onSuccess() {}, onError() {} });
-  assert.equal(JSON.parse(h.calls[0].options.body).model, 'test/custom-model');
-});
-
-for (const [provider, expectedUrl] of [['deepseek', 'https://api.deepseek.com/v1/chat/completions'], ['opencode', 'http://127.0.0.1:11434/v1/chat/completions']]) {
-  test(`the standalone player dispatches the saved ${provider} setting`, async () => {
-    const h = createStandaloneHarness(provider);
-    const errors = [];
-    await h.analyze({ word: '猫', sentence: '猫がいる', onSuccess() {}, onError: error => errors.push(error) });
-    assert.equal(h.calls[0]?.url, expectedUrl, `Provider errors: ${errors.join(', ')}`);
+for (const [provider, url, model] of [
+  ['gemini', 'https://generativelanguage.googleapis.com/', 'gemini-2.5-flash'],
+  ['deepseek', 'https://api.deepseek.com/v1/chat/completions', 'deepseek-chat'],
+  ['openrouter', 'https://openrouter.ai/api/v1/chat/completions', 'test/custom-model'],
+]) {
+  test(`YouTube Sensei uses the configured ${provider} provider and model`, async () => {
+    const config = { linguaplay_ai_provider: provider, [`linguaplay_${provider}_key`]: 'test-key', linguaplay_openrouter_model: 'test/custom-model' };
+    const h = createContentHarness(config);
+    h.sandbox.fetch = async (requestUrl, options) => {
+      h.calls.push({ url: requestUrl, options });
+      return { ok: true, json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'Sensei answer' }] } }],
+        choices: [{ message: { content: 'Sensei answer' } }],
+      }) };
+    };
+    const answer = await h.callSenseiLlmApi({ messages: [{ role: 'user', content: 'Explain 猫' }], isJson: true, config });
+    assert.equal(answer, 'Sensei answer');
+    assert.ok(h.calls[0].url.startsWith(url));
+    const body = JSON.parse(h.calls[0].options.body);
+    if (provider === 'gemini') {
+      assert.ok(h.calls[0].url.includes(model));
+      assert.equal(body.generationConfig.responseMimeType, 'application/json');
+    } else {
+      assert.equal(body.model, model);
+      assert.equal(body.response_format.type, 'json_object');
+      assert.equal(h.calls[0].options.headers.Authorization, 'Bearer test-key');
+    }
   });
 }
+
+test('the extension worker supports a custom endpoint without an API key', async () => {
+  const h = createBackgroundHarness({ key: '' });
+  const answer = await h.request({ messages: [{ role: 'user', content: 'Explain 猫' }], isJson: true });
+  assert.equal(answer.success, true);
+  assert.equal(h.calls[0].options.headers.Authorization, undefined);
+});
+
+test('the extension worker explains an empty 403 response from a custom endpoint', async () => {
+  const h = createBackgroundHarness();
+  h.sandbox.fetch = async () => ({ ok: false, status: 403, json: async () => { throw new SyntaxError('Empty response'); } });
+  const answer = await h.request({ messages: [{ role: 'user', content: 'Explain 猫' }] });
+  assert.equal(answer.success, false);
+  assert.ok(answer.error.includes('403'));
+  assert.ok(answer.error.includes('OLLAMA_ORIGINS'));
+});

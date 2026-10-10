@@ -1,5 +1,9 @@
 # Japanese parsing implementation verification
 
+This is a historical report from before the standalone player was removed from
+this extension repository. The current extension checks cover the YouTube
+renderer and its backend integration; the standalone app lives in LangPlay.
+
 Tested 8 October 2026 in the `codex/japanese-parsing` worktrees of
 LangPlayext and LangPlay. Sentence translation engines and settings are unchanged.
 

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,9 +10,7 @@ const extRoot = fs.existsSync(path.join(__dirname, '..', 'extension', 'manifest.
   ? path.join(__dirname, '..', 'extension')
   : path.join(__dirname, '..');
 
-const { parseLRC, cleanSongTitle, parseSubtitleFile } = await import(
-  pathToFileURL(path.join(extRoot, 'js', 'subtitles.js')).href
-);
+const { parseLRC, cleanSongTitle, parseSubtitleFile } = await import('./content_subtitle_helpers.js').then(module => module.default);
 
 test('parseLRC parses standard and multi-timestamp LRC cues with duration calculations', () => {
   const lrcSample = `
@@ -680,7 +678,5 @@ test('clicking the green #linguaplay-sub-status button opens the modal, replaces
   assert.equal(lrclibCall.artistName, 'やなぎなぎ');
   assert.ok(statusBadge.textContent.includes('春擬き'), `Badge should update to synced song, got: ${statusBadge.textContent}`);
 });
-
-
 
 

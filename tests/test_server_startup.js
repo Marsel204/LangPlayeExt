@@ -76,41 +76,8 @@ test('missing native host reports setup instructions and avoids repeated launche
   assert.equal((await h.request()).success, true, 'A server started manually can recover during the cooldown');
 });
 
-test('extension player and Options can request startup', async () => {
+test('Options can request startup but the removed player cannot', async () => {
   const h = worker();
-  for (const page of ['player.html', 'options.html']) {
-    assert.equal((await h.request({ url: `chrome-extension://${h.sender.id}/${page}` })).success, true);
-  }
-});
-
-test('standalone native and iframe players start only upon playback', async () => {
-  const messages = [];
-  const listeners = {};
-  let playerEvents;
-  const video = { paused: true, ended: false, addEventListener(name, fn) { listeners[name] = fn; }, pause() {}, load() {}, removeAttribute() {}, classList: { add() {}, remove() {} } };
-  const sandbox = {
-    console, setInterval() {}, clearInterval() {},
-    retryJapaneseParser() {}, refreshTokenParsing() {},
-    chrome: { runtime: { sendMessage(message, callback) { messages.push(message); callback({ success: true }); } } },
-    window: { location: { origin: 'chrome-extension://test' }, YT: { PlayerState: { PLAYING: 1 }, Player: function (_id, config) { playerEvents = config.events; } } },
-    document: { getElementById() { return { classList: { add() {}, remove() {} } }; } },
-  };
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'js/player-controller.js'), 'utf8').replace(/^import .*;\n/gm, '').replace(/export \{[^}]+\};/g, '').replace(/export /g, '') + '\nglobalThis.api = { initPlayer, loadYouTubeVideo };', sandbox);
-  sandbox.api.initPlayer(video, () => {});
-  assert.equal(messages.length, 0);
-  listeners.playing();
-  assert.equal(messages.length, 0);
-  video.paused = false;
-  listeners.playing();
-  assert.equal(messages[0].action, 'ENSURE_LOCAL_SERVER');
-  const ready = sandbox.api.loadYouTubeVideo('test');
-  await new Promise(resolve => setImmediate(resolve));
-  playerEvents.onReady();
-  await ready;
-  playerEvents.onStateChange({ data: 2 });
-  assert.equal(messages.length, 1);
-  playerEvents.onStateChange({ data: 1 });
-  assert.equal(messages.length, 2);
-  listeners.playing();
-  assert.equal(messages.length, 2, 'Hidden HTML5 playback does not trigger startup in iframe mode');
+  assert.equal((await h.request({ url: `chrome-extension://${h.sender.id}/options.html` })).success, true);
+  assert.equal((await h.request({ url: `chrome-extension://${h.sender.id}/player.html` })).success, false);
 });

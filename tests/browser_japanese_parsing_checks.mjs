@@ -70,25 +70,8 @@ export async function checkJapaneseParsing({ root, evaluate, backend }) {
     assert.equal(await evaluate('getComputedStyle(document.getElementById("linguaplay-yt-drawer")).display'), 'none');
     assert.equal(await evaluate('getComputedStyle(document.getElementById("linguaplay-yt-tokens-overlay")).display'), 'none');
 
-    // Test the standalone module's async renderer in the same real browser.
-    const standalone = await evaluate(`(async () => {
-      const subtitles = await import(chrome.runtime.getURL('js/subtitles.js'));
-      const tokenizer = await import(chrome.runtime.getURL('js/tokenizer.js'));
-      const container = document.createElement('div'); document.body.appendChild(container);
-      await tokenizer.initTokenizer();
-      await tokenizer.requestParsedSentence('食べられなかった');
-      subtitles.renderTokens('食べられなかった', container);
-      const selected = container.querySelector('.token-group');
-      const result = {word:selected.dataset.word,reading:selected.dataset.furigana,base:selected.dataset.baseform};
-      subtitles.renderTokens('泳ぎました', container);
-      subtitles.renderTokens('', container);
-      await tokenizer.requestParsedSentence('泳ぎました');
-      await new Promise(resolve => setTimeout(resolve,0));
-      return {...result, cleared:container.children.length === 0};
-    })()`);
-    assert.deepEqual(standalone, {word:'食べられなかった',reading:'たべられなかった',base:'食べる',cleared:true});
     const warmTimes = actual.slice(1).map(r => r.ms).sort((a,b) => a-b);
-    return {realBackend:true, realWorker:true, cases:cases.length, drawer:true, hidden:true, standalone:true, coldMs:actual[0].ms, warmMedianMs:warmTimes[Math.floor(warmTimes.length/2)]};
+    return {realBackend:true, realWorker:true, cases:cases.length, drawer:true, hidden:true, coldMs:actual[0].ms, warmMedianMs:warmTimes[Math.floor(warmTimes.length/2)]};
   } finally {
     backendProcess.kill('SIGTERM');
     if (backendProcess.pid && backendProcess.exitCode === null && backendProcess.signalCode === null) await new Promise(resolve => backendProcess.once('exit', resolve));

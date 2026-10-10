@@ -15,7 +15,7 @@ const path = require('path');
 const wanakanaPath = path.join(__dirname, 'lib', 'wanakana.min.js');
 const realWanakana = require(wanakanaPath);
 
-const dictPath = path.join(__dirname, 'js', 'kanji-dict.js');
+const dictPath = path.join(__dirname, 'data', 'kanji-dict.js');
 const kanjiDictCode = fs.readFileSync(dictPath, 'utf8')
   .replace(/export const /g, 'const ')
   .replace(/export function /g, 'function ');
@@ -399,7 +399,7 @@ console.log('✅ Test 7: Subtitle Parsing & Sync: PASSED');
 const manifestPath = path.join(__dirname, 'manifest.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 assert.strictEqual(manifest.manifest_version, 3);
-assert.strictEqual(manifest.name, 'LinguaPlay — Japanese AI Immersion Player');
+assert.strictEqual(manifest.name, 'LinguaPlay for YouTube');
 assert.ok(manifest.options_ui && manifest.options_ui.page === 'options.html', 'Manifest must declare options_ui.page');
 assert.strictEqual(manifest.options_ui.open_in_tab, true, 'options_ui.open_in_tab must be true');
 const webRes = manifest.web_accessible_resources?.[0]?.resources || [];
@@ -766,7 +766,7 @@ console.log('✅ Test 13d: Runtime word click -> subtitle advance -> prompt isol
 console.log('\n🎵 Running Test Suite 14: Synced Lyrics (LRCLIB), External Link Fetching & Modal UI...');
 
 // 1. Verify cleanSongTitle on YouTube metadata
-const { cleanSongTitle, parseLRC, parseSubtitleFile } = require('./js/subtitles.js');
+const { cleanSongTitle, parseLRC, parseSubtitleFile } = require('./tests/content_subtitle_helpers.js');
 
 const cleanedToki = cleanSongTitle('土岐麻子 / HOME【TVアニメ「フルーツバスケット」2nd Season 第2クール OP ver.】 - YouTube', 'avex');
 assert.strictEqual(cleanedToki.trackName, 'HOME');

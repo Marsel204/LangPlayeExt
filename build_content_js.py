@@ -1,8 +1,10 @@
-import json, re, os
+import re
+from pathlib import Path
 
-dict_file = 'extension/js/kanji-dict.js' if os.path.exists('extension/js/kanji-dict.js') else 'js/kanji-dict.js'
-rules_file = 'extension/lib/deinflect-rules.json' if os.path.exists('extension/lib/deinflect-rules.json') else 'lib/deinflect-rules.json'
-out_file = 'extension/content.js' if os.path.exists('extension/manifest.json') else 'content.js'
+root = Path(__file__).resolve().parent
+dict_file = root / 'data/kanji-dict.js'
+rules_file = root / 'lib/deinflect-rules.json'
+out_file = root / 'content.js'
 
 with open(dict_file, 'r', encoding='utf-8') as f:
     dict_content = f.read()
@@ -2107,7 +2109,6 @@ Respond in JSON only:
         <button class="linguaplay-bar-btn" id="linguaplay-repeat-btn" title="Repeat Cue (Shortcut: R)">🔁</button>
         <button class="linguaplay-bar-btn" id="linguaplay-upload-sub-btn" title="Upload Japanese .srt/.vtt/.lrc subtitle file">📁</button>
         <button class="linguaplay-bar-btn" id="linguaplay-fetch-lyrics-btn" title="Lyrics Manager (Search Synced Lyrics & Audio Timing)" style="background:rgba(124,58,237,0.35); border-color:#a78bfa; color:#fff; font-weight:600;">🎵 Lyrics</button>
-        <button class="linguaplay-bar-btn" id="linguaplay-open-app-btn" title="Open in Full LinguaPlay Player Tab" style="background: rgba(124,58,237,0.4); border-color:#a78bfa; color:#fff;">🚀</button>
         <button class="linguaplay-bar-btn" id="linguaplay-open-settings-btn" title="Open Extension Settings" style="background: rgba(124,58,237,0.25); border-color:rgba(167,139,250,0.5); color:#fff;">⚙️</button>
         <button class="linguaplay-bar-btn linguaplay-collapse-btn" id="linguaplay-collapse-btn" title="Collapse Bar">✕</button>
       </div>
@@ -2729,16 +2730,6 @@ Respond in JSON only:
         openExtensionSettings();
       });
     }
-
-    document.getElementById('linguaplay-open-app-btn').addEventListener('click', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const vid = urlParams.get('v') || currentVideoId;
-      if (vid) {
-        window.open(chrome.runtime.getURL(`player.html?v=${vid}`), '_blank');
-      } else {
-        window.open(chrome.runtime.getURL('player.html'), '_blank');
-      }
-    });
 
     // 7. Drawer Event Listeners
     const drawerSettingsBtn = document.getElementById('lp-drawer-settings-btn');
