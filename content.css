@@ -2,8 +2,10 @@
    LinguaPlay Chrome Extension — YouTube On-Site Content Styles (content.css)
    ══════════════════════════════════════════════════════════════════════ */
 
-/* Only hide native YouTube plain subtitle text when LinguaPlay has active Japanese subtitles */
-.linguaplay-has-japanese .ytp-caption-window-container {
+/* Replace native captions only while the Japanese overlay is visible.
+   When it is hidden, YouTube's CC control owns original caption visibility. */
+:root:not(.linguaplay-subtitles-hidden) .linguaplay-has-japanese .ytp-caption-window-container,
+:root:not(.linguaplay-subtitles-hidden) .linguaplay-has-japanese .caption-window {
   opacity: 0 !important;
   pointer-events: none !important;
 }
@@ -12,12 +14,6 @@
 .linguaplay-subtitles-hidden #linguaplay-yt-tokens-overlay,
 .linguaplay-subtitles-hidden #linguaplay-yt-drawer {
   display: none !important;
-}
-
-.linguaplay-subtitles-hidden .ytp-caption-window-container,
-.linguaplay-subtitles-hidden .caption-window {
-  opacity: 0 !important;
-  pointer-events: none !important;
 }
 
 /* ── 1. Subtitle Tokens Area (Centered Bottom of Video) ── */
@@ -652,4 +648,3 @@
   justify-content: center;
   backdrop-filter: blur(4px);
 }
-

@@ -1981,13 +1981,14 @@ Respond in JSON only:
   }
 
   function updateSubtitleVisibility() {
-    // Keep rendering and requests running; only suppress their presentation.
+    // Keep rendering and requests running; hide only LinguaPlay's presentation.
+    // Original captions remain controlled by YouTube's CC button.
     // This page-session flag survives YouTube navigation without changing
     // the drawer's own open/closed state or the selected reading mode.
     document.documentElement.classList.toggle('linguaplay-subtitles-hidden', areSubtitlesHidden);
     const button = playerUI?.visibilityToggle;
     if (!button) return;
-    const label = areSubtitlesHidden ? 'Show subtitles and translation' : 'Hide subtitles and translation';
+    const label = areSubtitlesHidden ? 'Show Japanese subtitles and translation' : 'Hide Japanese subtitles and translation';
     button.title = label;
     button.setAttribute('aria-label', label);
     button.setAttribute('aria-pressed', String(areSubtitlesHidden));
@@ -2120,7 +2121,7 @@ Respond in JSON only:
     const controls = document.createElement('span');
     controls.id = 'linguaplay-yt-controls';
     controls.innerHTML = `
-      <button type="button" class="ytp-button" id="linguaplay-visibility-toggle" title="Hide subtitles and translation" aria-label="Hide subtitles and translation" aria-pressed="false">
+      <button type="button" class="ytp-button" id="linguaplay-visibility-toggle" title="Hide Japanese subtitles and translation" aria-label="Hide Japanese subtitles and translation" aria-pressed="false">
         <svg class="linguaplay-eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
           <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>
         </svg>

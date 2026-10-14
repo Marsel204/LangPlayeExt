@@ -243,13 +243,13 @@ test('visibility toggles independently of toolbar, readings and drawer state', (
   clickVisibility(h);
   assert.equal(h.sandbox.document.documentElement.classList.contains('linguaplay-subtitles-hidden'), true);
   assert.equal(button.getAttribute('aria-pressed'), 'true');
-  assert.equal(button.title, 'Show subtitles and translation');
+  assert.equal(button.title, 'Show Japanese subtitles and translation');
   assert.equal(widget.classList.contains('collapsed'), true);
   h.elements.get('linguaplay-toggle-trigger').listeners.click({ stopPropagation() {} });
   assert.equal(widget.classList.contains('collapsed'), false);
   assert.equal(button.getAttribute('aria-pressed'), 'true');
   clickVisibility(h);
-  assert.equal(button.title, 'Hide subtitles and translation');
+  assert.equal(button.title, 'Hide Japanese subtitles and translation');
   assert.equal(drawer.classList.contains('hidden'), true, 'An explicitly closed drawer stays closed');
   h.renderSentenceTokens('猫');
   assert.ok(h.elements.get('linguaplay-yt-tokens').children[0].querySelector('.linguaplay-token-reading').textContent.includes('neko'));

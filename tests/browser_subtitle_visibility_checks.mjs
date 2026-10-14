@@ -37,6 +37,12 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
       bar.className = 'ytp-chrome-bottom';
       bar.innerHTML = '<div class="ytp-right-controls">' + (includeCC ? '<button class="ytp-button ytp-subtitles-button" title="Subtitles" aria-pressed="true">CC</button>' : '') + '<button class="ytp-button ytp-settings-button" title="Settings">⚙</button><button class="ytp-button ytp-fullscreen-button" title="Fullscreen">⛶</button></div>';
       document.getElementById('movie_player').appendChild(bar);
+      const cc = bar.querySelector('.ytp-subtitles-button');
+      cc?.addEventListener('click', () => {
+        const enabled = cc.getAttribute('aria-pressed') !== 'true';
+        cc.setAttribute('aria-pressed', String(enabled));
+        document.querySelector('.ytp-caption-window-container').hidden = !enabled;
+      });
     };
     ['click', 'keydown', 'keyup', 'pointerdown', 'pointerup'].forEach(name => player.addEventListener(name, () => window.playerEvents.push(name)));
     window.translationResolvers = [];
@@ -106,6 +112,8 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   assert.equal(current.button, 'flex');
   assert.equal(current.toolbar, 'none');
   assert.equal(current.overlay, 'flex');
+  assert.equal(current.nativeOpacity, '0', 'The visible Japanese overlay replaces native captions');
+  assert.equal(current.fallbackOpacity, '0');
   assert.equal(current.drawer, 'none');
   assert.equal(current.eyeOff, 'none');
   assert.equal(current.insidePlayer, true);
@@ -148,15 +156,26 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   await click('linguaplay-visibility-toggle');
   current = await state();
   assert.equal(current.pressed, 'true');
-  assert.equal(current.label, 'Show subtitles and translation');
+  assert.equal(current.label, 'Show Japanese subtitles and translation');
   assert.equal(current.title, current.label);
   assert.equal(current.overlay, 'none');
   assert.equal(current.drawer, 'none');
-  assert.equal(current.nativeOpacity, '0');
-  assert.equal(current.fallbackOpacity, '0');
+  assert.equal(current.nativeOpacity, '1', 'Hiding Japanese subtitles must reveal original captions when YouTube CC is on');
+  assert.equal(current.fallbackOpacity, '1');
   assert.equal(current.eye, 'none');
   assert.notEqual(current.eyeOff, 'none');
   assert.deepEqual(current.playerEvents, []);
+
+  // YouTube's own CC button can disable and restore original captions while
+  // the extension's Japanese overlay stays hidden.
+  assert.equal(await evaluate('document.querySelector(".ytp-subtitles-button").getAttribute("aria-pressed")'), 'true');
+  await evaluate('document.querySelector(".ytp-subtitles-button").click()');
+  assert.equal(await evaluate('getComputedStyle(document.querySelector(".ytp-caption-window-container")).display'), 'none');
+  assert.equal((await state()).overlay, 'none');
+  await evaluate('document.querySelector(".ytp-subtitles-button").click(); window.playerEvents = []');
+  assert.notEqual(await evaluate('getComputedStyle(document.querySelector(".ytp-caption-window-container")).display'), 'none');
+  assert.equal((await state()).nativeOpacity, '1');
+  assert.equal((await state()).overlay, 'none');
 
   // A sidebar rebuild must retain the same drawer and in-flight translation.
   await evaluate(`window.savedDrawer = document.getElementById('linguaplay-yt-drawer');
@@ -246,10 +265,11 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   assert.equal(await evaluate('document.getElementById("linguaplay-yt-controls") === window.savedGroup'), true);
   assert.equal((await state()).pressed, 'true');
 
-  // Native captions stay suppressed even when the Japanese overlay disappears.
+  // Original captions remain visible while the Japanese overlay is hidden,
+  // including after switching to an English caption.
   await evaluate('document.querySelector(".ytp-caption-segment").textContent = "English caption"');
   await waitFor('!document.getElementById("linguaplay-yt-tokens-overlay").classList.contains("active")');
-  assert.equal((await state()).nativeOpacity, '0');
+  assert.equal((await state()).nativeOpacity, '1');
   await click('linguaplay-visibility-toggle');
   assert.equal((await state()).nativeOpacity, '1');
   await click('lp-dismiss-btn');
@@ -265,6 +285,7 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   await evaluate('window.visibilityTestApi.setTimeline([{ start:0, end:2, text:"犬がいる" }])');
   current = await state();
   assert.equal(current.pressed, 'true');
+  assert.equal(current.nativeOpacity, '1', 'An active Japanese timeline must not hide original captions when the overlay is hidden');
   await click('linguaplay-toggle-trigger');
   current = await state();
   assert.equal(current.toolbar, 'flex');
@@ -291,6 +312,7 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   await click('linguaplay-collapse-btn');
   await click('linguaplay-visibility-toggle');
   assert.equal((await state()).overlay, 'flex');
+  assert.equal((await state()).nativeOpacity, '0');
   await evaluate('document.exitFullscreen()');
 
   // Recreate all page DOM and rerun the bundle as on a full refresh.

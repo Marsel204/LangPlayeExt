@@ -31,7 +31,7 @@ LinguaPlay adds a Japanese learning workspace to YouTube's watch page. Subtitles
 
 Open a YouTube video with Japanese captions. LinguaPlay detects the captions and displays an interactive Japanese overlay with **furigana** above the words.
 
-Use the **言** control in the video player to open LinguaPlay's toolbar. Switch to **Romaji** for alphabetic pronunciation or **Hidden** to practise reading without pronunciation guides. The **eye** control shows or hides the subtitle overlay and learning drawer.
+Use the **言** control in the video player to open LinguaPlay's toolbar. Switch to **Romaji** for alphabetic pronunciation or **Hidden** to practise reading without pronunciation guides. The **eye** control shows or hides the Japanese subtitle overlay and learning drawer. To watch with original subtitles, hide the Japanese overlay with the eye control and turn on YouTube's **CC** button.
 
 For music videos without captions, click **Lyrics** to search for synced lyrics by track and artist. You can also use the toolbar's **folder** button to load a Japanese `.srt`, `.vtt`, or `.lrc` file. Adjust the timing offset or use **Sync Line 1 to Playhead** in the Lyrics Manager when the text is out of sync.
 
