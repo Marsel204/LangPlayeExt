@@ -8,13 +8,10 @@ const manifestPath = fs.existsSync(path.join(__dirname, '..', 'extension', 'mani
   : path.join(__dirname, '..', 'manifest.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 
-// Test A: Manifest MUST declare contextMenus permission
-assert.ok(
-  manifest.permissions.includes('contextMenus'),
-  'FAIL: manifest.json is missing "contextMenus" in permissions array!'
-);
+// The old context menu launched the standalone app and is no longer needed.
+assert.ok(!manifest.permissions.includes('contextMenus'));
 
-// 2. Evaluate background.js in an environment where contextMenus might be uninitialized
+// 2. The extension worker starts without the removed context menu API.
 const bgPath = fs.existsSync(path.join(__dirname, '..', 'extension', 'background.js'))
   ? path.join(__dirname, '..', 'extension', 'background.js')
   : path.join(__dirname, '..', 'background.js');
