@@ -745,6 +745,7 @@
   let drawerActiveWord = '';
   let activeLiveSentence = '';
   let isPanelCollapsed = true;
+  let isAppEnabled = true;
   let areSubtitlesHidden = false;
   let playerUI = null;
   let liveCaptionObserver = null;
@@ -755,10 +756,14 @@
   let renderedSentence = '';
   let subtitleRenderVersion = 0;
 
-  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed'], (res) => {
+  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled'], (res) => {
     if (res.linguaplay_reading_mode) readingMode = res.linguaplay_reading_mode;
     if (typeof res.linguaplay_panel_collapsed === 'boolean') isPanelCollapsed = res.linguaplay_panel_collapsed;
+    if (typeof res.linguaplay_app_enabled === 'boolean') isAppEnabled = res.linguaplay_app_enabled;
     updateWidgetState();
+    if (!isAppEnabled) {
+      setAppEnabled(false);
+    }
   });
 
   // ── Tokenizer with Kanji Resolution ──
@@ -1113,6 +1118,7 @@
 
   // ── In-Memory Player Track Discovery Bridge ──
   function inspectAndSwitchPlayerTracks() {
+    if (!isAppEnabled) return;
     try {
       window.dispatchEvent(new CustomEvent('LINGUAPLAY_REQUEST_TRACK_SWITCH', {
         detail: { languageCode: 'ja' }
@@ -1694,7 +1700,7 @@ Respond in JSON only:
     const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
     if (!container) return;
 
-    if (!sentenceText || !sentenceText.trim() || !hasJapaneseCharacters(sentenceText)) {
+    if (!isAppEnabled || !sentenceText || !sentenceText.trim() || !hasJapaneseCharacters(sentenceText)) {
       container.innerHTML = '';
       if (overlay) overlay.classList.remove('active');
       if (player) player.classList.remove('linguaplay-has-japanese');
@@ -2105,6 +2111,7 @@ Respond in JSON only:
   function setupLiveCaptionHooking() {
     if (liveCaptionObserver) liveCaptionObserver.disconnect();
     const observer = new MutationObserver(() => {
+      if (!isAppEnabled) return;
       const captionContainer = document.querySelector('.ytp-caption-window-container') || document.querySelector('.caption-window');
       if (captionContainer) {
         const segs = captionContainer.querySelectorAll('.ytp-caption-segment');
@@ -2134,6 +2141,7 @@ Respond in JSON only:
       for (let i = 0; i < activeVideoEl.textTracks.length; i++) {
         const track = activeVideoEl.textTracks[i];
         track.oncuechange = () => {
+          if (!isAppEnabled) return;
           if (subtitleTimeline.length === 0) {
             if (track.activeCues && track.activeCues.length > 0) {
               const cueText = track.activeCues[0].text;
@@ -2151,6 +2159,37 @@ Respond in JSON only:
           }
         };
       }
+    }
+  }
+
+  function setAppEnabled(enabled) {
+    isAppEnabled = !!enabled;
+    chrome.storage.local.set({ linguaplay_app_enabled: isAppEnabled });
+    try {
+      window.dispatchEvent(new CustomEvent('LINGUAPLAY_SET_APP_STATE', {
+        detail: { enabled: isAppEnabled }
+      }));
+    } catch (e) {}
+
+    if (!isAppEnabled) {
+      renderSentenceTokens('');
+      playerUI?.drawer?.classList.add('hidden');
+      setPanelCollapsed(true);
+      return;
+    }
+
+    setPanelCollapsed(false);
+    inspectAndSwitchPlayerTracks();
+    // Playback may have advanced while off; do not restore the old cue.
+    currentSubIndex = -1;
+    onTimeUpdate();
+    if (subtitleTimeline.length === 0) {
+      const segments = document.querySelectorAll('.ytp-caption-segment');
+      activeLiveSentence = Array.from(segments).map(segment => segment.textContent || '').join(' ').trim();
+      renderSentenceTokens(activeLiveSentence);
+      // Retry initialization if the app was off when this video loaded.
+      currentVideoId = '';
+      checkAndInitVideo();
     }
   }
 
@@ -2172,6 +2211,11 @@ Respond in JSON only:
     updateSubtitleVisibility();
     const widget = playerUI?.widget;
     if (!widget) return;
+    const trigger = playerUI.settingsToggle;
+    trigger.classList.toggle('app-disabled', !isAppEnabled);
+    const label = isAppEnabled ? 'LinguaPlay settings' : 'LinguaPlay is OFF — Click to turn ON';
+    trigger.title = label;
+    trigger.setAttribute('aria-label', label);
     if (isPanelCollapsed) {
       widget.classList.add('collapsed');
     } else {
@@ -2271,9 +2315,9 @@ Respond in JSON only:
 
     widget.innerHTML = `
       <div id="linguaplay-yt-bar" role="group" aria-label="LinguaPlay settings">
-        <span style="font-size: 11px; font-weight: bold; color: #a78bfa; margin-right: 2px; display:flex; align-items:center; gap:3px;">
+        <button type="button" id="linguaplay-bar-logo" class="linguaplay-bar-logo-btn" title="Turn OFF LinguaPlay (stop subtitles)">
           <span>言</span> <span>LinguaPlay</span>
-        </span>
+        </button>
         <button class="linguaplay-bar-btn ${readingMode === 'furigana' ? 'active' : ''}" data-mode="furigana">Furigana</button>
         <button class="linguaplay-bar-btn ${readingMode === 'romaji' ? 'active' : ''}" data-mode="romaji">Romaji</button>
         <button class="linguaplay-bar-btn ${readingMode === 'hidden' ? 'active' : ''}" data-mode="hidden">Hidden</button>
@@ -2418,7 +2462,12 @@ Respond in JSON only:
     settingsToggle.addEventListener('click', (e) => {
       e.stopPropagation();
       ensurePlayerControls();
-      setPanelCollapsed(!isPanelCollapsed);
+      if (!isAppEnabled) setAppEnabled(true);
+      else setPanelCollapsed(!isPanelCollapsed);
+    });
+    document.getElementById('linguaplay-bar-logo').addEventListener('click', (e) => {
+      e.stopPropagation();
+      setAppEnabled(false);
     });
 
     document.getElementById('linguaplay-collapse-btn').addEventListener('click', (e) => {
@@ -3491,7 +3540,7 @@ Respond with ONLY valid JSON:
   }
 
   function onTimeUpdate() {
-    if (!activeVideoEl || subtitleTimeline.length === 0) return;
+    if (!isAppEnabled || !activeVideoEl || subtitleTimeline.length === 0) return;
     const ct = activeVideoEl.currentTime - timingOffset;
 
     let matchIdx = -1;
@@ -3515,6 +3564,7 @@ Respond with ONLY valid JSON:
   }
 
   function ensureYouTubeCCEnabled() {
+    if (!isAppEnabled) return;
     const ccBtn = document.querySelector('.ytp-subtitles-button');
     if (ccBtn && ccBtn.getAttribute('aria-pressed') === 'false') {
       ccBtn.click();
@@ -3617,6 +3667,10 @@ Respond with ONLY valid JSON:
         updateLyricsModalStatus();
       }
 
+      if (!isAppEnabled) {
+        return;
+      }
+
       inspectAndSwitchPlayerTracks();
 
       let cues = await fetchYouTubeCaptions(vid);
@@ -3633,6 +3687,8 @@ Respond with ONLY valid JSON:
         return;
       }
     }
+
+    if (!isAppEnabled) return;
 
     // If native subtitles are absent and we haven't fetched lyrics for this video yet:
     if (currentVideoId && subtitleTimeline.length === 0 && lyricsFetchAttemptedVid !== currentVideoId && !isFetchingLyrics) {

@@ -343,6 +343,50 @@ test('a fresh page session resets subtitle visibility', () => {
   assert.equal(nextPage.sandbox.document.documentElement.classList.contains('linguaplay-subtitles-hidden'), false);
 });
 
+test('the toolbar logo disables learning and restores original captions', () => {
+  const h = createContentHarness();
+  const player = h.sandbox.document.querySelector('#movie_player');
+  h.renderSentenceTokens('猫');
+  h.handleTokenClick({ surface: '猫', baseForm: '猫' }, '猫');
+  assert.equal(player.classList.contains('linguaplay-has-japanese'), true);
+  const logo = h.elements.get('linguaplay-bar-logo');
+  assert.ok(logo, 'The current toolbar must retain the PR logo control');
+  logo.listeners.click({ stopPropagation() {} });
+  assert.equal(player.classList.contains('linguaplay-has-japanese'), false);
+  assert.equal(h.elements.get('linguaplay-yt-tokens-overlay').classList.contains('active'), false);
+  assert.equal(h.elements.get('linguaplay-yt-drawer').classList.contains('hidden'), true);
+  assert.equal(h.elements.get('linguaplay-toggle-trigger').classList.contains('app-disabled'), true);
+  assert.equal(h.elements.get('linguaplay-toggle-trigger').getAttribute('aria-expanded'), 'false');
+  h.renderSentenceTokens('犬');
+  assert.equal(player.classList.contains('linguaplay-has-japanese'), false);
+  assert.equal(h.elements.get('linguaplay-yt-tokens').children.length, 0);
+});
+
+test('re-enabling the app renders the current cue after playback advances while off', () => {
+  const h = createContentHarness();
+  const video = { currentTime: 1 };
+  h.setPlayback(video, [{ start: 0, end: 2, text: '猫' }, { start: 3, end: 5, text: '犬' }]);
+  h.onTimeUpdate();
+  const logo = h.elements.get('linguaplay-bar-logo');
+  assert.ok(logo);
+  logo.listeners.click({ stopPropagation() {} });
+  video.currentTime = 4;
+  h.onTimeUpdate();
+  h.elements.get('linguaplay-toggle-trigger').listeners.click({ stopPropagation() {} });
+  assert.equal(h.elements.get('linguaplay-yt-tokens').children[0].querySelector('.linguaplay-jp-text').textContent, '犬');
+  assert.equal(h.elements.get('linguaplay-toggle-trigger').classList.contains('app-disabled'), false);
+  assert.equal(h.elements.get('linguaplay-toggle-trigger').getAttribute('aria-expanded'), 'true');
+});
+
+test('a saved disabled app keeps original captions available after UI injection', () => {
+  const h = createContentHarness({ linguaplay_app_enabled: false });
+  h.renderSentenceTokens('猫');
+  assert.equal(h.sandbox.document.querySelector('#movie_player').classList.contains('linguaplay-has-japanese'), false);
+  assert.equal(h.elements.get('linguaplay-toggle-trigger').classList.contains('app-disabled'), true);
+  assert.equal(h.elements.get('linguaplay-yt-widget').classList.contains('collapsed'), true);
+  assert.equal(h.elements.get('linguaplay-yt-tokens').children.length, 0);
+});
+
 test('live subtitle readings retain the irregular 来る stem', () => {
   const h = createContentHarness();
   for (const [word, expected] of [['来た', 'きた'], ['来て', 'きて'], ['来ない', 'こない'], ['来ます', 'きます']]) {

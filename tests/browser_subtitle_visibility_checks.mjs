@@ -23,7 +23,7 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
     };
   })();`);
   await evaluate(`(async () => {
-    await chrome.storage.local.set({ linguaplay_reading_mode: 'furigana', linguaplay_panel_collapsed: true });
+    await chrome.storage.local.set({ linguaplay_reading_mode: 'furigana', linguaplay_panel_collapsed: true, linguaplay_app_enabled: true });
     document.head.querySelectorAll('link[rel="stylesheet"]').forEach(el => el.remove());
     document.body.innerHTML = '<main><div id="movie_player" class="html5-video-player"><video></video><div class="ytp-caption-window-container"><div class="caption-window"><span class="ytp-caption-segment">猫がいる</span></div></div></div><aside id="secondary"><section id="mix-card"><details id="mix-details" open><summary>YouTube Mix</summary><div style="height:220px">Playlist tracks</div></details></section><div id="secondary-inner"><div id="related">Recommended videos</div></div></aside></main>';
     const style = document.createElement('style');
@@ -315,9 +315,35 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   assert.equal((await state()).nativeOpacity, '0');
   await evaluate('document.exitFullscreen()');
 
+  // The PR's logo toggle must work with the current native controls and
+  // preserve the separate Japanese-overlay visibility setting.
+  await click('linguaplay-bar-logo');
+  current = await state();
+  assert.equal(current.overlay, 'none');
+  assert.equal(current.drawer, 'none');
+  assert.equal(current.toolbar, 'none');
+  assert.equal(current.expanded, 'false');
+  assert.equal(current.nativeOpacity, '1');
+  assert.equal(await evaluate('document.getElementById("linguaplay-toggle-trigger").classList.contains("app-disabled")'), true);
+  assert.equal(await evaluate('chrome.storage.local.get("linguaplay_app_enabled").then(settings => settings.linguaplay_app_enabled)'), false);
+  await click('linguaplay-toggle-trigger');
+  current = await state();
+  assert.equal(current.overlay, 'flex');
+  assert.equal(current.nativeOpacity, '0');
+  assert.equal(current.expanded, 'true');
+  await click('linguaplay-visibility-toggle');
+  await click('linguaplay-bar-logo');
+  assert.equal((await state()).nativeOpacity, '1');
+  await click('linguaplay-toggle-trigger');
+  current = await state();
+  assert.equal(current.pressed, 'true');
+  assert.equal(current.overlay, 'none');
+  assert.equal(current.nativeOpacity, '1');
+  assert.equal(await evaluate('chrome.storage.local.get("linguaplay_app_enabled").then(settings => settings.linguaplay_app_enabled)'), true);
+
   // Recreate all page DOM and rerun the bundle as on a full refresh.
   await rpc('Page.reload', {}, sessionId);
   await waitFor('document.readyState === "complete" && !document.getElementById("linguaplay-yt-widget")');
   assert.equal(await evaluate('document.documentElement.classList.contains("linguaplay-subtitles-hidden")'), false);
-  return { liveCaptions: true, asyncTranslation: true, slowLocalAnalysis: !!localAiUrl, senseiChat, toolbar: true, keyboard: true, fullscreen: true, navigation: true, refresh: true, nativePlacement: true, autoHide: true, narrowLayout: true, replacement: true, aboveExpandedMix: true, sidebarReplacement: true, sidebarFallback: true };
+  return { liveCaptions: true, asyncTranslation: true, slowLocalAnalysis: !!localAiUrl, senseiChat, toolbar: true, keyboard: true, fullscreen: true, navigation: true, refresh: true, nativePlacement: true, autoHide: true, narrowLayout: true, replacement: true, aboveExpandedMix: true, sidebarReplacement: true, sidebarFallback: true, logoToggle: true };
 }

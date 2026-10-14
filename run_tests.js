@@ -815,7 +815,10 @@ const manifestJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'manifest.j
 assert.ok(manifestJson.host_permissions.includes('https://lrclib.net/*'), 'manifest must include lrclib.net permission');
 console.log('✅ Test 14f: background.js and manifest.json support lyrics API and arbitrary URL link fetching');
 
-console.log(`\n🎉 ALL 14 TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n`);
+console.log('\n🎛️ Running Test Suite 15: Logo Click & App Turn-Off Feature...');
+require('./tests/test_logo_toggle.js');
+
+console.log(`\n🎉 ALL 15 TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!\n`);
 process.exit(0);
 
 
