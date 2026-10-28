@@ -42,7 +42,7 @@ assert.ok(fnMatch, 'renderPedagogicalBreakdown function found in content.js');
 
 // Execute the full shipped closure so shared escaping and romaji helpers are real.
 const renderFn = require('./shipped_engine')().renderPedagogicalBreakdown;
-const renderedHtml = renderFn(mockAiJson, '⚡ DEEPSEEK SENSEI BREAKDOWN');
+const renderedHtml = renderFn(mockAiJson, '9ROUTER SENSEI BREAKDOWN');
 
 // Requirement 1: Text Breakdown card elements (Image 1) MUST be deleted
 assert.strictEqual(

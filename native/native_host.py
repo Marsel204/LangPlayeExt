@@ -37,9 +37,12 @@ def is_ready(port):
     try:
         # Never route the loopback health check through a system HTTP proxy.
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(f'http://127.0.0.1:{port}/api/ai/status', timeout=0.5) as response:
+        request = urllib.request.Request(f'http://127.0.0.1:{port}/api/parse',
+                                         data=json.dumps({'text': '猫'}).encode('utf-8'),
+                                         headers={'Content-Type': 'application/json'})
+        with opener.open(request, timeout=2.5) as response:
             data = json.loads(response.read(65536))
-            return data.get('status') == 'success' and isinstance(data.get('antigravity_available'), bool)
+            return data.get('status') == 'success' and isinstance(data.get('tokens'), list)
     except (OSError, ValueError, AttributeError):
         return False
 

@@ -6,11 +6,13 @@ const pre=(v,m)=>{if(!v)throw Error('HARNESS_ERROR PRECONDITION '+m);};
 export async function boundaryCases(b){
  const results=[];
  const record=(id,expected,control,ok,witness,signature)=>results.push({id,expected,control,ok,witness,signature,fixtureMode:b.fixtureMode});
- const m=b.evalMain,c=b.evalContent,o=b.evalOptions;
+ const m=b.evalMain,c=b.evalContent,o=b.evalOptions,w=b.evalWorker;
  await c(`window.__network=[];window.__mode='normal';window.__ai=[];window.fetch=(url,options={})=>{__network.push({url:String(url),body:options.body});if(String(url).includes('translate.googleapis'))return Promise.resolve({ok:true,json:async()=>[[['fixture translation']]]});if(String(url).includes('8765'))return Promise.resolve({ok:true,json:async()=>({result:1,error:null})});if(String(url).includes('deepseek'))return new Promise(resolve=>__ai.push(resolve));return Promise.resolve({ok:false,status:500,json:async()=>({status:'error',message:'offline fixture'}),text:async()=>''});};`);
+ // Keep UI ownership in the isolated world and model transport in the real worker.
+ await w(`globalThis.__ai=[];globalThis.__network=[];globalThis.fetch=(url,options={})=>{__network.push({url:String(url),body:options.body});if(String(url).includes('/chat/completions'))return new Promise(resolve=>__ai.push(resolve));return Promise.resolve({ok:false,status:500,json:async()=>({}),text:async()=>''});};`);
  async function select(text='猫がいる'){await m(`document.querySelector('.ytp-caption-segment').textContent=${JSON.stringify(text)}`);await b.wait(()=>c(`!!document.querySelector('.linguaplay-yt-token') && document.getElementById('linguaplay-yt-tokens').textContent.includes('猫')`),'live token');await c(`document.querySelector('.linguaplay-yt-token').click()`);}
  await select();
- await o(`chrome.storage.local.set({linguaplay_ai_provider:'deepseek',linguaplay_deepseek_key:''})`);await c(`document.getElementById('lp-ai-btn').click()`);
+ await o(`chrome.storage.local.set({linguaplay_9router_model:''})`);await c(`document.getElementById('lp-ai-btn').click()`);
  await b.wait(()=>m(`!!document.getElementById('lp-go-options-btn')`),'no-key error settings affordance');
  let opened=0;b.on('Target.targetCreated',p=>{if(p.targetInfo.url?.endsWith('/options.html'))opened++;});await b.rpc('Target.setDiscoverTargets',{discover:true});
  // Intercept only the options-opening boundary to avoid changing the active fixture tab.
@@ -23,11 +25,11 @@ export async function boundaryCases(b){
  // The escaped chat markdown renderer is driven by the real send handler.
  await c(`document.getElementById('lp-chat-input').value='fixture question';document.getElementById('lp-chat-send-btn').click()`);await delay(30);
  // Missing key error is also escaped in chat; use a keyed model response for the positive escaped payload control.
- await o(`chrome.storage.local.set({linguaplay_deepseek_key:'dummy-fixture-key'})`);
+ await o(`chrome.storage.local.set({linguaplay_9router_model:'fixture-study',linguaplay_9router_key:'dummy-fixture-key'})`);
  await c(`document.getElementById('lp-chat-input').value='fixture question 2';document.getElementById('lp-chat-send-btn').click()`);
- await b.wait(()=>c('__ai.length>0'),'chat request issued');
+ await b.wait(()=>w('__ai.length>0'),'chat request issued');
  const payload='<img data-injected src=x onerror="void(0)">';
- await c(`__ai.shift()({ok:true,json:async()=>({choices:[{message:{content:${JSON.stringify(payload)}}}]})})`);await delay(20);
+ await w(`__ai.shift()({ok:true,json:async()=>({choices:[{message:{content:${JSON.stringify(payload)}}}]})})`);await delay(20);
  const control=await m(`({injected:document.querySelectorAll('#lp-chat-messages [data-injected]').length,text:document.getElementById('lp-chat-messages').textContent})`);
  record('R-A02-control','green',null,control.injected===0&&control.text.includes(payload),control,'CHAT_MARKDOWN_ESCAPES_PAYLOAD');
  const romajiWitness=[];const payloads=['<img data-injected src=x onerror="void(0)">','"><svg data-injected>','&amp;','</div><b data-injected>','" data-injected="yes','<img data-injected src=x onerror="void(0)"'];
@@ -39,13 +41,13 @@ export async function boundaryCases(b){
  }
  record('R-A02-romaji','green','R-A02-control',romajiWitness.every(x=>x.injected===0),{sinks:romajiWitness},'FALLBACK_ROMAJI_NO_MARKUP_ON_CORPUS');
  // Feed the real AI handler to reach renderPedagogicalBreakdown, including title attributes.
- await select('猫がいる');await c(`document.getElementById('lp-ai-btn').click()`);await b.wait(()=>c('__ai.length>0'),'gloss request');
+ await select('猫がいる');await c(`document.getElementById('lp-ai-btn').click()`);await b.wait(()=>w('__ai.length>0'),'gloss request');
  const data={word_by_word:[{word:'猫',reading:'ねこ',meaning:payload,role:'" data-injected="role'}]};
- await c(`__ai.shift()({ok:true,json:async()=>({choices:[{message:{content:${JSON.stringify(JSON.stringify(data))}}}]})})`);await delay(20);
+ await w(`__ai.shift()({ok:true,json:async()=>({choices:[{message:{content:${JSON.stringify(JSON.stringify(data))}}}]})})`);await delay(20);
  const gloss=await m(`({injected:document.querySelectorAll('#lp-ai-results [data-injected]').length,html:document.getElementById('lp-ai-results').innerHTML})`);
  record('R-A02-gloss','red','R-A02-control',gloss.injected===0,gloss,'GLOSS_ELEMENT_ATTRIBUTE_INJECTION');
  // Error strings originate at the transport boundary; real renderer handles them.
- await c(`document.getElementById('lp-ai-btn').click()`);await b.wait(()=>c('__ai.length>0'),'error request');await c(`__ai.shift()({ok:false,status:500,json:async()=>({error:{message:${JSON.stringify(payload)}}})})`);await delay(20);
+ await c(`document.getElementById('lp-ai-btn').click()`);await b.wait(()=>w('__ai.length>0'),'error request');await w(`__ai.shift()({ok:false,status:500,json:async()=>({error:{message:${JSON.stringify(payload)}}})})`);await delay(20);
  const err=await m(`({injected:document.querySelectorAll('#lp-ai-results [data-injected]').length,html:document.getElementById('lp-ai-results').innerHTML})`);
  record('R-A02-error','red','R-A02-control',err.injected===0,err,'ERROR_BANNER_INJECTION');
  
@@ -53,8 +55,8 @@ export async function boundaryCases(b){
  await c(`window.__sendBeforeLyrics=chrome.runtime.sendMessage;chrome.runtime.sendMessage=(req,cb)=>{if(req.action==='FETCH_LRCLIB_LYRICS'){queueMicrotask(()=>cb({success:true,syncedLyrics:'[00:00.00]猫',trackName:${JSON.stringify(payload)},artistName:${JSON.stringify(payload)}}));return;}return __sendBeforeLyrics(req,cb);};document.getElementById('lp-search-track-input').value='fixture';document.getElementById('lp-search-submit-btn').click()`);await delay(30);
  const lyrics=await m(`({injected:document.querySelectorAll('#lp-search-results-list [data-injected]').length,html:document.getElementById('lp-search-results-list').innerHTML})`);
  pre(lyrics.html.includes('Found on'),'lyrics banner reached');record('R-A02-lyrics','red','R-A02-control',lyrics.injected===0,lyrics,'LYRICS_METADATA_INJECTION');
- await c(`document.getElementById('lp-ai-identify-btn').click()`);await b.wait(()=>c('__ai.length>0'),'identify model request');
- const metadata={trackName:payload,artistName:payload,animeName:payload};await c(`__ai.shift()({ok:true,json:async()=>({choices:[{message:{content:${JSON.stringify(JSON.stringify(metadata))}}}]})})`);await delay(40);
+ await c(`document.getElementById('lp-ai-identify-btn').click()`);await b.wait(()=>w('__ai.length>0'),'identify model request');
+ const metadata={trackName:payload,artistName:payload,animeName:payload};await w(`__ai.shift()({ok:true,json:async()=>({choices:[{message:{content:${JSON.stringify(JSON.stringify(metadata))}}}]})})`);await delay(40);
  const identified=await m(`({injected:document.querySelectorAll('#lp-search-results-list [data-injected]').length,html:document.getElementById('lp-search-results-list').innerHTML})`);pre(identified.html.includes('Identified:'),'identified banner reached');record('R-A02-identified','red','R-A02-control',identified.injected===0,identified,'IDENTIFIED_METADATA_INJECTION');
  await c(`document.getElementById('lp-clear-cache-btn').click();chrome.runtime.sendMessage=__sendBeforeLyrics`);await delay(20);
 
@@ -85,7 +87,7 @@ export async function boundaryCases(b){
  const permission=await o(`chrome.permissions.contains({origins:['https://example.invalid/*']})`);const loopback=await o(`chrome.permissions.contains({origins:['http://127.0.0.1/*']})`);
  record('R-A11-browser-control','green',null,loopback,{loopback},'REAL_LOOPBACK_PERMISSION');record('R-A11-guard','red','R-A11-browser-control',!permission,{permissionGranted:permission},'UNREQUESTED_ORIGIN_ALREADY_GRANTED');
  // Near-quota real storage, confirm filler write succeeds, then the real Quick Add handler.
- await o(`chrome.storage.local.clear()`);await c(`document.getElementById('lp-active-def').textContent='short';document.getElementById('lp-quick-anki-btn').click()`);await delay(40);const savedControl=await o(`chrome.storage.local.get('linguaplay_cards')`);record('R-A07-quota-control','green',null,savedControl.linguaplay_cards?.length===1,{persistedCards:savedControl.linguaplay_cards?.length||0},'REAL_STORAGE_SAVE_CONTROL');await o(`chrome.storage.local.clear()`);const quota=await o(`(async()=>{await chrome.storage.local.set({linguaplay_ai_provider:'deepseek',linguaplay_auto_start_server:false});const used=await chrome.storage.local.getBytesInUse(null);const n=chrome.storage.local.QUOTA_BYTES-used-2048-8;await chrome.storage.local.set({filler:'x'.repeat(n)});return {quota:chrome.storage.local.QUOTA_BYTES,used:await chrome.storage.local.getBytesInUse(null)};})()`);pre(quota.quota-quota.used<2100,'real quota pressure established');
+ await o(`chrome.storage.local.clear()`);await c(`document.getElementById('lp-active-def').textContent='short';document.getElementById('lp-quick-anki-btn').click()`);await delay(40);const savedControl=await o(`chrome.storage.local.get('linguaplay_cards')`);record('R-A07-quota-control','green',null,savedControl.linguaplay_cards?.length===1,{persistedCards:savedControl.linguaplay_cards?.length||0},'REAL_STORAGE_SAVE_CONTROL');await o(`chrome.storage.local.clear()`);const quota=await o(`(async()=>{await chrome.storage.local.set({linguaplay_9router_model:'fixture-study',linguaplay_auto_start_server:false});const used=await chrome.storage.local.getBytesInUse(null);const n=chrome.storage.local.QUOTA_BYTES-used-2048-8;await chrome.storage.local.set({filler:'x'.repeat(n)});return {quota:chrome.storage.local.QUOTA_BYTES,used:await chrome.storage.local.getBytesInUse(null)};})()`);pre(quota.quota-quota.used<2100,'real quota pressure established');
  await c(`document.getElementById('lp-active-def').textContent='quota witness '.repeat(1500);document.getElementById('lp-quick-anki-btn').click()`);await delay(80);
  const quotaResult=await o(`chrome.storage.local.get('linguaplay_cards')`);const label=await m(`document.getElementById('lp-quick-anki-btn').textContent`);
  record('R-A07-quota','red','R-A07-quota-control',!label.includes('Saved'),{...quota,persistedCards:quotaResult.linguaplay_cards?.length||0,label},'REAL_QUOTA_FALSE_SUCCESS');await o(`chrome.storage.local.clear()`);

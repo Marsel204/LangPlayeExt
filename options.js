@@ -3,14 +3,13 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  const aiProvider = document.getElementById('ai-provider');
-  const geminiKey = document.getElementById('gemini-key');
-  const deepseekKey = document.getElementById('deepseek-key');
-  const openrouterKey = document.getElementById('openrouter-key');
-  const openrouterModel = document.getElementById('openrouter-model');
-  const opencodeUrl = document.getElementById('opencode-url');
-  const opencodeKey = document.getElementById('opencode-key');
-  const opencodeModel = document.getElementById('opencode-model');
+  const routerUrl = document.getElementById('9router-url');
+  const routerKey = document.getElementById('9router-key');
+  const routerModel = document.getElementById('9router-model');
+  const routerModels = document.getElementById('9router-models');
+  const loadRouterModelsBtn = document.getElementById('load-9router-models-btn');
+  const testRouterBtn = document.getElementById('test-9router-btn');
+  const routerStatusText = document.getElementById('9router-status-text');
   const serverUrl = document.getElementById('server-url');
   const autoStartServer = document.getElementById('auto-start-server');
   const ankiDeck = document.getElementById('anki-deck');
@@ -20,14 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   const testServerBtn = document.getElementById('test-server-btn');
   const serverStatusText = document.getElementById('server-status-text');
-  const testGeminiBtn = document.getElementById('test-gemini-btn');
-  const geminiStatusText = document.getElementById('gemini-status-text');
-  const testDeepseekBtn = document.getElementById('test-deepseek-btn');
-  const deepseekStatusText = document.getElementById('deepseek-status-text');
-  const testOpenrouterBtn = document.getElementById('test-openrouter-btn');
-  const openrouterStatusText = document.getElementById('openrouter-status-text');
-  const testOpencodeBtn = document.getElementById('test-opencode-btn');
-  const opencodeStatusText = document.getElementById('opencode-status-text');
   const testAnkiBtn = document.getElementById('test-anki-btn');
   const ankiStatusText = document.getElementById('anki-status-text');
   
@@ -38,14 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 1. Load saved settings
   chrome.storage.local.get([
-    'linguaplay_ai_provider',
-    'linguaplay_gemini_key',
-    'linguaplay_deepseek_key',
-    'linguaplay_openrouter_key',
-    'linguaplay_openrouter_model',
-    'linguaplay_opencode_url',
-    'linguaplay_opencode_key',
-    'linguaplay_opencode_model',
+    'linguaplay_9router_url',
+    'linguaplay_9router_key',
+    'linguaplay_9router_model',
     'linguaplay_server_url',
     'linguaplay_auto_start_server',
     'linguaplay_anki_deck',
@@ -53,14 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
     'linguaplay_reading_mode',
     'linguaplay_cards'
   ], (res) => {
-    aiProvider.value = res.linguaplay_ai_provider || (res.linguaplay_gemini_key ? 'gemini' : 'antigravity');
-    if (res.linguaplay_gemini_key) geminiKey.value = res.linguaplay_gemini_key;
-    if (res.linguaplay_deepseek_key) deepseekKey.value = res.linguaplay_deepseek_key;
-    if (res.linguaplay_openrouter_key) openrouterKey.value = res.linguaplay_openrouter_key;
-    if (res.linguaplay_openrouter_model) openrouterModel.value = res.linguaplay_openrouter_model;
-    if (res.linguaplay_opencode_url) opencodeUrl.value = res.linguaplay_opencode_url;
-    if (res.linguaplay_opencode_key) opencodeKey.value = res.linguaplay_opencode_key;
-    if (res.linguaplay_opencode_model) opencodeModel.value = res.linguaplay_opencode_model;
+    if (res.linguaplay_9router_url) routerUrl.value = res.linguaplay_9router_url;
+    if (res.linguaplay_9router_key) routerKey.value = res.linguaplay_9router_key;
+    if (res.linguaplay_9router_model) routerModel.value = res.linguaplay_9router_model;
     if (res.linguaplay_server_url) serverUrl.value = res.linguaplay_server_url;
     autoStartServer.checked = res.linguaplay_auto_start_server !== false;
     if (res.linguaplay_anki_deck) ankiDeck.value = res.linguaplay_anki_deck;
@@ -91,30 +72,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function allowEndpoint(endpoint) {
+    return allowEndpointAccess([endpoint.href]);
+  }
+
+  function getRouterEndpoint() {
+    const endpoint = new URL(routerUrl.value.trim() || 'http://127.0.0.1:20128/v1');
+    if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
+      throw new Error('Use an HTTP or HTTPS endpoint URL without embedded credentials');
+    }
+    endpoint.pathname = endpoint.pathname.replace(/\/+$/, '').replace(/\/chat\/completions$/, '') || '/v1';
+    endpoint.search = ''; endpoint.hash = '';
+    return endpoint;
+  }
+
   // 2. Save settings
   saveSettingsBtn.addEventListener('click', async () => {
+    let normalizedRouterUrl;
     try {
-      await allowEndpointAccess([
-        serverUrl.value.trim() || 'http://127.0.0.1:8000',
-        ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765',
-        ...(aiProvider.value === 'opencode' ? [opencodeUrl.value.trim() || 'http://127.0.0.1:11434/v1'] : [])
-      ]);
+      const endpoint = getRouterEndpoint();
+      await allowEndpointAccess([endpoint.href, serverUrl.value.trim() || 'http://127.0.0.1:8000', ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765']);
+      normalizedRouterUrl = endpoint.href;
     } catch (error) {
-      opencodeStatusText.textContent = `❌ ${error.message}`;
-      opencodeStatusText.style.color = '#f87171';
+      routerStatusText.textContent = error.message;
+      routerStatusText.style.color = '#f87171';
       saveToast.textContent = `❌ ${error.message}`;
       saveToast.classList.add('show');
       return;
     }
     chrome.storage.local.set({
-      linguaplay_ai_provider: aiProvider.value,
-      linguaplay_gemini_key: geminiKey.value.trim(),
-      linguaplay_deepseek_key: deepseekKey.value.trim(),
-      linguaplay_openrouter_key: openrouterKey.value.trim(),
-      linguaplay_openrouter_model: openrouterModel.value.trim() || 'deepseek/deepseek-chat',
-      linguaplay_opencode_url: opencodeUrl.value.trim() || 'http://127.0.0.1:11434/v1',
-      linguaplay_opencode_key: opencodeKey.value.trim(),
-      linguaplay_opencode_model: opencodeModel.value.trim() || 'deepseek-chat',
+      linguaplay_9router_url: normalizedRouterUrl,
+      linguaplay_9router_key: routerKey.value.trim(),
+      linguaplay_9router_model: routerModel.value.trim(),
       linguaplay_server_url: serverUrl.value.trim() || 'http://127.0.0.1:8000',
       linguaplay_auto_start_server: autoStartServer.checked,
       linguaplay_anki_deck: ankiDeck.value.trim() || 'LinguaPlay',
@@ -128,182 +117,80 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 3. Test Gemini API Key
-  if (testGeminiBtn) {
-    testGeminiBtn.addEventListener('click', async () => {
-      const key = geminiKey.value.trim();
-      if (!key) {
-        geminiStatusText.textContent = '❌ Please enter a Gemini API key first.';
-        geminiStatusText.style.color = '#f87171';
-        return;
-      }
-      geminiStatusText.textContent = 'Testing Gemini 2.5 Flash connection…';
-      geminiStatusText.style.color = '#a78bfa';
-      try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'Respond with the single word: OK' }] }]
-          }),
-          signal: AbortSignal.timeout(5000)
-        });
-        if (res.ok) {
-          geminiStatusText.textContent = '✓ Gemini 2.5 Flash API Key is Valid & Working!';
-          geminiStatusText.style.color = '#34d399';
-        } else {
-          const err = await res.json().catch(() => ({}));
-          geminiStatusText.textContent = `❌ API Error: ${err.error?.message || 'Status ' + res.status}`;
-          geminiStatusText.style.color = '#f87171';
-        }
-      } catch (e) {
-        geminiStatusText.textContent = `❌ Network Error: ${e.message}`;
-        geminiStatusText.style.color = '#f87171';
-      }
-    });
-  }
-
-  // 4. Test DeepSeek API Key
-  if (testDeepseekBtn) {
-    testDeepseekBtn.addEventListener('click', async () => {
-      const key = deepseekKey.value.trim();
-      if (!key) {
-        deepseekStatusText.textContent = '❌ Please enter a DeepSeek API key first.';
-        deepseekStatusText.style.color = '#f87171';
-        return;
-      }
-      deepseekStatusText.textContent = 'Testing DeepSeek API connection…';
-      deepseekStatusText.style.color = '#a78bfa';
-      try {
-        const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${key}`
-          },
-          body: JSON.stringify({
-            model: 'deepseek-chat',
-            messages: [{ role: 'user', content: 'Respond with the word OK' }],
-            max_tokens: 10
-          }),
-          signal: AbortSignal.timeout(5000)
-        });
-        if (res.ok) {
-          deepseekStatusText.textContent = '✓ DeepSeek API Key is Valid & Working!';
-          deepseekStatusText.style.color = '#34d399';
-        } else {
-          const err = await res.json().catch(() => ({}));
-          deepseekStatusText.textContent = `❌ API Error: ${err.error?.message || 'Status ' + res.status}`;
-          deepseekStatusText.style.color = '#f87171';
-        }
-      } catch (e) {
-        deepseekStatusText.textContent = `❌ Network Error: ${e.message}`;
-        deepseekStatusText.style.color = '#f87171';
-      }
-    });
-  }
-
-  // 5. Test OpenRouter API Key
-  if (testOpenrouterBtn) {
-    testOpenrouterBtn.addEventListener('click', async () => {
-      const key = openrouterKey.value.trim();
-      const model = openrouterModel.value.trim() || 'deepseek/deepseek-chat';
-      if (!key) {
-        openrouterStatusText.textContent = '❌ Please enter an OpenRouter API key first.';
-        openrouterStatusText.style.color = '#f87171';
-        return;
-      }
-      openrouterStatusText.textContent = `Testing OpenRouter (${model})…`;
-      openrouterStatusText.style.color = '#a78bfa';
-      try {
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${key}`,
-            'HTTP-Referer': 'https://linguaplay.app',
-            'X-Title': 'LinguaPlay'
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [{ role: 'user', content: 'Respond with the word OK' }],
-            max_tokens: 10
-          }),
-          signal: AbortSignal.timeout(6000)
-        });
-        if (res.ok) {
-          openrouterStatusText.textContent = `✓ OpenRouter (${model}) is Valid & Working!`;
-          openrouterStatusText.style.color = '#34d399';
-        } else {
-          const err = await res.json().catch(() => ({}));
-          openrouterStatusText.textContent = `❌ API Error: ${err.error?.message || 'Status ' + res.status}`;
-          openrouterStatusText.style.color = '#f87171';
-        }
-      } catch (e) {
-        openrouterStatusText.textContent = `❌ Network Error: ${e.message}`;
-        openrouterStatusText.style.color = '#f87171';
-      }
-    });
-  }
-
-  // 6. Test OpenCode / Custom OpenAI Endpoint
-  if (testOpencodeBtn) {
-    testOpencodeBtn.addEventListener('click', async () => {
-      const baseUrl = opencodeUrl.value.trim() || 'http://127.0.0.1:11434/v1';
-      const key = opencodeKey.value.trim();
-      const model = opencodeModel.value.trim() || 'deepseek-chat';
-      opencodeStatusText.textContent = `Testing Custom Endpoint (${baseUrl})…`;
-      opencodeStatusText.style.color = '#a78bfa';
-      const targetUrl = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+  async function checkRouter(loadModels) {
+    loadRouterModelsBtn.disabled = true;
+    testRouterBtn.disabled = true;
+    routerStatusText.textContent = loadModels ? 'Loading models from 9Router…' : 'Testing 9Router…';
+    routerStatusText.style.color = '#a78bfa';
+    try {
+      const endpoint = getRouterEndpoint();
+      const model = routerModel.value.trim();
+      if (!loadModels && !model) throw new Error('Choose a model or enter your combo name first. Click Load Models to see available IDs.');
+      await allowEndpoint(endpoint);
       const headers = { 'Content-Type': 'application/json' };
-      if (key) headers['Authorization'] = `Bearer ${key}`;
-
-      try {
-        await allowEndpointAccess([baseUrl]);
-        const res = await fetch(targetUrl, {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({
-            model: model,
-            messages: [{ role: 'user', content: 'Respond with the word OK' }],
-            max_tokens: 10
-          }),
-          signal: AbortSignal.timeout(5000)
-        });
-        if (res.ok) {
-          opencodeStatusText.textContent = `✓ Custom OpenAI Endpoint is Online & Working!`;
-          opencodeStatusText.style.color = '#34d399';
-        } else {
-          const err = await res.json().catch(() => ({}));
-          const originHint = res.status === 403 ? ' If using Ollama, set OLLAMA_ORIGINS=chrome-extension://* and restart Ollama.' : '';
-          opencodeStatusText.textContent = `❌ Error: ${err.error?.message || 'Status ' + res.status}${originHint}`;
-          opencodeStatusText.style.color = '#f87171';
+      const key = routerKey.value.trim();
+      if (key) headers.Authorization = `Bearer ${key}`;
+      endpoint.pathname += loadModels ? '/models' : '/chat/completions';
+      const response = await fetch(endpoint.href, {
+        method: loadModels ? 'GET' : 'POST',
+        headers,
+        ...(loadModels ? {} : { body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Respond with the word OK' }], stream: false }) }),
+        signal: AbortSignal.timeout(30000)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error?.message || `9Router returned HTTP ${response.status}. Check the router key and provider configuration.`);
+      if (loadModels) {
+        if (!Array.isArray(data.data)) throw new Error('9Router did not return a model list. Check that the base URL points to its /v1 API.');
+        const ids = [...new Set(data.data.filter(item => !item?.kind || item.kind === 'llm').map(item => item?.id).filter(id => typeof id === 'string' && id.trim()))].sort();
+        routerModels.replaceChildren();
+        for (const id of ids) {
+          const option = document.createElement('option');
+          option.value = id;
+          routerModels.appendChild(option);
         }
-      } catch (e) {
-        opencodeStatusText.textContent = `❌ Connection Error: ${e.message}. Ensure local model server is running.`;
-        opencodeStatusText.style.color = '#f87171';
+        routerStatusText.textContent = ids.length
+          ? `Loaded ${ids.length} model${ids.length === 1 ? '' : 's'}. Choose one in Model or Combo, or type your combo name, then save.`
+          : 'No models available. Connect a provider in the 9Router dashboard, then load models again, or enter your combo name.';
+      } else {
+        const content = data.choices?.[0]?.message?.content;
+        if (typeof content !== 'string' || !content.trim()) throw new Error('9Router returned an empty reply. Check the model or combo in its dashboard.');
+        routerStatusText.textContent = `9Router is working with ${model}. Click Save Settings to use it for Sensei.`;
       }
-    });
+      routerStatusText.style.color = '#34d399';
+    } catch (error) {
+      routerStatusText.textContent = `${error.message} Ensure 9Router is running and the URL is reachable.`;
+      routerStatusText.style.color = '#f87171';
+    } finally {
+      loadRouterModelsBtn.disabled = false;
+      testRouterBtn.disabled = false;
+    }
   }
 
-  // 7. Test Local Server
+  loadRouterModelsBtn.addEventListener('click', () => checkRouter(true));
+  testRouterBtn.addEventListener('click', () => checkRouter(false));
+
+  // Test the optional Sudachi parser
   testServerBtn.addEventListener('click', async () => {
     serverStatusText.textContent = 'Testing connection…';
     serverStatusText.style.color = '#a78bfa';
     const url = serverUrl.value.trim() || 'http://127.0.0.1:8000';
     try {
       await allowEndpointAccess([url]);
-      const res = await fetch(`${url}/api/ai/status`, { signal: AbortSignal.timeout(2000) });
+      const res = await fetch(`${url.replace(/\/+$/, '')}/api/parse`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: '猫' }), signal: AbortSignal.timeout(5000)
+      });
       if (res.ok) {
         const data = await res.json();
-        serverStatusText.textContent = `✓ Server Online! Antigravity CLI: ${data.antigravity_available ? 'Detected (' + data.antigravity_path + ')' : 'Not in PATH'}`;
+        if (data.status !== 'success' || !Array.isArray(data.tokens)) throw new Error('Invalid parser response');
+        serverStatusText.textContent = 'Sudachi parser is online.';
         serverStatusText.style.color = '#34d399';
       } else {
         serverStatusText.textContent = `Server replied with HTTP ${res.status}`;
         serverStatusText.style.color = '#f87171';
       }
     } catch (e) {
-      serverStatusText.textContent = `❌ ${e.message}. Check the server at ${url}.`;
+      serverStatusText.textContent = `❌ ${e.message}. Check the Sudachi parser at ${url}.`;
       serverStatusText.style.color = '#f87171';
     }
   });

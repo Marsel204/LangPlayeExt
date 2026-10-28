@@ -1,0 +1,2686 @@
+{
+  "schema": 1,
+  "mode": "after",
+  "fixtureMode": "fetch-intercept",
+  "node": "v26.8.1",
+  "startedFromUnchangedBaseline": false,
+  "reportable": false,
+  "runs": [
+    {
+      "kind": "node",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 687
+    },
+    {
+      "kind": "browser",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 9343
+    }
+  ],
+  "counts": {
+    "GREEN": 76
+  },
+  "results": [
+    {
+      "id": "R-A03-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A03-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "currentVideoId": null,
+            "currentSubIndex": -1,
+            "renderedSentence": "",
+            "activeLiveSentence": "",
+            "drawerContextVersion": 1,
+            "subtitleRenderVersion": 0,
+            "lastAiData": {
+              "contextual_meaning": "CURRENT_ANSWER",
+              "contextVersion": 1
+            },
+            "drawerContextSentence": "猫がいる",
+            "timelineLength": 0,
+            "sentenceTranslationCacheSize": 1
+          },
+          "signature": "CURRENT_RESPONSE_APPLIED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A03-stale",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A03-control",
+        "witnessRegex": "^CAT_FROM_OLD_REQUEST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A03-stale",
+          "expected": "red",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "state": {
+              "currentVideoId": null,
+              "currentSubIndex": -1,
+              "renderedSentence": "",
+              "activeLiveSentence": "",
+              "drawerContextVersion": 2,
+              "subtitleRenderVersion": 0,
+              "lastAiData": null,
+              "drawerContextSentence": "犬がいる",
+              "timelineLength": 0,
+              "sentenceTranslationCacheSize": 2
+            }
+          },
+          "signature": "CAT_FROM_OLD_REQUEST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A03-dup",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A03-control",
+        "witnessRegex": "^DUPLICATE_MODEL_REQUESTS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A03-dup",
+          "expected": "red",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "modelRequests": 1
+          },
+          "signature": "DUPLICATE_MODEL_REQUESTS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A03-error-late",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A03-control",
+        "witnessRegex": "^LATE_ERROR_REPLACES_CONTEXT$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A03-error-late",
+          "expected": "red",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "errorVisible": false,
+            "word": "犬"
+          },
+          "signature": "LATE_ERROR_REPLACES_CONTEXT",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A04-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A04-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "currentVideoId": "B",
+            "currentSubIndex": -1,
+            "renderedSentence": "",
+            "activeLiveSentence": "",
+            "drawerContextVersion": 2,
+            "subtitleRenderVersion": 4,
+            "lastAiData": null,
+            "drawerContextSentence": "",
+            "timelineLength": 0,
+            "sentenceTranslationCacheSize": 0
+          },
+          "signature": "OLD_VIDEO_DROPPED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A04-overlap",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A04-control",
+        "witnessRegex": "^LYRICS_WHILE_CAPTIONS_PENDING$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A04-overlap",
+          "expected": "red",
+          "control": "R-A04-control",
+          "ok": true,
+          "witness": {
+            "captionsPending": 1,
+            "lyricsMessages": 0
+          },
+          "signature": "LYRICS_WHILE_CAPTIONS_PENDING",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A04-priority",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A04-control",
+        "witnessRegex": "^LATE_LYRICS_OVERWRITE_PRIORITY$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A04-priority",
+          "expected": "red",
+          "control": "R-A04-control",
+          "ok": true,
+          "witness": {
+            "before": [
+              {
+                "start": 0,
+                "end": 2,
+                "text": "猫の字幕"
+              }
+            ],
+            "after": [
+              {
+                "start": 0,
+                "end": 2,
+                "text": "猫の字幕"
+              }
+            ],
+            "lyricsRequestIssued": false
+          },
+          "signature": "LATE_LYRICS_OVERWRITE_PRIORITY",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A04-manual",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A04-control",
+        "witnessRegex": "^LATE_LYRICS_OVERWRITE_MANUAL$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A04-manual",
+          "expected": "red",
+          "control": "R-A04-control",
+          "ok": true,
+          "witness": {
+            "before": [
+              {
+                "start": 0,
+                "end": 2,
+                "text": "手動の字幕"
+              }
+            ],
+            "after": [
+              {
+                "start": 0,
+                "end": 2,
+                "text": "手動の字幕"
+              }
+            ],
+            "lyricsRequestIssued": false
+          },
+          "signature": "LATE_LYRICS_OVERWRITE_MANUAL",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A04-sameIndex",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A04-control",
+        "witnessRegex": "^TIMELINE_REPLACEMENT_STALE_INDEX$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A04-sameIndex",
+          "expected": "red",
+          "control": "R-A04-control",
+          "ok": true,
+          "witness": {
+            "currentVideoId": "A",
+            "currentSubIndex": 0,
+            "renderedSentence": "犬",
+            "activeLiveSentence": "犬",
+            "drawerContextVersion": 1,
+            "subtitleRenderVersion": 4,
+            "lastAiData": null,
+            "drawerContextSentence": "",
+            "timelineLength": 1,
+            "sentenceTranslationCacheSize": 0
+          },
+          "signature": "TIMELINE_REPLACEMENT_STALE_INDEX",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A05-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A05-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "selected": {
+              "languageCode": "ja",
+              "vssId": ".ja"
+            },
+            "cc": "true"
+          },
+          "signature": "VISIBLE_JAPANESE_RESTORED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A05-node",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A05-control",
+        "witnessRegex": "^HIDDEN_OVERLAY_CC_JA_RESTORED$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A05-node",
+          "expected": "red",
+          "control": "R-A05-control",
+          "ok": true,
+          "witness": {
+            "selected": {
+              "languageCode": "en",
+              "vssId": ".en"
+            },
+            "cc": "false",
+            "counts": {
+              "load": 0,
+              "get": 0,
+              "set": 0
+            }
+          },
+          "signature": "HIDDEN_OVERLAY_CC_JA_RESTORED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "cards": [
+              {
+                "word": "来ない",
+                "reading": "こない",
+                "romaji": "konai",
+                "meaning": "<span style=\"opacity:0.6;\">Looking up definition…</span>",
+                "sentence": "来ないがいる",
+                "sentence_en": "",
+                "date": "2026-10-28T10:52:23.854Z"
+              }
+            ],
+            "stubRequests": 1,
+            "deck": "LinguaPlay",
+            "controlBoundaryRelay": true
+          },
+          "signature": "DEFAULT_QUICK_SAVE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-route",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A06-control",
+        "witnessRegex": "^IGNORED_ANKI_ENDPOINT_DECK$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-route",
+          "expected": "red",
+          "control": "R-A06-control",
+          "ok": true,
+          "witness": {
+            "actualUrl": "http://127.0.0.1:43239",
+            "configuredUrl": "http://127.0.0.1:43239",
+            "deck": "MyDeck",
+            "stubRequests": 1
+          },
+          "signature": "IGNORED_ANKI_ENDPOINT_DECK",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-reading",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A06-control",
+        "witnessRegex": "^QUICK_SURFACE_AS_READING$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-reading",
+          "expected": "red",
+          "control": "R-A06-control",
+          "ok": true,
+          "witness": {
+            "card": {
+              "word": "来ない",
+              "reading": "こない",
+              "romaji": "konai",
+              "meaning": "<span style=\"opacity:0.6;\">Looking up definition…</span>",
+              "sentence": "来ない",
+              "sentence_en": "",
+              "date": "2026-10-28T10:52:23.910Z"
+            }
+          },
+          "signature": "QUICK_SURFACE_AS_READING",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-status-apiError",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A06-control",
+        "witnessRegex": "^ANKI_FAILURE_FALSE_SUCCESS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-status-apiError",
+          "expected": "red",
+          "control": "R-A06-control",
+          "ok": true,
+          "witness": {
+            "label": "⚠ Kept locally — Anki: deck was not found; create the configured deck in Anki, then retry"
+          },
+          "signature": "ANKI_FAILURE_FALSE_SUCCESS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-status-offline",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A06-control",
+        "witnessRegex": "^ANKI_FAILURE_FALSE_SUCCESS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-status-offline",
+          "expected": "red",
+          "control": "R-A06-control",
+          "ok": true,
+          "witness": {
+            "label": "⚠ Kept locally — Anki: offline fixture"
+          },
+          "signature": "ANKI_FAILURE_FALSE_SUCCESS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-enriched",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A03-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-enriched",
+          "expected": "green",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "n": 1,
+            "label": "⏳ Adding…"
+          },
+          "signature": "ENRICHED_LOCAL_STORAGE_DISCLOSED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-envelope-bare",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A03-control",
+        "witnessRegex": "^ENRICHED_READING_ENVELOPE_LOST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-envelope-bare",
+          "expected": "red",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "card": {
+              "word": "来ない",
+              "reading": "こない",
+              "romaji": "konai",
+              "meaning": "does not come",
+              "sentence": "来ないがいる",
+              "sentence_en": "",
+              "date": "2026-10-28T10:52:23.941Z"
+            }
+          },
+          "signature": "ENRICHED_READING_ENVELOPE_LOST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-envelope-wrapped",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A03-control",
+        "witnessRegex": "^ENRICHED_READING_ENVELOPE_LOST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-envelope-wrapped",
+          "expected": "red",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "card": {
+              "word": "来ない",
+              "reading": "こない",
+              "romaji": "konai",
+              "meaning": "does not come",
+              "sentence": "来ないがいる",
+              "sentence_en": "",
+              "date": "2026-10-28T10:52:23.948Z"
+            }
+          },
+          "signature": "ENRICHED_READING_ENVELOPE_LOST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "cards": [
+              {
+                "word": "猫",
+                "reading": "ねこ",
+                "romaji": "neko",
+                "meaning": "<span style=\"opacity:0.6;\">Looking up definition…</span>",
+                "sentence": "猫がいる",
+                "sentence_en": "",
+                "date": "2026-10-28T10:52:23.957Z"
+              }
+            ]
+          },
+          "signature": "ONE_DURABLE_SAVE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-concurrent",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A07-control",
+        "witnessRegex": "^CONCURRENT_WHOLE_ARRAY_LOST_SAVE$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-concurrent",
+          "expected": "red",
+          "control": "R-A07-control",
+          "ok": true,
+          "witness": {
+            "lengths": [
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "signature": "CONCURRENT_WHOLE_ARRAY_LOST_SAVE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-failure",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A07-control",
+        "witnessRegex": "^FAILED_STORAGE_FALSE_SUCCESS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-failure",
+          "expected": "red",
+          "control": "R-A07-control",
+          "ok": true,
+          "witness": {
+            "label": "⏳ Adding…",
+            "writes": [
+              {
+                "keys": [
+                  "linguaplay_cards"
+                ],
+                "bytes": 222,
+                "failed": true
+              },
+              {
+                "keys": [
+                  "linguaplay_cards"
+                ],
+                "bytes": 222,
+                "failed": true
+              }
+            ]
+          },
+          "signature": "FAILED_STORAGE_FALSE_SUCCESS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-clearRace",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A07-control",
+        "witnessRegex": "^CLEARED_CARD_RESURRECTED$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-clearRace",
+          "expected": "red",
+          "control": "R-A07-control",
+          "ok": true,
+          "witness": {
+            "cards": []
+          },
+          "signature": "CLEARED_CARD_RESURRECTED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A08-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^NAVIGATION_STALE_DOM_control$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A08-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "currentVideoId": "A",
+            "currentSubIndex": 0,
+            "renderedSentence": "犬",
+            "activeLiveSentence": "犬",
+            "drawerContextVersion": 1,
+            "subtitleRenderVersion": 3,
+            "lastAiData": null,
+            "drawerContextSentence": "",
+            "timelineLength": 1,
+            "sentenceTranslationCacheSize": 0
+          },
+          "signature": "CURRENT_CAPTION_APPEARS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A08-newVideo",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A08-control",
+        "witnessRegex": "^NAVIGATION_STALE_DOM_newVideo$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A08-newVideo",
+          "expected": "red",
+          "control": "R-A08-control",
+          "ok": true,
+          "witness": {
+            "overlayActive": false,
+            "drawerHidden": true,
+            "tokenCount": 0,
+            "videoListeners": 2,
+            "state": {
+              "currentVideoId": "B",
+              "currentSubIndex": -1,
+              "renderedSentence": "",
+              "activeLiveSentence": "",
+              "drawerContextVersion": 3,
+              "subtitleRenderVersion": 5,
+              "lastAiData": null,
+              "drawerContextSentence": "",
+              "timelineLength": 0,
+              "sentenceTranslationCacheSize": 0
+            }
+          },
+          "signature": "NAVIGATION_STALE_DOM_newVideo",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A08-leaveWatch",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A08-control",
+        "witnessRegex": "^NAVIGATION_STALE_DOM_leaveWatch$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A08-leaveWatch",
+          "expected": "red",
+          "control": "R-A08-control",
+          "ok": true,
+          "witness": {
+            "overlayActive": false,
+            "drawerHidden": true,
+            "tokenCount": 0,
+            "videoListeners": 0,
+            "state": {
+              "currentVideoId": null,
+              "currentSubIndex": -1,
+              "renderedSentence": "",
+              "activeLiveSentence": "",
+              "drawerContextVersion": 3,
+              "subtitleRenderVersion": 5,
+              "lastAiData": null,
+              "drawerContextSentence": "",
+              "timelineLength": 0,
+              "sentenceTranslationCacheSize": 0
+            }
+          },
+          "signature": "NAVIGATION_STALE_DOM_leaveWatch",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A08-backForward",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A08-control",
+        "witnessRegex": "^NAVIGATION_STALE_DOM_backForward$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A08-backForward",
+          "expected": "red",
+          "control": "R-A08-control",
+          "ok": true,
+          "witness": {
+            "overlayActive": false,
+            "drawerHidden": true,
+            "tokenCount": 0,
+            "videoListeners": 2,
+            "state": {
+              "currentVideoId": "A",
+              "currentSubIndex": -1,
+              "renderedSentence": "",
+              "activeLiveSentence": "",
+              "drawerContextVersion": 5,
+              "subtitleRenderVersion": 7,
+              "lastAiData": null,
+              "drawerContextSentence": "",
+              "timelineLength": 0,
+              "sentenceTranslationCacheSize": 1
+            }
+          },
+          "signature": "NAVIGATION_STALE_DOM_backForward",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A09-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A09-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "tracks": [
+              {
+                "baseUrl": "https://fixture.invalid/c",
+                "languageCode": "ja",
+                "name": {
+                  "simpleText": "Japanese"
+                }
+              }
+            ]
+          },
+          "signature": "FLAT_TRACK_PARSED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A09-runs",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A09-control",
+        "witnessRegex": "^NESTED_TRACK_EXTRACTION_NULL$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A09-runs",
+          "expected": "red",
+          "control": "R-A09-control",
+          "ok": true,
+          "witness": {
+            "tracks": [
+              {
+                "baseUrl": "https://fixture.invalid/c",
+                "languageCode": "ja",
+                "name": {
+                  "runs": [
+                    {
+                      "text": "Japanese"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "signature": "NESTED_TRACK_EXTRACTION_NULL",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A09-strings",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A09-control",
+        "witnessRegex": "^NESTED_TRACK_EXTRACTION_NULL$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A09-strings",
+          "expected": "red",
+          "control": "R-A09-control",
+          "ok": true,
+          "witness": {
+            "tracks": [
+              {
+                "baseUrl": "https://fixture.invalid/c",
+                "languageCode": "ja",
+                "name": {
+                  "simpleText": "a] b \"c\""
+                }
+              }
+            ]
+          },
+          "signature": "NESTED_TRACK_EXTRACTION_NULL",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A10-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A10-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "destinations": [
+              "http://127.0.0.1:20128/v1/chat/completions"
+            ],
+            "workerActions": [
+              "CALL_9ROUTER_AI"
+            ]
+          },
+          "signature": "SELECTED_GEMINI_USED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A10-id",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A10-control",
+        "witnessRegex": "^UNSELECTED_GEMINI_REQUEST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A10-id",
+          "expected": "red",
+          "control": "R-A10-control",
+          "ok": true,
+          "witness": {
+            "unselectedProviderRequests": [],
+            "routerRequests": 1
+          },
+          "signature": "UNSELECTED_GEMINI_REQUEST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A10-analysis",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A10-control",
+        "witnessRegex": "^UNSELECTED_GEMINI_REQUEST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A10-analysis",
+          "expected": "red",
+          "control": "R-A10-control",
+          "ok": true,
+          "witness": {
+            "unselectedProviderRequests": [],
+            "routerRequests": 1
+          },
+          "signature": "UNSELECTED_GEMINI_REQUEST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A11-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "loopbackPermission": true
+          },
+          "signature": "LOOPBACK_PERMISSION_PRESENT",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-manifest",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A11-control",
+        "witnessRegex": "^OPTIONAL_REQUIRED_WILDCARD_DUPLICATION$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A11-manifest",
+          "expected": "red",
+          "control": "R-A11-control",
+          "ok": true,
+          "witness": {
+            "duplicates": [],
+            "permissions": [
+              "storage",
+              "nativeMessaging",
+              "tabs"
+            ]
+          },
+          "signature": "OPTIONAL_REQUIRED_WILDCARD_DUPLICATION",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-deadHandlers",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A11-control",
+        "witnessRegex": "^UNUSED_PRIVILEGED_FETCH_HANDLERS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A11-deadHandlers",
+          "expected": "red",
+          "control": "R-A11-control",
+          "ok": true,
+          "witness": {
+            "dead": []
+          },
+          "signature": "UNUSED_PRIVILEGED_FETCH_HANDLERS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A12-generated",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A12-generated",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "equal": true,
+            "generatedSha": "4ee98b8b19008e8185c2bc38ef400c1c95ffd68e50df3a636c4c6e2995a1d034",
+            "shippedSha": "4ee98b8b19008e8185c2bc38ef400c1c95ffd68e50df3a636c4c6e2995a1d034"
+          },
+          "signature": "GENERATOR_BYTE_IDENTICAL",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A12-corpus",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A12-generated",
+        "witnessRegex": "^LEGACY_TESTS_EVALUATE_DUPLICATE_ENGINE$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A12-corpus",
+          "expected": "red",
+          "control": "R-A12-generated",
+          "ok": true,
+          "witness": {
+            "legacyForkUsed": false,
+            "exported": false,
+            "productionEngineExecuted": true,
+            "differences": null
+          },
+          "signature": "LEGACY_TESTS_EVALUATE_DUPLICATE_ENGINE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A12-bridge",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A05-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A12-bridge",
+          "expected": "green",
+          "control": "R-A05-control",
+          "ok": true,
+          "witness": {
+            "samples": 500,
+            "mismatches": []
+          },
+          "signature": "BRIDGE_CONTENT_PREDICATE_AGREEMENT",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-R04-prompt",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A10-control",
+        "witnessRegex": "^PROMPT_QUOTE_ROUNDTRIP_FAILED$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-R04-prompt",
+          "expected": "red",
+          "control": "R-A10-control",
+          "ok": true,
+          "witness": {
+            "title": "a \"quote\" \\ path",
+            "field": "\"a \\\"quote\\\" \\\\ path\"",
+            "decoded": "a \"quote\" \\ path"
+          },
+          "signature": "PROMPT_QUOTE_ROUNDTRIP_FAILED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-clear-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-clear-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "cards": [],
+            "counter": "0 cards in storage"
+          },
+          "signature": "OPTIONS_CLEAR_DURABLE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-clearError",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A07-clear-control",
+        "witnessRegex": "^CLEAR_FAILURE_ZERO_CARD_SUCCESS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-clearError",
+          "expected": "red",
+          "control": "R-A07-clear-control",
+          "ok": true,
+          "witness": {
+            "cards": [
+              {
+                "word": "old"
+              }
+            ],
+            "counter": "Clear failed: QUOTA_BYTES quota exceeded"
+          },
+          "signature": "CLEAR_FAILURE_ZERO_CARD_SUCCESS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A09-fetchedHtml",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A09-control",
+        "witnessRegex": "^FETCHED_HTML_NESTED_TRACK_LOST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A09-fetchedHtml",
+          "expected": "red",
+          "control": "R-A09-control",
+          "ok": true,
+          "witness": {
+            "cues": [
+              {
+                "start": 0,
+                "end": 2,
+                "text": "猫"
+              }
+            ],
+            "categories": [
+              "captions",
+              "innertube",
+              "watchHtml",
+              "other"
+            ]
+          },
+          "signature": "FETCHED_HTML_NESTED_TRACK_LOST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-worker-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A11-worker-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "res": {
+              "success": false,
+              "error": "Allow access to this endpoint by saving it in Extension Settings"
+            },
+            "fetches": 0
+          },
+          "signature": "WORKER_REFUSES_UNGRANTED_ORIGIN",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-deadHandlers-runtime",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A11-worker-control",
+        "witnessRegex": "^UNRESTRICTED_UNUSED_FETCH_REQUEST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A11-deadHandlers-runtime",
+          "expected": "red",
+          "control": "R-A11-worker-control",
+          "ok": true,
+          "witness": {
+            "res": {
+              "unhandled": true
+            },
+            "fetches": []
+          },
+          "signature": "UNRESTRICTED_UNUSED_FETCH_REQUEST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A01-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^SETTINGS_AFFORDANCE_PRESENT$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A01-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "button": true,
+            "opened": 1,
+            "openedTargets": 1
+          },
+          "signature": "SETTINGS_AFFORDANCE_PRESENT",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A01-1",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A01-control",
+        "witnessRegex": "^HOST_PAGE_READS_DUMMY_CREDENTIAL$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A01-1",
+          "expected": "red",
+          "control": "R-A01-control",
+          "ok": true,
+          "witness": {
+            "passwordFields": 0,
+            "mainWorldValue": null
+          },
+          "signature": "HOST_PAGE_READS_DUMMY_CREDENTIAL",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^CHAT_MARKDOWN_ESCAPES_PAYLOAD$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "injected": 0,
+            "text": "fixture question⚠️ Sensei error: Choose a 9Router model or combo in Extension Settings. Use Load Models to see available IDs.fixture question 2<img data-injected src=x onerror=\"void(0)\">"
+          },
+          "signature": "CHAT_MARKDOWN_ESCAPES_PAYLOAD",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-highlight-0",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-highlight-0",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "payload": "<img data-injected src=x onerror=\"void(0)\">",
+            "sinks": [
+              {
+                "id": "lp-sentence-jp",
+                "text": "猫 <img data-injected src=x onerror=\"void(0)\"> がいる 0",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> &lt;img data-injected src=x onerror=\"void(0)\"&gt; がいる 0"
+              },
+              {
+                "id": "lp-chat-context-sentence",
+                "text": "猫 <img data-injected src=x onerror=\"void(0)\"> がいる 0",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> &lt;img data-injected src=x onerror=\"void(0)\"&gt; がいる 0"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko < i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" > ga iru 0",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" &gt; ga iru 0"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko < i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" > ga iru 0",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" &gt; ga iru 0"
+              }
+            ]
+          },
+          "signature": "HIGHLIGHT_MARKUP_OR_TEXT_CHANGED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-highlight-1",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-highlight-1",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "payload": "\"><svg data-injected>",
+            "sinks": [
+              {
+                "id": "lp-sentence-jp",
+                "text": "猫 \"><svg data-injected> がいる 1",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> \"&gt;&lt;svg data-injected&gt; がいる 1"
+              },
+              {
+                "id": "lp-chat-context-sentence",
+                "text": "猫 \"><svg data-injected> がいる 1",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> \"&gt;&lt;svg data-injected&gt; がいる 1"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko \" > < s v g d a t a - i n j e c t e d > ga iru 1",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> \" &gt; &lt; s v g d a t a - i n j e c t e d &gt; ga iru 1"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko \" > < s v g d a t a - i n j e c t e d > ga iru 1",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> \" &gt; &lt; s v g d a t a - i n j e c t e d &gt; ga iru 1"
+              }
+            ]
+          },
+          "signature": "HIGHLIGHT_MARKUP_OR_TEXT_CHANGED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-highlight-2",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-highlight-2",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "payload": "&amp;",
+            "sinks": [
+              {
+                "id": "lp-sentence-jp",
+                "text": "猫 &amp; がいる 2",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> &amp;amp; がいる 2"
+              },
+              {
+                "id": "lp-chat-context-sentence",
+                "text": "猫 &amp; がいる 2",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> &amp;amp; がいる 2"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko & a m p ; ga iru 2",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &amp; a m p ; ga iru 2"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko & a m p ; ga iru 2",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &amp; a m p ; ga iru 2"
+              }
+            ]
+          },
+          "signature": "HIGHLIGHT_MARKUP_OR_TEXT_CHANGED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-highlight-3",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-highlight-3",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "payload": "</div><b data-injected>",
+            "sinks": [
+              {
+                "id": "lp-sentence-jp",
+                "text": "猫 </div><b data-injected> がいる 3",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> &lt;/div&gt;&lt;b data-injected&gt; がいる 3"
+              },
+              {
+                "id": "lp-chat-context-sentence",
+                "text": "猫 </div><b data-injected> がいる 3",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> &lt;/div&gt;&lt;b data-injected&gt; がいる 3"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko < / d i v > < b d a t a - i n j e c t e d > ga iru 3",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; / d i v &gt; &lt; b d a t a - i n j e c t e d &gt; ga iru 3"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko < / d i v > < b d a t a - i n j e c t e d > ga iru 3",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; / d i v &gt; &lt; b d a t a - i n j e c t e d &gt; ga iru 3"
+              }
+            ]
+          },
+          "signature": "HIGHLIGHT_MARKUP_OR_TEXT_CHANGED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-highlight-4",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A02-control",
+        "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-highlight-4",
+          "expected": "green",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "payload": "\" data-injected=\"yes",
+            "sinks": [
+              {
+                "id": "lp-sentence-jp",
+                "text": "猫 \" data-injected=\"yes がいる 4",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> \" data-injected=\"yes がいる 4"
+              },
+              {
+                "id": "lp-chat-context-sentence",
+                "text": "猫 \" data-injected=\"yes がいる 4",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> \" data-injected=\"yes がいる 4"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko \" d a t a - i n j e c t e d = \" y e s ga iru 4",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> \" d a t a - i n j e c t e d = \" y e s ga iru 4"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko \" d a t a - i n j e c t e d = \" y e s ga iru 4",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> \" d a t a - i n j e c t e d = \" y e s ga iru 4"
+              }
+            ]
+          },
+          "signature": "HIGHLIGHT_MARKUP_OR_TEXT_CHANGED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-highlight-5",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-highlight-5",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "payload": "<img data-injected src=x onerror=\"void(0)\"",
+            "sinks": [
+              {
+                "id": "lp-sentence-jp",
+                "text": "猫 <img data-injected src=x onerror=\"void(0)\" がいる 5",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> &lt;img data-injected src=x onerror=\"void(0)\" がいる 5"
+              },
+              {
+                "id": "lp-chat-context-sentence",
+                "text": "猫 <img data-injected src=x onerror=\"void(0)\" がいる 5",
+                "injected": 0,
+                "html": "<span style=\"color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;\">猫</span> &lt;img data-injected src=x onerror=\"void(0)\" がいる 5"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko < i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" ga iru 5",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" ga iru 5"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko < i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" ga iru 5",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" ga iru 5"
+              }
+            ]
+          },
+          "signature": "HIGHLIGHT_MARKUP_OR_TEXT_CHANGED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-gloss",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^GLOSS_ELEMENT_ATTRIBUTE_INJECTION$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-gloss",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "injected": 0,
+            "html": "\n      <div class=\"linguaplay-card-wrapper\">\n        <div style=\"display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;\">\n          <span style=\"font-size:10px; color:#a78bfa; font-weight:bold; text-transform:uppercase; letter-spacing:0.05em;\">📖 Horizontal Word-by-Word Gloss</span>\n          <span style=\"font-size:9.5px; color:#6ee7b7; font-weight:600;\">9ROUTER (fixture-study) BREAKDOWN</span>\n        </div>\n\n        \n          <div class=\"linguaplay-gloss-container\">\n            \n                <div class=\"linguaplay-gloss-card \" title=\"猫 (neko) — &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt; [&quot; data-injected=&quot;role]\">\n                  <span class=\"linguaplay-gloss-reading\" style=\"font-family:monospace; font-size:11px; color:#fda4af;\">neko</span>\n                  <span class=\"linguaplay-gloss-jp\">猫</span>\n                  <span class=\"linguaplay-gloss-en\">&lt;img data-injected src=x onerror=\"void(0)\"&gt;</span>\n                </div>\n              \n          </div>\n          <div style=\"margin-top:10px; display:flex; justify-content:flex-end;\">\n            <button id=\"lp-goto-chat-btn\" style=\"background:rgba(124,58,237,0.22); border:1px solid rgba(167,139,250,0.4); color:#c4b5fd; font-size:11px; font-weight:600; padding:5px 12px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:5px; transition:all 0.2s;\">\n              <span>💬 Ask Sensei in Chat</span> <span>→</span>\n            </button>\n          </div>\n        \n      </div>\n    "
+          },
+          "signature": "GLOSS_ELEMENT_ATTRIBUTE_INJECTION",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-error",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^ERROR_BANNER_INJECTION$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-error",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "injected": 0,
+            "html": "\n            <div class=\"lp-ai-error\">\n              <div>AI Analysis Notice</div>\n              <p id=\"lp-ai-error-text\" role=\"alert\">9Router: &lt;img data-injected src=x onerror=\"void(0)\"&gt;</p>\n              <p>Check the 9Router URL, key, and model in extension settings, then retry.</p>\n              <button id=\"lp-go-options-btn\" type=\"button\">Open Extension Settings</button>\n            </div>\n          "
+          },
+          "signature": "ERROR_BANNER_INJECTION",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-card-A",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^ANKI_FIELDS_CONTAIN_MARKUP$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-card-A",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "note": {
+              "deckName": "LinguaPlay",
+              "modelName": "Basic",
+              "fields": {
+                "Front": "猫 <span style=\"font-size:0.8em;color:#94a3b8;\">neko</span>",
+                "Back": "<div><strong>Meaning:</strong> &lt;img data-injected src=x onerror=\"void(0)\"&gt;</div><br><div><strong>Sentence:</strong> <b>猫</b> &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt;</div><div style=\"color:#94a3b8; font-size:0.9em;\">fixture translation</div>"
+              },
+              "tags": [
+                "linguaplay",
+                "youtube"
+              ]
+            },
+            "injected": [
+              0,
+              0
+            ]
+          },
+          "signature": "ANKI_FIELDS_CONTAIN_MARKUP",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-card-B",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^TSV_HTML_UNESCAPED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-card-B",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "options": {
+              "text": "#separator:Tab\n#html:true\n#deck:LinguaPlay Japanese Immersion\n<b>猫</b> <b>猫</b> &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt;\t猫\tねこ\t&lt;img data-injected src=x onerror=\"void(0)\"&gt; meaning next<br><small style=\"color:#94a3b8\">a cat</small>\n",
+              "columns": [
+                4
+              ],
+              "injected": 0
+            },
+            "popup": {
+              "text": "#separator:Tab\n#html:true\n#deck:LinguaPlay Japanese Immersion\n<b>猫</b> <b>猫</b> &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt;\t猫\tねこ\t&lt;img data-injected src=x onerror=\"void(0)\"&gt; meaning next<br><small style=\"color:#94a3b8\">a cat</small>\n",
+              "columns": [
+                4
+              ],
+              "injected": 0
+            }
+          },
+          "signature": "TSV_HTML_UNESCAPED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-exporters",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^EXPORT_BYTES_DIVERGE$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A06-exporters",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "options": {
+              "text": "#separator:Tab\n#html:true\n#deck:LinguaPlay Japanese Immersion\n<b>猫</b> <b>猫</b> &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt;\t猫\tねこ\t&lt;img data-injected src=x onerror=\"void(0)\"&gt; meaning next<br><small style=\"color:#94a3b8\">a cat</small>\n",
+              "columns": [
+                4
+              ],
+              "injected": 0
+            },
+            "popup": {
+              "text": "#separator:Tab\n#html:true\n#deck:LinguaPlay Japanese Immersion\n<b>猫</b> <b>猫</b> &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt;\t猫\tねこ\t&lt;img data-injected src=x onerror=\"void(0)\"&gt; meaning next<br><small style=\"color:#94a3b8\">a cat</small>\n",
+              "columns": [
+                4
+              ],
+              "injected": 0
+            }
+          },
+          "signature": "EXPORT_BYTES_DIVERGE",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A05-browser-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^VISIBLE_POLL_CONTROL$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A05-browser-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "selected": "ja",
+            "cc": "true"
+          },
+          "signature": "VISIBLE_POLL_CONTROL",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A05-browser",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A05-browser-control",
+        "witnessRegex": "^REAL_HIDDEN_OVERLAY_CC_JA_RESTORED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A05-browser",
+          "expected": "red",
+          "control": "R-A05-browser-control",
+          "ok": true,
+          "witness": {
+            "selected": "en",
+            "cc": "false",
+            "sets": 0,
+            "pollsObserved": 1
+          },
+          "signature": "REAL_HIDDEN_OVERLAY_CC_JA_RESTORED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-browser-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^REAL_LOOPBACK_PERMISSION$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A11-browser-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "loopback": true
+          },
+          "signature": "REAL_LOOPBACK_PERMISSION",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-guard",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A11-browser-control",
+        "witnessRegex": "^UNREQUESTED_ORIGIN_ALREADY_GRANTED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A11-guard",
+          "expected": "red",
+          "control": "R-A11-browser-control",
+          "ok": true,
+          "witness": {
+            "permissionGranted": false
+          },
+          "signature": "UNREQUESTED_ORIGIN_ALREADY_GRANTED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-quota",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A07-quota-control",
+        "witnessRegex": "^REAL_QUOTA_FALSE_SUCCESS$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A07-quota",
+          "expected": "red",
+          "control": "R-A07-quota-control",
+          "ok": true,
+          "witness": {
+            "quota": 10485760,
+            "used": 10483712,
+            "persistedCards": 0,
+            "label": "⚠ Added to Anki — local copy failed: Invalid card field: meaning"
+          },
+          "signature": "REAL_QUOTA_FALSE_SUCCESS",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A08-browser-newVideo",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A05-browser-control",
+        "witnessRegex": "^REAL_NAVIGATION_STALE_DOM$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A08-browser-newVideo",
+          "expected": "red",
+          "control": "R-A05-browser-control",
+          "ok": true,
+          "witness": {
+            "overlayActive": false,
+            "drawerHidden": true,
+            "tokens": ""
+          },
+          "signature": "REAL_NAVIGATION_STALE_DOM",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A08-browser-leaveWatch",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A05-browser-control",
+        "witnessRegex": "^REAL_NAVIGATION_STALE_DOM$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A08-browser-leaveWatch",
+          "expected": "red",
+          "control": "R-A05-browser-control",
+          "ok": true,
+          "witness": {
+            "overlayActive": false,
+            "drawerHidden": true,
+            "tokens": ""
+          },
+          "signature": "REAL_NAVIGATION_STALE_DOM",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-romaji",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A02-control",
+        "witnessRegex": "^FALLBACK_ROMAJI_NO_MARKUP_ON_CORPUS$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-romaji",
+          "expected": "green",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "sinks": [
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko < i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" > ga iru 0",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" &gt; ga iru 0"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko < i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" > ga iru 0",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" &gt; ga iru 0"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko \" > < s v g d a t a - i n j e c t e d > ga iru 1",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> \" &gt; &lt; s v g d a t a - i n j e c t e d &gt; ga iru 1"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko \" > < s v g d a t a - i n j e c t e d > ga iru 1",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> \" &gt; &lt; s v g d a t a - i n j e c t e d &gt; ga iru 1"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko & a m p ; ga iru 2",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &amp; a m p ; ga iru 2"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko & a m p ; ga iru 2",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &amp; a m p ; ga iru 2"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko < / d i v > < b d a t a - i n j e c t e d > ga iru 3",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; / d i v &gt; &lt; b d a t a - i n j e c t e d &gt; ga iru 3"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko < / d i v > < b d a t a - i n j e c t e d > ga iru 3",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; / d i v &gt; &lt; b d a t a - i n j e c t e d &gt; ga iru 3"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko \" d a t a - i n j e c t e d = \" y e s ga iru 4",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> \" d a t a - i n j e c t e d = \" y e s ga iru 4"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko \" d a t a - i n j e c t e d = \" y e s ga iru 4",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> \" d a t a - i n j e c t e d = \" y e s ga iru 4"
+              },
+              {
+                "id": "lp-sentence-romaji",
+                "text": "neko < i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" ga iru 5",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" ga iru 5"
+              },
+              {
+                "id": "lp-chat-sentence-romaji",
+                "text": "neko < i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" ga iru 5",
+                "injected": 0,
+                "html": "<span style=\"color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;\">neko</span> &lt; i m g d a t a - i n j e c t e d s r c = x o n e r r o r = \" v o i d ( 0 ) \" ga iru 5"
+              }
+            ]
+          },
+          "signature": "FALLBACK_ROMAJI_NO_MARKUP_ON_CORPUS",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-lyrics",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^LYRICS_METADATA_INJECTION$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-lyrics",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "injected": 0,
+            "html": "\n              \n              <div style=\"background:rgba(52,211,153,0.15); border:1px solid #34d399; padding:8px 10px; border-radius:8px; font-size:11px; color:#34d399;\">\n                ✓ Found on LRCLIB: <strong>&lt;img data-injected src=x onerror=\"void(0)\"&gt;</strong> by &lt;img data-injected src=x onerror=\"void(0)\"&gt; (1 cues)\n              </div>\n            "
+          },
+          "signature": "LYRICS_METADATA_INJECTION",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-identified",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^IDENTIFIED_METADATA_INJECTION$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-identified",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "injected": 0,
+            "html": "\n              \n        <div style=\"font-size:11px; color:#c084fc; margin-bottom:4px;\">\n          ✨ Identified: <strong>&lt;img data-injected src=x onerror=\"void(0)\"&gt;</strong> by <strong>&lt;img data-injected src=x onerror=\"void(0)\"&gt;</strong> (&lt;img data-injected src=x onerror=\"void(0)\"&gt;)\n        </div>\n      \n              <div style=\"background:rgba(52,211,153,0.15); border:1px solid #34d399; padding:8px 10px; border-radius:8px; font-size:11px; color:#34d399;\">\n                ✓ Found on LRCLIB: <strong>&lt;img data-injected src=x onerror=\"void(0)\"&gt;</strong> by &lt;img data-injected src=x onerror=\"void(0)\"&gt; (1 cues)\n              </div>\n            "
+          },
+          "signature": "IDENTIFIED_METADATA_INJECTION",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-quota-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^REAL_STORAGE_SAVE_CONTROL$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A07-quota-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "persistedCards": 1
+          },
+          "signature": "REAL_STORAGE_SAVE_CONTROL",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-enriched-route",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A03-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A06-enriched-route",
+          "expected": "green",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "url": "http://127.0.0.1:19012",
+            "label": "✓ Added to Anki · stored locally"
+          },
+          "signature": "ENRICHED_CONTRACT",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-enriched-failure",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A03-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A06-enriched-failure",
+          "expected": "green",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "url": "http://127.0.0.1:19012",
+            "label": "⚠ Kept locally — Anki: deck was not found; create the configured deck in Anki, then retry"
+          },
+          "signature": "ENRICHED_CONTRACT",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-settingsError",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A07-clear-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A07-settingsError",
+          "expected": "green",
+          "control": "R-A07-clear-control",
+          "ok": true,
+          "witness": {
+            "text": "❌ Settings write failed: QUOTA_BYTES quota exceeded"
+          },
+          "signature": "SETTINGS_FAILURE_VISIBLE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-optionsPermission",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A11-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A11-optionsPermission",
+          "expected": "green",
+          "control": "R-A11-control",
+          "ok": true,
+          "witness": {
+            "requests": [
+              {
+                "origins": [
+                  "https://ai.fixture.invalid/*",
+                  "https://parser.fixture.invalid/*",
+                  "https://anki.fixture.invalid/*"
+                ]
+              }
+            ],
+            "writes": []
+          },
+          "signature": "ENDPOINT_PERMISSION_DENIAL_NO_SAVE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A04-cachedLate",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A04-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A04-cachedLate",
+          "expected": "green",
+          "control": "R-A04-control",
+          "ok": true,
+          "witness": {
+            "timeline": [
+              {
+                "start": 0,
+                "end": 2,
+                "text": "猫の字幕"
+              }
+            ],
+            "delayedRead": true
+          },
+          "signature": "CACHED_LATE_CANNOT_OVERWRITE_CAPTIONS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A05-browser-multipoll",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A05-browser-control",
+        "runtime": "browser",
+        "witnessRegex": "^THREE_HIDDEN_POLLS$",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A05-browser-multipoll",
+          "expected": "green",
+          "control": "R-A05-browser-control",
+          "ok": true,
+          "witness": {
+            "selected": "en",
+            "cc": "false",
+            "pollsObserved": 3
+          },
+          "signature": "THREE_HIDDEN_POLLS",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    }
+  ],
+  "limitations": []
+}

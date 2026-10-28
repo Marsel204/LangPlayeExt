@@ -54,5 +54,53 @@
     "after": "5bc7f8488a4eb452cdac6b7537fa5913f4e5dcd51c7865a229efe3cdd2fdd89b",
     "reason": "The first complete three-process after run passed all 246 GATE rows but the count-consistency validator rejected three P7 catastrophe rows: their counts.coldMs values were elapsed milliseconds (for example 1.1073, 1.2167, and 1.2365), not deterministic operation counts. Store the same cold-call measurement under timeMs.coldFirstCall. The 250 ms catastrophe predicate, scaling rule, workloads, repetitions, and all other count checks remain unchanged. Preserve the failed attempt and rerun the complete performance suite.",
     "assertionsUnchanged": true
+  },
+  {
+    "file": "tests/perf/lib/worker-fixture.js",
+    "before": "6f7ce8da3c980899f164dbfebe144f7842f1a8aa5a8d814b68c87227349ebba8",
+    "previous": "edeeccc5c22fdbf412a13f358c43ac2eb0ef7aee2abc5067ac26db9f77dd3ad5",
+    "after": "5b92e263bd97e7346b0554207d328bc9bb9112763ef58b08f6ba4b8caabb3a71",
+    "reason": "Merge integration with origin/main d9a2f76, which made 9Router the sole AI backend. Move model request observation and deferred responses to the actual shipped CALL_9ROUTER_AI worker fetch, use configured router/model fields, model required HTTP loopback permissions faithfully, and attach the native browser worker. Preserve every regression ID, control, outcome predicate, repetition, baseline artifact, golden, and performance threshold. Strengthen A10 with a positive real-worker request and reject every non-router/non-translation destination; permission denial still requires all three configured remote origins in one request and zero writes. The original multi-provider harness is preserved at commit 6c836f7.",
+    "assertionsUnchanged": true
+  },
+  {
+    "file": "tests/perf/lib/shipped.js",
+    "before": "cd920833a427bf6fb31c0d2d8addbd6e45db6092aadbcc2aef9203d60da5b8ee",
+    "previous": "cd920833a427bf6fb31c0d2d8addbd6e45db6092aadbcc2aef9203d60da5b8ee",
+    "after": "fbe46fdea9d3356c039936c11dd1df0ef59ee76291c7c2e07a955fdc5c1b1b80",
+    "reason": "Merge integration with origin/main d9a2f76, which made 9Router the sole AI backend. Move model request observation and deferred responses to the actual shipped CALL_9ROUTER_AI worker fetch, use configured router/model fields, model required HTTP loopback permissions faithfully, and attach the native browser worker. Preserve every regression ID, control, outcome predicate, repetition, baseline artifact, golden, and performance threshold. Strengthen A10 with a positive real-worker request and reject every non-router/non-translation destination; permission denial still requires all three configured remote origins in one request and zero writes. The original multi-provider harness is preserved at commit 6c836f7.",
+    "assertionsUnchanged": true
+  },
+  {
+    "file": "tests/review/lib/cases.js",
+    "before": "2257ec542e26e3d11e8c90f31e1a19a8d9875e287a6d1105213ccb4e6c46a317",
+    "previous": "9020eeb6c42d9d837250c709c9ffcc55aecb0627d89268b40590c78853c5a3e1",
+    "after": "cabe37de035f169c800bbf6313653792e88c5615060c24fae695df3415605972",
+    "reason": "Merge integration with origin/main d9a2f76, which made 9Router the sole AI backend. Move model request observation and deferred responses to the actual shipped CALL_9ROUTER_AI worker fetch, use configured router/model fields, model required HTTP loopback permissions faithfully, and attach the native browser worker. Preserve every regression ID, control, outcome predicate, repetition, baseline artifact, golden, and performance threshold. Strengthen A10 with a positive real-worker request and reject every non-router/non-translation destination; permission denial still requires all three configured remote origins in one request and zero writes. The original multi-provider harness is preserved at commit 6c836f7.",
+    "assertionsUnchanged": true
+  },
+  {
+    "file": "tests/perf/lib/area.js",
+    "before": "d3c33d2934ab16369161c1e9744f0f588a07c1652e5c8cc225fb6b159ec13ecc",
+    "previous": "1d0d81bb8864b3be134301bf466ff11ed70f926a43168a9bf966245cbe089e44",
+    "after": "c03e02c323cb8f13673346f82f899f497281a07f5cae3f8029ed27b69b460144",
+    "reason": "Merge integration with origin/main d9a2f76, which made 9Router the sole AI backend. Move model request observation and deferred responses to the actual shipped CALL_9ROUTER_AI worker fetch, use configured router/model fields, model required HTTP loopback permissions faithfully, and attach the native browser worker. Preserve every regression ID, control, outcome predicate, repetition, baseline artifact, golden, and performance threshold. Strengthen A10 with a positive real-worker request and reject every non-router/non-translation destination; permission denial still requires all three configured remote origins in one request and zero writes. The original multi-provider harness is preserved at commit 6c836f7.",
+    "assertionsUnchanged": true
+  },
+  {
+    "file": "tests/perf/lib/browser.mjs",
+    "before": "01eccc8ff7185c835c0db9592d5a3f4b6beaf543adbdcd23dea814cfdf440594",
+    "previous": "01eccc8ff7185c835c0db9592d5a3f4b6beaf543adbdcd23dea814cfdf440594",
+    "after": "728d49e7d98be83bd33d27defa9364976bff1f08a4ab063c95b74c4f21e26154",
+    "reason": "Merge integration with origin/main d9a2f76, which made 9Router the sole AI backend. Move model request observation and deferred responses to the actual shipped CALL_9ROUTER_AI worker fetch, use configured router/model fields, model required HTTP loopback permissions faithfully, and attach the native browser worker. Preserve every regression ID, control, outcome predicate, repetition, baseline artifact, golden, and performance threshold. Strengthen A10 with a positive real-worker request and reject every non-router/non-translation destination; permission denial still requires all three configured remote origins in one request and zero writes. The original multi-provider harness is preserved at commit 6c836f7.",
+    "assertionsUnchanged": true
+  },
+  {
+    "file": "tests/perf/lib/browser-cases.mjs",
+    "before": "b0cc420a0eeae48fd83e2257d5a213ca2a2daeefbd41b477ea9d0ef1e4286dc2",
+    "previous": "b0cc420a0eeae48fd83e2257d5a213ca2a2daeefbd41b477ea9d0ef1e4286dc2",
+    "after": "f600e97a78f47929c9b36b55436e905dad3b19f6ad1623950a6a6a84cd10a4d2",
+    "reason": "Merge integration with origin/main d9a2f76, which made 9Router the sole AI backend. Move model request observation and deferred responses to the actual shipped CALL_9ROUTER_AI worker fetch, use configured router/model fields, model required HTTP loopback permissions faithfully, and attach the native browser worker. Preserve every regression ID, control, outcome predicate, repetition, baseline artifact, golden, and performance threshold. Strengthen A10 with a positive real-worker request and reject every non-router/non-translation destination; permission denial still requires all three configured remote origins in one request and zero writes. The original multi-provider harness is preserved at commit 6c836f7.",
+    "assertionsUnchanged": true
   }
 ]

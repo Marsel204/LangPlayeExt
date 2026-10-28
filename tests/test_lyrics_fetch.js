@@ -572,15 +572,16 @@ test('clicking the green #linguaplay-sub-status button opens the modal, replaces
     chrome: {
       storage: {
         local: {
-          get: (_keys, cb) => cb({ linguaplay_ai_provider: 'antigravity' }),
+          get: (_keys, cb) => cb({}),
           set: (_obj, cb) => cb?.(),
         }
       },
       runtime: {
         sendMessage(msg, cb) {
           runtimeMessages.push(msg);
-          if (msg.action === 'ENSURE_LOCAL_SERVER') {
-            cb?.({ success: true });
+          if (msg.action === 'CALL_9ROUTER_AI') {
+            assert.ok(msg.messages[0].content.includes('trackName'), 'Send the song identification prompt through 9Router');
+            cb?.({ success: true, content: JSON.stringify({ trackName: '春擬き', artistName: 'やなぎなぎ', animeName: 'やはり俺の青春ラブコメはまちがっている。続' }) });
             return;
           }
           if (msg.action === 'FETCH_LRCLIB_LYRICS') {
@@ -604,21 +605,6 @@ test('clicking the green #linguaplay-sub-status button opens the modal, replaces
     setTimeout() {},
     fetch: async (url, options) => {
       fetchCalls.push({ url, options });
-      if (url.endsWith('/api/ai/analyze')) {
-        const bodyJson = JSON.parse(options.body);
-        assert.ok(bodyJson.prompt && bodyJson.prompt.includes('trackName'), 'Must forward song identification prompt to /api/ai/analyze');
-        return {
-          ok: true,
-          json: async () => ({
-            status: 'success',
-            data: {
-              trackName: '春擬き',
-              artistName: 'やなぎなぎ',
-              animeName: 'やはり俺の青春ラブコメはまちがっている。続'
-            }
-          })
-        };
-      }
       return { ok: false, status: 404, json: async () => ({}) };
     }
   };

@@ -55,7 +55,7 @@ Switch to **Sensei Chat** to ask about the selected sentence. Use a prompt such 
 
 ![Sensei Chat open beside a Japanese video on YouTube](docs/screenshots/youtube-sensei-chat.png)
 
-Sensei uses your chosen AI provider. Its answers depend on the model and should be checked when a reading or explanation seems uncertain.
+Sensei uses the model or combo configured in 9Router. Its answers depend on the model and should be checked when a reading or explanation seems uncertain.
 
 ### 4. Save useful words to Anki
 
@@ -78,32 +78,33 @@ No build step is needed.
 2. Open `chrome://extensions` in Chrome or Chromium.
 3. Enable **Developer mode**, click **Load unpacked**, and select the repository root — the folder containing `manifest.json`.
 4. Pin **LinguaPlay** to your toolbar.
-5. Open **Options / Keys**, choose your AI provider, and click **Save Settings**.
+5. Open **Options / Keys**, configure 9Router, and click **Save Settings**.
 6. Open a YouTube watch page. Refresh an already-open page so the extension can load.
 
-Japanese subtitle interaction, reading modes, and the offline card collection work without an AI API key. AI breakdowns and chat require a configured provider. More accurate contextual readings use the optional Sudachi backend.
+Japanese subtitle interaction, reading modes, and the offline card collection work without an AI API key. AI breakdowns and chat require a configured 9Router connection. More accurate contextual readings use the optional Sudachi backend.
 
 ## Connect your AI tutor
 
-Click the extension's toolbar icon and open **Options / Keys**. Choose a provider, enter its settings, use the corresponding **Test** button, and click **Save Settings**.
+LinguaPlay uses **9Router** for Sensei Chat, grammar breakdowns, and AI song identification. Open **Options / Keys** to configure its URL, router key, and model or combo.
 
-| Provider | Settings |
-| --- | --- |
-| **Google Gemini API** | Gemini API key; the extension currently uses `gemini-2.5-flash`. |
-| **DeepSeek API** | DeepSeek API key; the extension currently uses `deepseek-chat`. |
-| **OpenRouter** | API key and model ID; default: `deepseek/deepseek-chat`. |
-| **OpenCode / Custom OpenAI Endpoint** | An OpenAI-compatible API base URL, the model ID your server exposes, and a key if required. |
-| **Local Antigravity CLI / Server** | The separate companion backend with Antigravity CLI available; default URL: `http://127.0.0.1:8000`. |
+[9Router](https://github.com/decolua/9router) manages your AI providers, credentials, and fallback combos behind one OpenAI-compatible API. Run it separately from the extension:
 
-The default provider is **Local Antigravity CLI / Server**. Set up the companion backend or select another provider before requesting a breakdown or chat response.
+```bash
+npm install -g 9router
+9router
+```
 
-Song identification, breakdowns, and chat use only the selected provider. A saved key for another provider does not enable automatic fallback. Enter and correct API keys in extension Options; the YouTube drawer links there when a key needs attention.
+1. Open the 9Router dashboard at `http://localhost:20128`, connect your providers, and copy the router API key if authentication is enabled.
+2. Open LinguaPlay **Options / Keys** to find the 9Router settings.
+3. Keep `http://127.0.0.1:20128/v1` for a router on the same computer, or enter your hosted router's API base URL. Enter the **router** key here; upstream provider keys stay in 9Router.
+4. Click **Load Models**, then choose an ID in **Model or Combo**, or type a combo name from your dashboard. This preserves provider prefixes and custom combo names without guessing a model.
+5. Click **Test 9Router** to send a short AI request, then **Save Settings**.
 
-For local AI, automatic server startup on Linux, and offline **Sudachi** parsing, follow the [local backend setup guide](docs/local-backend.md). Sudachi improves contextual readings and dictionary forms. A lightweight fallback keeps subtitles usable when it is unavailable.
+Sensei Chat, grammar breakdowns, and AI song identification use only the configured 9Router model or combo. Enter the router key in extension Options; upstream credentials stay in 9Router. Keep 9Router running while using these features. The extension does not start 9Router automatically.
 
-For a custom endpoint, use its API base URL, such as `http://127.0.0.1:11434/v1`, and the exact model ID it serves. The Options page includes connection guidance for Ollama and host access.
+For optional offline **Sudachi** parsing and automatic parser startup on Linux, see the [local backend setup guide](docs/local-backend.md). The parser improves contextual readings and dictionary forms; subtitle fallback readings work without it.
 
-Saving or testing a remote custom-AI, parser/server, or AnkiConnect endpoint may ask for access to its origin. Denying access leaves existing settings intact. Default HTTP endpoints on `127.0.0.1` and `localhost` work on any port without an extra grant.
+Saving or testing a remote 9Router, parser/server, or AnkiConnect endpoint may ask for access to its origin. Denying access leaves existing settings intact. Default HTTP endpoints on `127.0.0.1` and `localhost` work on any port without an extra grant.
 
 ## Connect Anki
 
@@ -121,7 +122,7 @@ You can also start with the offline collection and export your cards later.
 | **No extension controls** | Reload the extension in `chrome://extensions`, then refresh the YouTube watch page. |
 | **No Japanese text** | Enable Japanese captions, search with **Lyrics**, or upload a subtitle file with the folder button. Availability varies by video. |
 | **Text is out of sync** | Adjust the toolbar offset or use the Lyrics Manager's playhead sync tools. |
-| **AI isn't responding** | Test your selected provider in Options. Check the key, model ID, endpoint, or local server. |
+| **AI isn't responding** | Test 9Router in Options. Check the router key, model or combo, URL, and that 9Router is running. |
 | **A reading looks wrong** | Use the updated Sudachi backend for contextual parsing. Names and ambiguous words may still need checking. |
 | **A card isn't in Anki** | Check that AnkiConnect is available. Look in the extension collection for cards saved while Anki was offline. |
 
@@ -129,7 +130,7 @@ You can also start with the offline collection and export your cards later.
 
 This repository contains the **YouTube extension**. Its popup opens YouTube and searches YouTube directly; all learning tools run on the watch page.
 
-The standalone video player and companion Python backend live in the separate [LangPlay app repository](https://github.com/Marsel204/LangPlay). Use that project for local video playback. The extension connects to its optional backend over HTTP for local AI and Sudachi parsing; it does not bundle or launch the standalone player.
+The standalone video player and companion Python backend live in the separate [LangPlay app repository](https://github.com/Marsel204/LangPlay). Use that project for local video playback. The extension connects to its optional backend over HTTP for offline Sudachi parsing; it does not bundle or launch the standalone player.
 
 <details>
 <summary><strong>Contributor notes and checks</strong></summary>

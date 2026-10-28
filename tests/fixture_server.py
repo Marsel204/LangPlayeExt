@@ -15,11 +15,12 @@ with (state / 'starts.log').open('a') as log:
 
 
 class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        self.wfile.write(json.dumps({'status': 'success', 'antigravity_available': False}).encode())
+        self.wfile.write(json.dumps({'status': 'success', 'tokens': [], 'engine': 'fixture'}).encode())
 
     def log_message(self, *_args):
         pass

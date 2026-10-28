@@ -2,7 +2,7 @@
  * LinguaPlay Chrome Extension — YouTube On-Site Content Script (content.js)
  * Standalone bundle with 3,800+ Kanji DB, Zero-Kanji Guarantee,
  * Contextual Kun'yomi vs On'yomi resolution, non-interrupting video playback,
- * native sidebar drawer integration, and default Antigravity CLI support.
+ * native sidebar drawer integration, and 9Router AI integration.
  */
 
 (function () {
@@ -1460,161 +1460,18 @@
   }
 
   // ── Sensei AI LLM Call Engine (Shared Across LinguaPlay) ──
-  function getSenseiProvider(config) {
-    return config.linguaplay_ai_provider || (config.linguaplay_gemini_key ? 'gemini' : 'antigravity');
-  }
-
-   async function callSenseiLlmApi({ messages, isJson, config, word, romaji, sentence, prompt }) {
-    const provider = getSenseiProvider(config);
-    const geminiKey = (config.linguaplay_gemini_key || '').trim();
-    const deepseekKey = (config.linguaplay_deepseek_key || '').trim();
-    const openrouterKey = (config.linguaplay_openrouter_key || '').trim();
-    const openrouterModel = (config.linguaplay_openrouter_model || 'deepseek/deepseek-chat').trim();
-    const serverUrl = (config.linguaplay_server_url || 'http://127.0.0.1:8000').trim();
-
-    // 1. Google Gemini Flash Direct
-    if (provider === 'gemini') {
-      if (!geminiKey) throw new Error('Missing Google Gemini API key. Add it in Extension Settings.');
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
-      
-      const contents = [];
-      for (const m of messages) {
-        if (m.role === 'system') continue;
-        contents.push({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }]
-        });
-      }
-      if (contents.length === 0 && messages.length > 0) {
-        contents.push({ role: 'user', parts: [{ text: messages[0].content }] });
-      }
-
-      const sysMsg = messages.find(m => m.role === 'system');
-      const body = {
-        contents,
-        generationConfig: isJson ? { responseMimeType: 'application/json' } : {}
-      };
-      if (sysMsg) {
-        body.systemInstruction = { parts: [{ text: sysMsg.content }] };
-      }
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(12000)
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `Gemini API returned status ${res.status}`);
-      }
-      const data = await res.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    }
-
-    // 2. DeepSeek Direct API
-    if (provider === 'deepseek') {
-      if (!deepseekKey) throw new Error('Missing DeepSeek API key. Add it in Extension Settings.');
-      const url = 'https://api.deepseek.com/v1/chat/completions';
-      const body = {
-        model: 'deepseek-chat',
-        messages: messages,
-        response_format: isJson ? { type: 'json_object' } : undefined
-      };
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${deepseekKey}`
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(12000)
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `DeepSeek API returned status ${res.status}`);
-      }
-      const data = await res.json();
-      return data.choices?.[0]?.message?.content || '';
-    }
-
-    // 3. OpenRouter Direct API
-    if (provider === 'openrouter') {
-      if (!openrouterKey) throw new Error('Missing OpenRouter API key. Add it in Extension Settings.');
-      const url = 'https://openrouter.ai/api/v1/chat/completions';
-      const body = {
-        model: openrouterModel,
-        messages: messages,
-        response_format: isJson ? { type: 'json_object' } : undefined
-      };
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openrouterKey}`,
-          'HTTP-Referer': 'https://linguaplay.app',
-          'X-Title': 'LinguaPlay'
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(14000)
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `OpenRouter API returned status ${res.status}`);
-      }
-      const data = await res.json();
-      return data.choices?.[0]?.message?.content || '';
-    }
-
-    // 4. OpenCode Custom Endpoint
-    if (provider === 'opencode') {
-      return new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'CALL_CUSTOM_AI', messages, isJson }, response => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else if (!response || !response.success) {
-            reject(new Error(response?.error || 'Custom endpoint request failed'));
-          } else {
-            resolve(response.content);
-          }
-        });
-      });
-    }
-
-    // 5. Antigravity CLI Local Server
-    if (provider === 'antigravity') {
-      const localAiTimeout = 120000;
-      if (isJson) {
-        try {
-          const res = await fetch(`${serverUrl}/api/ai/analyze`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ word, romaji, sentence, ...(prompt ? { prompt } : {}), provider: 'antigravity' }),
-            signal: AbortSignal.timeout(localAiTimeout)
-          });
-          const raw = await res.json().catch(() => ({}));
-          if (!res.ok || raw.status === 'error') throw new Error(raw.message || `Local server returned ${res.status}`);
-          return JSON.stringify(raw.data || raw);
-        } catch (error) {
-          if (error.name === 'TimeoutError') throw new Error('Local AI did not respond within two minutes. Click Ask Sensei to try again.');
-          throw error;
+  async function callSenseiLlmApi({ messages, isJson }) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ action: 'CALL_9ROUTER_AI', messages, isJson }, response => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else if (!response || !response.success) {
+          reject(new Error(response?.error || '9Router request failed'));
+        } else {
+          resolve(response.content);
         }
-      } else {
-        const res = await fetch(`${serverUrl}/api/ai/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages, word, romaji, sentence }),
-          signal: AbortSignal.timeout(localAiTimeout)
-        });
-        const raw = await res.json().catch(() => ({}));
-        if (!res.ok || raw.status === 'error') throw new Error(raw.message || `Local server chat returned ${res.status}`);
-        const reply = raw.reply || raw.content;
-        if (typeof reply !== 'string' || !reply.trim()) throw new Error('Local server returned an empty chat reply.');
-        return reply;
-      }
-    }
-
-    throw new Error(`Unsupported AI provider: ${provider}`);
+      });
+    });
   }
 
   // ── Sensei AI Song Identification ──
@@ -1646,33 +1503,10 @@
     return null;
   }
 
-  async function identifySongWithSensei(title, channel, options = {}) {
+  async function identifySongWithSensei(title, channel) {
     if (!title || typeof title !== 'string') return null;
-    return new Promise((resolve) => {
-      if (!chrome.storage?.local) {
-        resolve(null);
-        return;
-      }
-      chrome.storage.local.get([
-        'linguaplay_ai_provider',
-        'linguaplay_gemini_key',
-        'linguaplay_deepseek_key',
-        'linguaplay_openrouter_key',
-        'linguaplay_openrouter_model',
-        'linguaplay_opencode_url',
-        'linguaplay_opencode_key',
-        'linguaplay_opencode_model',
-        'linguaplay_server_url'
-      ], async (cfg) => {
-        try {
-          const primaryProvider = getSenseiProvider(cfg);
-          const hasKey = primaryProvider === 'antigravity' || primaryProvider === 'opencode' || Boolean(cfg[`linguaplay_${primaryProvider}_key`]);
-          if (!hasKey) {
-            resolve({ error: 'Please set up an AI API key (Gemini, DeepSeek, etc.) in LinguaPlay settings to use Sensei AI.' });
-            return;
-          }
-
-          const prompt = `You are Sensei, an expert in Japanese music, anime soundtracks, and J-pop.
+    try {
+      const prompt = `You are Sensei, an expert in Japanese music, anime soundtracks, and J-pop.
 Given this YouTube music video title and channel:
 Title: ${JSON.stringify(title)}
 Channel: ${JSON.stringify(channel || '')}
@@ -1685,68 +1519,12 @@ Extract the song metadata:
 Respond in JSON only:
 {"trackName": "...", "artistName": "...", "animeName": "..."}`;
 
-          const candidateProviders = [primaryProvider];
-
-          let lastError = null;
-          for (const prov of candidateProviders) {
-            try {
-              if (prov === 'antigravity' && options?.ensureServer && chrome.runtime?.sendMessage) {
-                await new Promise(r => {
-                  try {
-                    chrome.runtime.sendMessage({ action: 'ENSURE_LOCAL_SERVER' }, () => {
-                      void chrome.runtime?.lastError;
-                      r();
-                    });
-                  } catch {
-                    r();
-                  }
-                });
-              }
-
-              const raw = await callSenseiLlmApi({
-                messages: [{ role: 'user', content: prompt }],
-                isJson: true,
-                config: { ...cfg, linguaplay_ai_provider: prov },
-                word: title,
-                romaji: '',
-                sentence: title,
-                prompt
-              });
-
-              let parsed = parseSongMetadataJson(raw);
-              if (!parsed && prov === 'antigravity') {
-                const chatRaw = await callSenseiLlmApi({
-                  messages: [{ role: 'user', content: prompt }],
-                  isJson: false,
-                  config: { ...cfg, linguaplay_ai_provider: 'antigravity' },
-                  word: title,
-                  romaji: '',
-                  sentence: title
-                });
-                parsed = parseSongMetadataJson(chatRaw);
-              }
-
-              if (parsed && (parsed.trackName || parsed.artistName)) {
-                resolve(parsed);
-                return;
-              }
-            } catch (err) {
-              lastError = err;
-              console.warn(`[LinguaPlay] identifySongWithSensei (${prov}) error:`, err);
-            }
-          }
-
-          if (lastError) {
-            resolve({ error: lastError.message });
-            return;
-          }
-          resolve(null);
-        } catch (e) {
-          console.warn('[LinguaPlay] identifySongWithSensei error:', e);
-          resolve({ error: e.message });
-        }
-      });
-    });
+      const raw = await callSenseiLlmApi({ messages: [{ role: 'user', content: prompt }], isJson: true });
+      const parsed = parseSongMetadataJson(raw);
+      return parsed || { error: '9Router did not return valid song metadata. Try another model or combo.' };
+    } catch (error) {
+      return { error: error.message };
+    }
   }
 
   // ── Fetch Synced Lyrics from LRCLIB & Kugou (with Heuristic + Sensei AI Fallback) ──
@@ -2118,7 +1896,7 @@ Respond in JSON only:
           if (drawerContextVersion !== contextVersion || definitionBase !== base) return;
           defEl.textContent = d?.[0]?.map(s => s[0]).filter(Boolean).join('') || 'No definition found';
         }).catch(() => {
-          if (drawerContextVersion === contextVersion && definitionBase === base) defEl.textContent = 'Click Ask Antigravity AI below for deep analysis.';
+          if (drawerContextVersion === contextVersion && definitionBase === base) defEl.textContent = 'Click Ask Sensei below for deep analysis.';
         });
     }
 
@@ -3040,7 +2818,7 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       const sourceToken = beginManualSource();
       let ai = null;
       try {
-        ai = await identifySongWithSensei(rawTitle, rawChannel, { ensureServer: true });
+        ai = await identifySongWithSensei(rawTitle, rawChannel);
       } finally {
         isModalAiIdentifying = false;
         if (aiBtn) {
@@ -3406,17 +3184,7 @@ Respond with ONLY valid JSON:
 
       const loadingEl = appendChatMessage('sensei', '⚡ Sensei is thinking…');
 
-      chrome.storage.local.get([
-        'linguaplay_ai_provider',
-        'linguaplay_gemini_key',
-        'linguaplay_deepseek_key',
-        'linguaplay_openrouter_key',
-        'linguaplay_openrouter_model',
-        'linguaplay_opencode_url',
-        'linguaplay_opencode_key',
-        'linguaplay_opencode_model',
-        'linguaplay_server_url'
-      ], async (cfg) => {
+      (async () => {
         try {
           if (contextVersion !== drawerContextVersion) return;
           const messages = [
@@ -3429,11 +3197,7 @@ Respond with ONLY valid JSON:
 
           const reply = await callSenseiLlmApi({
             messages,
-            isJson: false,
-            config: cfg,
-            word,
-            romaji,
-            sentence
+            isJson: false
           });
 
           if (contextVersion !== drawerContextVersion) return;
@@ -3455,7 +3219,7 @@ Respond with ONLY valid JSON:
             updateSenseiChatControls();
           }
         }
-      });
+      })();
       return true;
     }
 
@@ -3504,38 +3268,15 @@ Respond with ONLY valid JSON:
       ankiBtn.style.display = 'none';
       if (chatBox) chatBox.style.display = 'none';
 
-      chrome.storage.local.get([
-        'linguaplay_ai_provider',
-        'linguaplay_gemini_key',
-        'linguaplay_deepseek_key',
-        'linguaplay_openrouter_key',
-        'linguaplay_openrouter_model',
-        'linguaplay_opencode_url',
-        'linguaplay_opencode_key',
-        'linguaplay_opencode_model',
-        'linguaplay_server_url'
-      ], async (cfg) => {
+      chrome.storage.local.get(['linguaplay_9router_model'], async (cfg) => {
         if (!isCurrent()) return;
-        const provider = getSenseiProvider(cfg);
         const prompt = buildSenseiAnalysisPrompt(word, romaji, sentence);
         const messages = [{ role: 'user', content: prompt }];
-
-        const providerTitleMap = {
-          gemini: '✨ GEMINI FLASH SENSEI BREAKDOWN',
-          deepseek: '⚡ DEEPSEEK SENSEI BREAKDOWN',
-          openrouter: `🌐 OPENROUTER (${cfg.linguaplay_openrouter_model || 'deepseek'}) BREAKDOWN`,
-          opencode: `💻 OPENCODE (${cfg.linguaplay_opencode_model || 'custom'}) BREAKDOWN`,
-          antigravity: '🤖 ANTIGRAVITY CLI BREAKDOWN'
-        };
 
         try {
           const rawText = await callSenseiLlmApi({
             messages,
-            isJson: true,
-            config: cfg,
-            word,
-            romaji,
-            sentence
+            isJson: true
           });
 
           if (!isCurrent()) return;
@@ -3546,33 +3287,24 @@ Respond with ONLY valid JSON:
           results.style.display = 'block';
           ankiBtn.style.display = 'block';
           if (chatBox) chatBox.style.display = 'block';
-          if (badgeEl) badgeEl.textContent = provider.toUpperCase();
+          if (badgeEl) badgeEl.textContent = '9ROUTER';
 
-          results.innerHTML = renderPedagogicalBreakdown(json, providerTitleMap[provider] || '✨ SENSEI AI BREAKDOWN');
+          results.innerHTML = renderPedagogicalBreakdown(json, `9ROUTER (${cfg.linguaplay_9router_model || 'router'}) BREAKDOWN`);
         } catch (err) {
           if (!isCurrent()) return;
 
           loading.style.display = 'none';
           results.style.display = 'block';
           results.innerHTML = `
-            <div style="background: rgba(124, 58, 237, 0.14); border: 1px solid rgba(139, 92, 246, 0.35); border-radius: 8px; padding: 12px; font-size: 12px; color: #e2e8f0; line-height: 1.5;">
-              <div style="font-weight: 600; color: #f87171; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
-                <span>⚠️</span> AI Analysis Notice: ${escapeHtmlText(err.message)}
-              </div>
-              <p style="margin: 0 0 8px; color: #cbd5e1; font-size: 11.5px;">Add or fix your API key in Extension Settings.</p>
-              <div style="display: flex; justify-content: flex-end;">
-                <button id="lp-go-options-btn" style="background:#7c3aed; border:none; color:white; font-size:11px; padding:4px 10px; border-radius:6px; cursor:pointer; font-weight:600;">⚙️ Open Extension Settings</button>
-              </div>
+            <div class="lp-ai-error">
+              <div>AI Analysis Notice</div>
+              <p id="lp-ai-error-text" role="alert"></p>
+              <p>Check the 9Router URL, key, and model in extension settings, then retry.</p>
+              <button id="lp-go-options-btn" type="button">Open Extension Settings</button>
             </div>
           `;
-
-          const optBtn = document.getElementById('lp-go-options-btn');
-          if (optBtn) {
-            optBtn.addEventListener('click', (e) => {
-              e.preventDefault();
-              openExtensionSettings();
-            });
-          }
+          document.getElementById('lp-ai-error-text').textContent = `9Router: ${err.message}`;
+          document.getElementById('lp-go-options-btn').addEventListener('click', openExtensionSettings);
         } finally {
           if (activeAnalysis === analysis) activeAnalysis = null;
         }

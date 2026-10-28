@@ -47,7 +47,7 @@ test('disabled auto-start and remote endpoints do not launch locally', async () 
 
 test('a healthy local server is reused without invoking the launcher', async () => {
   const h = worker();
-  h.sandbox.fetch = async () => ({ ok: true, json: async () => ({ status: 'success', antigravity_available: false }) });
+  h.sandbox.fetch = async () => ({ ok: true, json: async () => ({ status: 'success', tokens: [] }) });
   assert.equal((await h.request()).started, false);
   assert.equal(h.nativeCalls.length, 0);
 });
@@ -72,7 +72,7 @@ test('missing native host reports setup instructions and avoids repeated launche
   assert.match((await h.request()).error, /Install native\/install_host.py/);
   assert.equal((await h.request()).success, false);
   assert.equal(h.nativeCalls.length, 1);
-  h.sandbox.fetch = async () => ({ ok: true, json: async () => ({ status: 'success', antigravity_available: true }) });
+  h.sandbox.fetch = async () => ({ ok: true, json: async () => ({ status: 'success', tokens: [] }) });
   assert.equal((await h.request()).success, true, 'A server started manually can recover during the cooldown');
 });
 

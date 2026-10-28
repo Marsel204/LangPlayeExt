@@ -14,7 +14,7 @@ function instrument(source,tail=buildTail(),extra=[]){
  if(result.slice(0,prefix.length)!==prefix||result.slice(prefix.length+tail.length)!==trailer)throw new HarnessError('TAIL_NOT_PURE');
  return result;
 }
-function category(url){url=String(url);return url.includes('/api/captions')?'captions':url.includes('translate.googleapis')?'translate':url.includes('8765')?'anki':url.includes('/youtubei/')?'innertube':url.includes('/watch?')?'watchHtml':url.includes('generativelanguage')?'gemini':url.includes('deepseek')?'deepseek':url.includes('openrouter')?'openrouter':url.includes('/api/ai/')?'localAI':'other';}
+function category(url){url=String(url);return url.includes('/api/captions')?'captions':url.includes('translate.googleapis')?'translate':url.includes('8765')?'anki':url.includes('/youtubei/')?'innertube':url.includes('/watch?')?'watchHtml':url.includes('generativelanguage')?'gemini':url.includes('deepseek')?'deepseek':url.includes('openrouter')?'openrouter':url.includes('/api/ai/')?'localAI':url.includes('/chat/completions')?'router':'other';}
 function response(data={},text='',ok=true){return {ok,status:ok?200:500,json:async()=>clone(data),text:async()=>text};}
 async function create(config={},options={}){
  const d=dom(),s=options.storage||storage({...config}),calls=[],messages=[],pending=[],spies={segmenters:0,wanakana:{},parserRequests:0};
@@ -22,6 +22,8 @@ async function create(config={},options={}){
  const wanakana=new Proxy(wk,{get(o,k){if(typeof o[k]!=='function')return o[k];return(...args)=>{spies.wanakana[k]=(spies.wanakana[k]||0)+1;return o[k](...args);};}});
  const {worker,runtime}=require('./worker-fixture').wire(s,options,messages);runtime.openOptionsPage=()=>{messages.push({action:'OPEN_OPTIONS'});};
  const fetch=(url,opts={})=>{const c={url:String(url),options:opts,category:category(url)};calls.push(c);if(options.fetch)return options.fetch(c);if(c.category==='translate')return Promise.resolve(response([[['translation']]]));return new Promise((resolve,reject)=>pending.push({call:c,resolve,reject}));};
+ // Observe the actual worker transport through the same controlled recorder.
+ worker.sandbox.fetch=fetch;
  const IntlSpy={...Intl,Segmenter:class extends Intl.Segmenter{constructor(...args){super(...args);spies.segmenters++;}}};
  d.window.wanakana=options.spies===false?wk:wanakana;d.window.YomitanDeinflector=require(path.join(root,'lib/yomitan-deinflector.js'));
  let Parser;

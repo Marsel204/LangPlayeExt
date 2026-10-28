@@ -108,7 +108,7 @@ function createContentHarness(config = {}, parser = undefined) {
       createElement: () => new Element(),
       addEventListener() {},
     },
-    chrome: { storage: { local: {
+    chrome: { runtime: { sendMessage(request, callback) { calls.push(JSON.parse(JSON.stringify(request))); pending.push(callback); } }, storage: { local: {
       get: (_keys, callback) => callback(config),
       set: () => {},
     } } },
@@ -414,53 +414,39 @@ for (const [surface, base] of [['飲んだ', '飲む'], ['泳ぎました', '泳
   });
 }
 
-test('an unset provider continues to use the working local server', async () => {
-  const h = createContentHarness();
-  h.elements.get('lp-active-word').textContent = '猫';
-  h.elements.get('lp-active-romaji').textContent = 'neko';
-  await h.elements.get('lp-ai-btn').listeners.click();
-  assert.ok(h.calls.some(call => call.url === 'http://127.0.0.1:8000/api/ai/analyze'),
-    `Expected local analysis request; got ${JSON.stringify(h.calls)}`);
-});
-
-test('control: an explicit local provider dispatches to the local server', async () => {
-  const h = createContentHarness({ linguaplay_ai_provider: 'antigravity' });
+test('9Router is used by default even when a legacy provider preference is saved', async () => {
+  const h = createContentHarness({ linguaplay_ai_provider: 'removed-provider' });
   h.elements.get('lp-active-word').textContent = '猫';
   await h.elements.get('lp-ai-btn').listeners.click();
-  assert.equal(h.calls[0]?.url, 'http://127.0.0.1:8000/api/ai/analyze');
+  assert.equal(h.calls.at(-1).action, 'CALL_9ROUTER_AI');
+  assert.equal(h.calls.at(-1).isJson, true);
 });
 
-test('local analysis can finish after the former four-second deadline', async () => {
-  const h = createContentHarness();
-  // Scale seconds to milliseconds while preserving the response/deadline order.
-  h.sandbox.AbortSignal = { timeout: milliseconds => AbortSignal.timeout(milliseconds / 1000) };
-  h.sandbox.fetch = (_url, { signal }) => new Promise((resolve, reject) => {
-    const timer = setTimeout(() => resolve({ ok: true, json: async () => ({ status: 'success', data: { contextual_meaning: 'cat' } }) }), 35);
-    signal.addEventListener('abort', () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
-  });
-  const result = await h.callSenseiLlmApi({ messages: [], isJson: true, config: {}, word: '猫', romaji: 'neko', sentence: '猫がいる' });
-  assert.equal(JSON.parse(result).contextual_meaning, 'cat');
-});
-
-test('local analysis reports the actual backend error', async () => {
-  const h = createContentHarness();
-  h.sandbox.fetch = async () => ({ ok: false, status: 504, json: async () => ({ status: 'error', message: 'Antigravity CLI execution timed out.' }) });
-  await assert.rejects(h.callSenseiLlmApi({ messages: [], isJson: true, config: {}, word: '猫', sentence: '猫がいる' }), /Antigravity CLI execution timed out/);
+test('a router analysis error opens settings without falling back to another AI service', async () => {
+  const h = createContentHarness({ linguaplay_ai_provider: 'removed-provider' });
+  await h.elements.get('lp-ai-btn').listeners.click();
+  h.pending[0]({ success: false, error: 'Router is offline <test>' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.calls.length, 1, 'A router error must not trigger a second AI request');
+  assert.equal(h.elements.get('lp-ai-loading').style.display, 'none');
+  assert.equal(h.elements.get('lp-ai-error-text').textContent, '9Router: Router is offline <test>');
+  assert.equal(h.elements.has('lp-inline-provider'), false);
+  assert.equal(typeof h.elements.get('lp-go-options-btn').listeners.click, 'function');
 });
 
 test('a chat response for a previous word cannot enter the new conversation', async () => {
-  const h = createContentHarness({ linguaplay_ai_provider: 'deepseek', linguaplay_deepseek_key: 'fake-test-key' });
+  const h = createContentHarness();
   h.handleTokenClick({ surface: '猫', baseForm: '猫' }, '猫がいる');
   await h.sendSenseiQuestion('Explain 猫');
   assert.equal(h.pending.length, 1, 'The first production chat request must be in flight');
 
   h.handleTokenClick({ surface: '犬', baseForm: '犬' }, '犬がいる');
-  h.pending.shift()({ ok: true, json: async () => ({ choices: [{ message: { content: 'Old answer about 猫' } }] }) });
+  h.pending.shift()({ success: true, content: 'Old answer about 猫' });
   await new Promise(resolve => setImmediate(resolve));
 
   const messages = h.elements.get('lp-chat-messages').children.map(child => child.textContent);
   await h.sendSenseiQuestion('Explain 犬');
-  const nextBody = JSON.parse(h.calls.filter(call => call.url.includes('api.deepseek.com')).at(-1).options.body);
+  const nextBody = h.calls.filter(call => call.action === 'CALL_9ROUTER_AI').at(-1);
   assert.deepEqual({
     displayedMessages: messages,
     previousRepliesSentToApi: nextBody.messages.filter(message => message.content.includes('Old answer about 猫')),
@@ -468,22 +454,19 @@ test('a chat response for a previous word cannot enter the new conversation', as
   'The new conversation must neither display nor send the previous word\'s late reply');
 });
 
-test('control: the configured DeepSeek chat uses the actual API builder', async () => {
-  const h = createContentHarness({ linguaplay_ai_provider: 'deepseek', linguaplay_deepseek_key: 'fake-test-key' });
+test('chat sends its sentence context through the 9Router worker', async () => {
+  const h = createContentHarness();
   h.handleTokenClick({ surface: '猫', baseForm: '猫' }, '猫がいる');
   await h.sendSenseiQuestion('Explain 猫');
-  const request = h.calls.find(call => call.url.includes('api.deepseek.com'));
-  assert.equal(request.url, 'https://api.deepseek.com/v1/chat/completions');
-  assert.equal(request.options.headers.Authorization, 'Bearer fake-test-key');
-  const body = JSON.parse(request.options.body);
+  const body = h.calls.find(call => call.action === 'CALL_9ROUTER_AI');
   assert.ok(body.messages[0].content.includes('猫がいる'));
-  h.pending.shift()({ ok: true, json: async () => ({ choices: [{ message: { content: 'A current answer' } }] }) });
+  h.pending.shift()({ success: true, content: 'A current answer' });
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(h.elements.get('lp-chat-messages').children.some(child => child.textContent === 'A current answer'));
 });
 
 test('chat rejects overlapping sends without losing a draft and sends ordered history afterward', async () => {
-  const h = createContentHarness({ linguaplay_ai_provider: 'deepseek', linguaplay_deepseek_key: 'fake-test-key' });
+  const h = createContentHarness();
   assert.equal(h.sendSenseiQuestion('Question one'), true);
   assert.equal(h.elements.get('lp-chat-send-btn').disabled, true);
   assert.equal(h.sendSenseiQuestion('Question two'), false);
@@ -492,12 +475,12 @@ test('chat rejects overlapping sends without losing a draft and sends ordered hi
   input.listeners.keydown({ key: 'Enter' });
   assert.equal(input.value, 'Question two');
   assert.equal(h.pending.length, 1);
-  h.pending[0]({ ok: true, json: async () => ({ choices: [{ message: { content: 'Answer one' } }] }) });
+  h.pending[0]({ success: true, content: 'Answer one' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(h.elements.get('lp-chat-send-btn').disabled, false);
   input.listeners.keydown({ key: 'Enter' });
   assert.equal(input.value, '');
-  const request = JSON.parse(h.calls.at(-1).options.body);
+  const request = h.calls.at(-1);
   assert.deepEqual(request.messages.slice(1), [
     { role: 'user', content: 'Question one' },
     { role: 'assistant', content: 'Answer one' },
@@ -506,30 +489,30 @@ test('chat rejects overlapping sends without losing a draft and sends ordered hi
 });
 
 test('an old word response does not unlock a new word request', async () => {
-  const h = createContentHarness({ linguaplay_ai_provider: 'deepseek', linguaplay_deepseek_key: 'fake-test-key' });
+  const h = createContentHarness();
   h.handleTokenClick({ surface: '猫', baseForm: '猫' }, '猫がいる');
   h.sendSenseiQuestion('Explain 猫');
   h.handleTokenClick({ surface: '犬', baseForm: '犬' }, '犬がいる');
   assert.equal(h.elements.get('lp-chat-send-btn').disabled, false);
   h.sendSenseiQuestion('Explain 犬');
-  h.pending[0]({ ok: true, json: async () => ({ choices: [{ message: { content: 'Old cat answer' } }] }) });
+  h.pending[0]({ success: true, content: 'Old cat answer' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(h.elements.get('lp-chat-send-btn').disabled, true);
   assert.equal(h.elements.get('lp-chat-messages').getAttribute('aria-busy'), 'true');
-  h.pending[1]({ ok: true, json: async () => ({ choices: [{ message: { content: 'Dog answer' } }] }) });
+  h.pending[1]({ success: true, content: 'Dog answer' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(h.elements.get('lp-chat-send-btn').disabled, false);
 });
 
 test('chat failures unlock retry and do not send an unanswered duplicate in history', async () => {
-  const h = createContentHarness({ linguaplay_ai_provider: 'antigravity' });
+  const h = createContentHarness();
   h.sendSenseiQuestion('Retry this question');
-  h.pending[0]({ ok: false, status: 504, json: async () => ({ status: 'error', message: 'Model timed out' }) });
+  h.pending[0]({ success: false, error: 'Model timed out' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(h.elements.get('lp-chat-send-btn').disabled, false);
   assert.ok(h.elements.get('lp-chat-messages').children.some(child => child.textContent.includes('Model timed out')));
   h.sendSenseiQuestion('Retry this question');
-  const messages = JSON.parse(h.calls.at(-1).options.body).messages;
+  const messages = h.calls.at(-1).messages;
   assert.equal(messages.filter(message => message.role === 'user').length, 1);
 });
 
@@ -542,30 +525,13 @@ test('IME confirmation does not submit an unfinished Japanese question', () => {
   assert.equal(h.pending.length, 0);
 });
 
-test('content custom-provider requests use the worker instead of page fetch', async () => {
-  const h = createContentHarness({ linguaplay_ai_provider: 'opencode' });
-  let sent;
-  h.sandbox.chrome.runtime = {
-    sendMessage(request, callback) {
-      sent = request;
-      callback({ success: true, content: 'Worker answer' });
-    }
-  };
-  const answer = await h.callSenseiLlmApi({ messages: [{ role: 'user', content: 'Explain 猫' }], isJson: false, config: { linguaplay_ai_provider: 'opencode' } });
-  assert.equal(answer, 'Worker answer');
-  assert.equal(sent.action, 'CALL_CUSTOM_AI');
-  assert.equal(sent.messages[0].content, 'Explain 猫');
-  assert.equal(sent.url, undefined, 'The page must not choose the privileged fetch URL');
-  assert.equal(h.calls.length, 0, 'No page-origin network request should occur');
-});
-
-function createBackgroundHarness({ url = 'http://127.0.0.1:11434/v1/', allowed = true, key = 'fake-test-key' } = {}) {
+function createBackgroundHarness({ allowed = true, router = {} } = {}) {
   const calls = [];
   const sandbox = {
     console, URL, AbortSignal,
     chrome: {
       runtime: { id: 'test-extension', onInstalled: { addListener() {} }, onMessage: { addListener(callback) { sandbox.listener = callback; } } },
-      storage: { local: { get: async () => ({ linguaplay_opencode_url: url, linguaplay_opencode_model: 'local-test-model', linguaplay_opencode_key: key }) } },
+      storage: { local: { get: async () => router } },
       permissions: { contains: async () => allowed }
     },
     fetch: async (url, options) => {
@@ -577,34 +543,18 @@ function createBackgroundHarness({ url = 'http://127.0.0.1:11434/v1/', allowed =
   return {
     calls, sandbox,
     request(message, sender = { id: 'test-extension' }) {
-      return new Promise(resolve => assert.equal(sandbox.listener({ action: 'CALL_CUSTOM_AI', ...message }, sender, resolve), true));
+      return new Promise(resolve => assert.equal(sandbox.listener({ action: 'CALL_9ROUTER_AI', ...message }, sender, resolve), true));
     }
   };
 }
 
-test('worker builds a request from saved endpoint and credentials', async () => {
-  const h = createBackgroundHarness();
-  const response = await h.request({ messages: [{ role: 'user', content: 'Explain 猫' }], isJson: true, url: 'https://ignored.invalid' });
-  assert.equal(response.content, 'Worker answer');
-  assert.equal(h.calls[0].url, 'http://127.0.0.1:11434/v1/chat/completions');
-  assert.equal(h.calls[0].options.headers.Authorization, 'Bearer fake-test-key');
-  assert.equal(h.calls[0].options.headers.Origin, undefined);
-  const body = JSON.parse(h.calls[0].options.body);
-  assert.equal(body.model, 'local-test-model');
-  assert.equal(body.response_format.type, 'json_object');
-});
-
-test('worker rejects unauthorized origins and invalid requests without fetching', async () => {
-  const messages = [{ role: 'user', content: 'Explain 猫' }];
-  for (const [options, message, sender] of [
-    [{ allowed: false }, { messages }, undefined],
-    [{ url: 'file:///etc/passwd' }, { messages }, undefined],
-    [{}, { messages: [{ role: 'user', content: 12 }] }, undefined],
-    [{}, { messages }, { id: 'other-extension' }]
+test('9Router rejects untrusted senders and malformed messages before fetching', async () => {
+  for (const [message, sender] of [
+    [{ messages: [{ role: 'user', content: 12 }] }, { id: 'test-extension' }],
+    [{ messages: [{ role: 'user', content: 'Hi' }] }, { id: 'other-extension' }],
   ]) {
-    const h = createBackgroundHarness(options);
-    const response = await h.request(message, sender);
-    assert.equal(response.success, false);
+    const h = createBackgroundHarness({ router: { linguaplay_9router_model: 'study-combo' } });
+    assert.equal((await h.request(message, sender)).success, false);
     assert.equal(h.calls.length, 0);
   }
 });
@@ -624,7 +574,7 @@ function createOptionsHarness(config = {}, { allowed = true, granted = true } = 
   const requested = [];
   const sandbox = {
     URL, AbortSignal, setTimeout() {},
-    document: { getElementById: id => elements.get(id), addEventListener(_event, callback) { sandbox.ready = callback; } },
+    document: { getElementById: id => elements.get(id), createElement: () => ({}), addEventListener(_event, callback) { sandbox.ready = callback; } },
     chrome: {
       storage: { local: {
         get: (_keys, callback) => callback(config),
@@ -635,83 +585,151 @@ function createOptionsHarness(config = {}, { allowed = true, granted = true } = 
   };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'options.js'), 'utf8'), sandbox);
   sandbox.ready();
-  return { elements, saved, requested };
+  return { elements, saved, requested, sandbox };
 }
 
-test('Options defaults agree with the content provider selection', () => {
-  assert.equal(createOptionsHarness().elements.get('ai-provider').value, 'antigravity');
-  assert.equal(createOptionsHarness({ linguaplay_gemini_key: 'fake-test-key' }).elements.get('ai-provider').value, 'gemini');
+test('9Router sends chat and JSON analysis through the worker without page-origin fetch', async () => {
+  const config = {};
+  const h = createContentHarness(config);
+  const sent = [];
+  h.sandbox.chrome.runtime = { sendMessage(request, callback) { sent.push(request); callback({ success: true, content: 'Router answer' }); } };
+  for (const isJson of [true, false]) {
+    assert.equal(await h.callSenseiLlmApi({ messages: [{ role: 'user', content: 'Explain 猫' }], isJson, config }), 'Router answer');
+    assert.equal(sent.at(-1).action, 'CALL_9ROUTER_AI');
+    assert.equal(sent.at(-1).isJson, isJson);
+    assert.equal(sent.at(-1).url, undefined);
+  }
+  assert.equal(h.calls.length, 0);
 });
 
-test('Options defaults auto-start on and saves an explicit opt-out', async () => {
+test('9Router uses its saved combo and key instead of message-supplied settings', async () => {
+  const h = createBackgroundHarness({ router: {
+    linguaplay_9router_url: 'https://router.example/proxy/v1/chat/completions/',
+    linguaplay_9router_key: 'router-test-key', linguaplay_9router_model: 'my-study-combo'
+  } });
+  const response = await h.request({ action: 'CALL_9ROUTER_AI', messages: [{ role: 'user', content: 'Explain 猫' }], isJson: true, url: 'https://ignored.invalid', apiKey: 'ignored', model: 'ignored' });
+  assert.equal(response.success, true);
+  assert.equal(h.calls[0].url, 'https://router.example/proxy/v1/chat/completions');
+  assert.equal(h.calls[0].options.headers.Authorization, 'Bearer router-test-key');
+  const body = JSON.parse(h.calls[0].options.body);
+  assert.equal(body.model, 'my-study-combo');
+  assert.equal(body.stream, false);
+  assert.equal(body.response_format.type, 'json_object');
+});
+
+test('9Router normalizes a dashboard URL, allows keyless access, and uses its default port', async () => {
+  for (const url of [undefined, 'http://127.0.0.1:20128/']) {
+    const h = createBackgroundHarness({ router: { linguaplay_9router_url: url, linguaplay_9router_model: 'provider/model' } });
+    assert.equal((await h.request({ action: 'CALL_9ROUTER_AI', messages: [{ role: 'user', content: 'Hi' }] })).success, true);
+    assert.equal(h.calls[0].url, 'http://127.0.0.1:20128/v1/chat/completions');
+    assert.equal(h.calls[0].options.headers.Authorization, undefined);
+    assert.equal(JSON.parse(h.calls[0].options.body).response_format, undefined);
+  }
+});
+
+test('9Router rejects missing models, unsafe URLs, and denied permissions without fetching', async () => {
+  for (const options of [
+    {},
+    { router: { linguaplay_9router_url: 'file:///etc/passwd' } },
+    { router: { linguaplay_9router_url: 'https://user:secret@router.example/v1' } },
+    { allowed: false, router: { linguaplay_9router_model: 'combo' } },
+  ]) {
+    const h = createBackgroundHarness(options);
+    const response = await h.request({ action: 'CALL_9ROUTER_AI', messages: [{ role: 'user', content: 'Hi' }] });
+    assert.equal(response.success, false);
+    assert.equal(h.calls.length, 0);
+  }
+});
+
+test('9Router saves and restores normalized settings with host access', async () => {
+  const h = createOptionsHarness({}, { allowed: false });
+  h.elements.get('9router-url').value = 'https://router.example/gateway/v1/chat/completions/';
+  h.elements.get('9router-key').value = ' router-test-key ';
+  h.elements.get('9router-model').value = ' my-combo ';
+  await h.elements.get('save-settings-btn').listeners.click();
+  assert.equal(h.requested[0].origins[0], 'https://router.example/*');
+  assert.equal(h.saved[0].linguaplay_9router_url, 'https://router.example/gateway/v1');
+  assert.equal(h.saved[0].linguaplay_9router_key, 'router-test-key');
+  assert.equal(h.saved[0].linguaplay_9router_model, 'my-combo');
+  const restored = createOptionsHarness(h.saved[0]);
+  assert.equal(restored.elements.get('9router-model').value, 'my-combo');
+});
+
+test('9Router does not save settings when endpoint access is denied', async () => {
+  for (const model of ['', 'my-combo']) {
+    const h = createOptionsHarness({}, { allowed: false, granted: false });
+    // Required loopback origins need no optional grant; exercise denial on a remote host.
+    h.elements.get('9router-url').value = 'https://router.example/v1';
+    h.elements.get('9router-model').value = model;
+    await h.elements.get('save-settings-btn').listeners.click();
+    assert.equal(h.saved.length, 0);
+    assert.ok(h.elements.get('9router-status-text').textContent);
+  }
+});
+
+test('9Router discovers prefixed models and combos without overwriting a manually entered model', async () => {
+  const h = createOptionsHarness();
+  const calls = [];
+  const suggestions = [];
+  h.elements.get('9router-model').value = 'manual-combo';
+  h.elements.get('9router-key').value = 'router-test-key';
+  h.elements.get('9router-models').replaceChildren = () => { suggestions.length = 0; };
+  h.elements.get('9router-models').appendChild = option => suggestions.push(option.value);
+  h.sandbox.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, json: async () => ({ data: [{ id: 'provider/model' }, { id: 'study-combo', kind: 'llm' }, { id: 'provider/model' }, { id: 'embedding', kind: 'embedding' }, {}] }) };
+  };
+  await h.elements.get('load-9router-models-btn').listeners.click();
+  assert.equal(calls[0].url, 'http://127.0.0.1:20128/v1/models');
+  assert.equal(calls[0].options.method, 'GET');
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer router-test-key');
+  assert.deepEqual(suggestions, ['provider/model', 'study-combo']);
+  assert.equal(h.elements.get('9router-model').value, 'manual-combo');
+  assert.equal(h.saved.length, 0, 'Loading models does not save or switch providers');
+  assert.equal(h.elements.get('load-9router-models-btn').disabled, false);
+});
+
+test('9Router connection test uses unsaved settings and reports empty replies or API errors', async () => {
+  for (const [ok, data, expected] of [
+    [true, { choices: [{ message: { content: 'OK' } }] }, 'is working'],
+    [true, { choices: [] }, 'empty reply'],
+    [false, { error: { message: 'Invalid router key' } }, 'Invalid router key'],
+  ]) {
+    const h = createOptionsHarness();
+    h.elements.get('9router-url').value = 'https://router.example/';
+    h.elements.get('9router-model').value = 'study-combo';
+    h.sandbox.fetch = async (url, options) => {
+      assert.equal(url, 'https://router.example/v1/chat/completions');
+      assert.equal(JSON.parse(options.body).model, 'study-combo');
+      return { ok, json: async () => data };
+    };
+    await h.elements.get('test-9router-btn').listeners.click();
+    assert.ok(h.elements.get('9router-status-text').textContent.includes(expected));
+    assert.equal(h.elements.get('test-9router-btn').disabled, false);
+    assert.equal(h.saved.length, 0);
+  }
+});
+
+test('Options exposes router settings without a provider selector', () => {
+  const h = createOptionsHarness();
+  assert.equal(h.elements.has('ai-provider'), false);
+  assert.equal(h.elements.has('9router-url'), true);
+});
+
+test('Options saves parser preferences without requiring AI configuration', async () => {
   const h = createOptionsHarness();
   assert.equal(h.elements.get('auto-start-server').checked, true);
   h.elements.get('auto-start-server').checked = false;
   await h.elements.get('save-settings-btn').listeners.click();
+  assert.equal(h.saved[0].linguaplay_9router_model, '');
   assert.equal(h.saved[0].linguaplay_auto_start_server, false);
   assert.equal(createOptionsHarness({ linguaplay_auto_start_server: false }).elements.get('auto-start-server').checked, false);
 });
 
-test('saving a remote custom endpoint requests access only to its host', async () => {
-  const h = createOptionsHarness({}, { allowed: false });
-  h.elements.get('ai-provider').value = 'opencode';
-  h.elements.get('opencode-url').value = 'https://custom.example/v1';
-  await h.elements.get('save-settings-btn').listeners.click();
-  assert.equal(h.requested[0].origins[0], 'https://custom.example/*');
-  assert.equal(h.saved[0].linguaplay_opencode_url, 'https://custom.example/v1');
-});
-
-test('denied endpoint access does not replace existing settings', async () => {
-  const h = createOptionsHarness({}, { allowed: false, granted: false });
-  h.elements.get('ai-provider').value = 'opencode';
-  h.elements.get('opencode-url').value = 'https://custom.example/v1';
-  await h.elements.get('save-settings-btn').listeners.click();
-  assert.equal(h.saved.length, 0);
-  assert.ok(h.elements.get('opencode-status-text').textContent.includes('not allowed'));
-});
-
-for (const [provider, url, model] of [
-  ['gemini', 'https://generativelanguage.googleapis.com/', 'gemini-2.5-flash'],
-  ['deepseek', 'https://api.deepseek.com/v1/chat/completions', 'deepseek-chat'],
-  ['openrouter', 'https://openrouter.ai/api/v1/chat/completions', 'test/custom-model'],
-]) {
-  test(`YouTube Sensei uses the configured ${provider} provider and model`, async () => {
-    const config = { linguaplay_ai_provider: provider, [`linguaplay_${provider}_key`]: 'test-key', linguaplay_openrouter_model: 'test/custom-model' };
-    const h = createContentHarness(config);
-    h.sandbox.fetch = async (requestUrl, options) => {
-      h.calls.push({ url: requestUrl, options });
-      return { ok: true, json: async () => ({
-        candidates: [{ content: { parts: [{ text: 'Sensei answer' }] } }],
-        choices: [{ message: { content: 'Sensei answer' } }],
-      }) };
-    };
-    const answer = await h.callSenseiLlmApi({ messages: [{ role: 'user', content: 'Explain 猫' }], isJson: true, config });
-    assert.equal(answer, 'Sensei answer');
-    assert.ok(h.calls[0].url.startsWith(url));
-    const body = JSON.parse(h.calls[0].options.body);
-    if (provider === 'gemini') {
-      assert.ok(h.calls[0].url.includes(model));
-      assert.equal(body.generationConfig.responseMimeType, 'application/json');
-    } else {
-      assert.equal(body.model, model);
-      assert.equal(body.response_format.type, 'json_object');
-      assert.equal(h.calls[0].options.headers.Authorization, 'Bearer test-key');
-    }
-  });
-}
-
-test('the extension worker supports a custom endpoint without an API key', async () => {
-  const h = createBackgroundHarness({ key: '' });
-  const answer = await h.request({ messages: [{ role: 'user', content: 'Explain 猫' }], isJson: true });
-  assert.equal(answer.success, true);
-  assert.equal(h.calls[0].options.headers.Authorization, undefined);
-});
-
-test('the extension worker explains an empty 403 response from a custom endpoint', async () => {
-  const h = createBackgroundHarness();
+test('the 9Router worker reports an empty HTTP error response', async () => {
+  const h = createBackgroundHarness({ router: { linguaplay_9router_model: 'study-combo' } });
   h.sandbox.fetch = async () => ({ ok: false, status: 403, json: async () => { throw new SyntaxError('Empty response'); } });
   const answer = await h.request({ messages: [{ role: 'user', content: 'Explain 猫' }] });
   assert.equal(answer.success, false);
-  assert.ok(answer.error.includes('403'));
-  assert.ok(answer.error.includes('OLLAMA_ORIGINS'));
+  assert.match(answer.error, /9Router returned status 403/);
 });

@@ -20,9 +20,10 @@ export async function browserFixture(){
  const evaluate=async(expression,sessionId,contextId)=>{const r=await rpc('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,...(contextId?{contextId}:{})},sessionId);if(r.exceptionDetails)throw Error('HARNESS_ERROR EVALUATE '+JSON.stringify(r.exceptionDetails));return r.result.value;};
  const wait=async(fn,label)=>{const end=Date.now()+5000;while(Date.now()<end){const v=await fn();if(v)return v;await delay(50);}throw Error('HARNESS_ERROR PRECONDITION '+label);};
  const worker=await wait(async()=> (await rpc('Target.getTargets')).targetInfos.find(t=>t.type==='service_worker'&&t.url.endsWith('/background.js')),'extension worker');
+ const workerSession=(await rpc('Target.attachToTarget',{targetId:worker.targetId,flatten:true})).sessionId;
  const origin=new URL(worker.url).origin==='null'?`chrome-extension://${new URL(worker.url).hostname}`:new URL(worker.url).origin;
  const options=await attach(origin+'/options.html');await wait(()=>evaluate('document.readyState==="complete" && !!chrome.storage',options),'options ready');
- await evaluate('chrome.storage.local.set({linguaplay_auto_start_server:false,linguaplay_app_enabled:true,linguaplay_ai_provider:"deepseek"})',options);
+ await evaluate('chrome.storage.local.set({linguaplay_auto_start_server:false,linguaplay_app_enabled:true,linguaplay_9router_model:""})',options);
  const page=await attach('about:blank');const contexts=[];on('Runtime.executionContextCreated',(p,s)=>{if(s===page)contexts.push(p.context);});
  const requests=[];
  const html=await readFile(path.join(root,'tests/perf/fixtures/watch.html'),'utf8');
@@ -30,11 +31,11 @@ export async function browserFixture(){
  await rpc('Runtime.enable',{},page);await rpc('Page.enable',{},page);await rpc('Page.addScriptToEvaluateOnNewDocument',{source:`window.__bridgePolls=0;const originalInterval=window.setInterval;window.setInterval=function(fn,ms,...args){return originalInterval.call(this,fn.name==='ensureJapaneseTrackActive'?function(...a){window.__bridgePolls++;return fn(...a);}:fn,ms,...args);};`},page);await rpc('Fetch.enable',{patterns:[{urlPattern:'*'}]},page);await rpc('Page.navigate',{url:'https://www.youtube.com/watch?v=FIXTUREVID01'},page);
  await wait(()=>evaluate('!!document.getElementById("linguaplay-yt-controls")',page),'manifest content injection');
  const isolated=await wait(async()=>contexts.find(c=>c.auxData?.type==='isolated'&&c.origin===origin)?.id,'isolated context');
- const evalMain=e=>evaluate(e,page);const evalContent=e=>evaluate(e,page,isolated);const evalOptions=e=>evaluate(e,options);
+ const evalMain=e=>evaluate(e,page);const evalContent=e=>evaluate(e,page,isolated);const evalOptions=e=>evaluate(e,options);const evalWorker=e=>evaluate(e,workerSession);
  await evalMain('window.dispatchEvent(new CustomEvent("LINGUAPLAY_SET_APP_STATE",{detail:{enabled:false}})); window.fixture.selected={languageCode:"en"};window.fixture.sets=0;window.dispatchEvent(new CustomEvent("LINGUAPLAY_REQUEST_TRACK_SWITCH",{detail:{vssId:".ja"}}))');
  if(await evalMain('fixture.sets')!==0)throw Error('HARNESS_ERROR bridge off control');
  await evalMain('window.dispatchEvent(new CustomEvent("LINGUAPLAY_SET_APP_STATE",{detail:{enabled:true}}));window.dispatchEvent(new CustomEvent("LINGUAPLAY_REQUEST_TRACK_SWITCH",{detail:{vssId:".ja"}}))');
  if(await evalMain('fixture.selected.languageCode')!=='ja')throw Error('HARNESS_ERROR bridge on control');
- return {rpc,on,wait,page,options,origin,isolated,evalMain,evalContent,evalOptions,requests,errors,close,fixtureMode:'fetch-intercept'};
+ return {rpc,on,wait,page,options,origin,isolated,evalMain,evalContent,evalOptions,evalWorker,requests,errors,close,fixtureMode:'fetch-intercept'};
  }catch(e){await close();throw e;}
 }
