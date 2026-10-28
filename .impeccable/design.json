@@ -1,0 +1,478 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-28T14:56:31Z",
+  "title": "Design System: LinguaPlay Settings",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Warm Ochre",
+        "canonical": "#865714",
+        "tonalRamp": ["oklch(15.00% 0.09924 69.97)", "oklch(26.43% 0.09924 69.97)", "oklch(37.86% 0.09924 69.97)", "oklch(49.29% 0.09924 69.97)", "oklch(60.71% 0.09924 69.97)", "oklch(72.14% 0.09924 69.97)", "oklch(83.57% 0.09924 69.97)", "oklch(95.00% 0.09924 69.97)"]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Deep Ochre",
+        "canonical": "#70450c",
+        "tonalRamp": ["oklch(15.00% 0.08902 67.16)", "oklch(26.43% 0.08902 67.16)", "oklch(37.86% 0.08902 67.16)", "oklch(49.29% 0.08902 67.16)", "oklch(60.71% 0.08902 67.16)", "oklch(72.14% 0.08902 67.16)", "oklch(83.57% 0.08902 67.16)", "oklch(95.00% 0.08902 67.16)"]
+      },
+      "accent-text": {
+        "role": "primary",
+        "displayName": "White on Ochre",
+        "canonical": "#ffffff",
+        "tonalRamp": ["oklch(15.00% 0.00000 0.00)", "oklch(26.43% 0.00000 0.00)", "oklch(37.86% 0.00000 0.00)", "oklch(49.29% 0.00000 0.00)", "oklch(60.71% 0.00000 0.00)", "oklch(72.14% 0.00000 0.00)", "oklch(83.57% 0.00000 0.00)", "oklch(95.00% 0.00000 0.00)"]
+      },
+      "accent-dark": {
+        "role": "primary",
+        "displayName": "Pale Gold",
+        "canonical": "#e8bd72",
+        "tonalRamp": ["oklch(15.00% 0.10567 80.36)", "oklch(26.43% 0.10567 80.36)", "oklch(37.86% 0.10567 80.36)", "oklch(49.29% 0.10567 80.36)", "oklch(60.71% 0.10567 80.36)", "oklch(72.14% 0.10567 80.36)", "oklch(83.57% 0.10567 80.36)", "oklch(95.00% 0.10567 80.36)"]
+      },
+      "accent-hover-dark": {
+        "role": "primary",
+        "displayName": "Light Gold",
+        "canonical": "#f4ce8d",
+        "tonalRamp": ["oklch(15.00% 0.09285 80.45)", "oklch(26.43% 0.09285 80.45)", "oklch(37.86% 0.09285 80.45)", "oklch(49.29% 0.09285 80.45)", "oklch(60.71% 0.09285 80.45)", "oklch(72.14% 0.09285 80.45)", "oklch(83.57% 0.09285 80.45)", "oklch(95.00% 0.09285 80.45)"]
+      },
+      "accent-text-dark": {
+        "role": "primary",
+        "displayName": "Ink on Gold",
+        "canonical": "#192024",
+        "tonalRamp": ["oklch(15.00% 0.01278 233.10)", "oklch(26.43% 0.01278 233.10)", "oklch(37.86% 0.01278 233.10)", "oklch(49.29% 0.01278 233.10)", "oklch(60.71% 0.01278 233.10)", "oklch(72.14% 0.01278 233.10)", "oklch(83.57% 0.01278 233.10)", "oklch(95.00% 0.01278 233.10)"]
+      },
+      "rail": {
+        "role": "secondary",
+        "displayName": "Petrol Rail",
+        "canonical": "#203a3f",
+        "tonalRamp": ["oklch(15.00% 0.03308 211.18)", "oklch(26.43% 0.03308 211.18)", "oklch(37.86% 0.03308 211.18)", "oklch(49.29% 0.03308 211.18)", "oklch(60.71% 0.03308 211.18)", "oklch(72.14% 0.03308 211.18)", "oklch(83.57% 0.03308 211.18)", "oklch(95.00% 0.03308 211.18)"]
+      },
+      "rail-dark": {
+        "role": "secondary",
+        "displayName": "Night Petrol Rail",
+        "canonical": "#182e34",
+        "tonalRamp": ["oklch(15.00% 0.02998 217.19)", "oklch(26.43% 0.02998 217.19)", "oklch(37.86% 0.02998 217.19)", "oklch(49.29% 0.02998 217.19)", "oklch(60.71% 0.02998 217.19)", "oklch(72.14% 0.02998 217.19)", "oklch(83.57% 0.02998 217.19)", "oklch(95.00% 0.02998 217.19)"]
+      },
+      "rail-text": {
+        "role": "secondary",
+        "displayName": "Rail Chalk",
+        "canonical": "#eff4ed",
+        "tonalRamp": ["oklch(15.00% 0.01066 136.56)", "oklch(26.43% 0.01066 136.56)", "oklch(37.86% 0.01066 136.56)", "oklch(49.29% 0.01066 136.56)", "oklch(60.71% 0.01066 136.56)", "oklch(72.14% 0.01066 136.56)", "oklch(83.57% 0.01066 136.56)", "oklch(95.00% 0.01066 136.56)"]
+      },
+      "rail-muted": {
+        "role": "secondary",
+        "displayName": "Rail Sage",
+        "canonical": "#b1c4c0",
+        "tonalRamp": ["oklch(15.00% 0.02148 181.72)", "oklch(26.43% 0.02148 181.72)", "oklch(37.86% 0.02148 181.72)", "oklch(49.29% 0.02148 181.72)", "oklch(60.71% 0.02148 181.72)", "oklch(72.14% 0.02148 181.72)", "oklch(83.57% 0.02148 181.72)", "oklch(95.00% 0.02148 181.72)"]
+      },
+      "rail-active": {
+        "role": "secondary",
+        "displayName": "Lifted Petrol",
+        "canonical": "#315057",
+        "tonalRamp": ["oklch(15.00% 0.03840 213.54)", "oklch(26.43% 0.03840 213.54)", "oklch(37.86% 0.03840 213.54)", "oklch(49.29% 0.03840 213.54)", "oklch(60.71% 0.03840 213.54)", "oklch(72.14% 0.03840 213.54)", "oklch(83.57% 0.03840 213.54)", "oklch(95.00% 0.03840 213.54)"]
+      },
+      "rail-active-dark": {
+        "role": "secondary",
+        "displayName": "Lifted Night Petrol",
+        "canonical": "#2c4850",
+        "tonalRamp": ["oklch(15.00% 0.03634 217.81)", "oklch(26.43% 0.03634 217.81)", "oklch(37.86% 0.03634 217.81)", "oklch(49.29% 0.03634 217.81)", "oklch(60.71% 0.03634 217.81)", "oklch(72.14% 0.03634 217.81)", "oklch(83.57% 0.03634 217.81)", "oklch(95.00% 0.03634 217.81)"]
+      },
+      "rail-accent": {
+        "role": "secondary",
+        "displayName": "Rail Gold",
+        "canonical": "#f0c271",
+        "tonalRamp": ["oklch(15.00% 0.11247 80.42)", "oklch(26.43% 0.11247 80.42)", "oklch(37.86% 0.11247 80.42)", "oklch(49.29% 0.11247 80.42)", "oklch(60.71% 0.11247 80.42)", "oklch(72.14% 0.11247 80.42)", "oklch(83.57% 0.11247 80.42)", "oklch(95.00% 0.11247 80.42)"]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Mineral Canvas",
+        "canonical": "#f6f8f6",
+        "tonalRamp": ["oklch(15.00% 0.00337 145.55)", "oklch(26.43% 0.00337 145.55)", "oklch(37.86% 0.00337 145.55)", "oklch(49.29% 0.00337 145.55)", "oklch(60.71% 0.00337 145.55)", "oklch(72.14% 0.00337 145.55)", "oklch(83.57% 0.00337 145.55)", "oklch(95.00% 0.00337 145.55)"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "White Surface",
+        "canonical": "#ffffff",
+        "tonalRamp": ["oklch(15.00% 0.00000 0.00)", "oklch(26.43% 0.00000 0.00)", "oklch(37.86% 0.00000 0.00)", "oklch(49.29% 0.00000 0.00)", "oklch(60.71% 0.00000 0.00)", "oklch(72.14% 0.00000 0.00)", "oklch(83.57% 0.00000 0.00)", "oklch(95.00% 0.00000 0.00)"]
+      },
+      "field": {
+        "role": "neutral",
+        "displayName": "Mineral Field",
+        "canonical": "#fdfefd",
+        "tonalRamp": ["oklch(15.00% 0.00168 145.56)", "oklch(26.43% 0.00168 145.56)", "oklch(37.86% 0.00168 145.56)", "oklch(49.29% 0.00168 145.56)", "oklch(60.71% 0.00168 145.56)", "oklch(72.14% 0.00168 145.56)", "oklch(83.57% 0.00168 145.56)", "oklch(95.00% 0.00168 145.56)"]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Forest Ink",
+        "canonical": "#23342f",
+        "tonalRamp": ["oklch(15.00% 0.02411 174.50)", "oklch(26.43% 0.02411 174.50)", "oklch(37.86% 0.02411 174.50)", "oklch(49.29% 0.02411 174.50)", "oklch(60.71% 0.02411 174.50)", "oklch(72.14% 0.02411 174.50)", "oklch(83.57% 0.02411 174.50)", "oklch(95.00% 0.02411 174.50)"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Sage Text",
+        "canonical": "#5b7067",
+        "tonalRamp": ["oklch(15.00% 0.02865 167.37)", "oklch(26.43% 0.02865 167.37)", "oklch(37.86% 0.02865 167.37)", "oklch(49.29% 0.02865 167.37)", "oklch(60.71% 0.02865 167.37)", "oklch(72.14% 0.02865 167.37)", "oklch(83.57% 0.02865 167.37)", "oklch(95.00% 0.02865 167.37)"]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Mineral Rule",
+        "canonical": "#d7e1db",
+        "tonalRamp": ["oklch(15.00% 0.01343 159.89)", "oklch(26.43% 0.01343 159.89)", "oklch(37.86% 0.01343 159.89)", "oklch(49.29% 0.01343 159.89)", "oklch(60.71% 0.01343 159.89)", "oklch(72.14% 0.01343 159.89)", "oklch(83.57% 0.01343 159.89)", "oklch(95.00% 0.01343 159.89)"]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Sage Outline",
+        "canonical": "#7b9387",
+        "tonalRamp": ["oklch(15.00% 0.03257 163.73)", "oklch(26.43% 0.03257 163.73)", "oklch(37.86% 0.03257 163.73)", "oklch(49.29% 0.03257 163.73)", "oklch(60.71% 0.03257 163.73)", "oklch(72.14% 0.03257 163.73)", "oklch(83.57% 0.03257 163.73)", "oklch(95.00% 0.03257 163.73)"]
+      },
+      "canvas-dark": {
+        "role": "neutral",
+        "displayName": "Night Canvas",
+        "canonical": "#111b1e",
+        "tonalRamp": ["oklch(15.00% 0.01560 218.28)", "oklch(26.43% 0.01560 218.28)", "oklch(37.86% 0.01560 218.28)", "oklch(49.29% 0.01560 218.28)", "oklch(60.71% 0.01560 218.28)", "oklch(72.14% 0.01560 218.28)", "oklch(83.57% 0.01560 218.28)", "oklch(95.00% 0.01560 218.28)"]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Night Surface",
+        "canonical": "#162327",
+        "tonalRamp": ["oklch(15.00% 0.01951 218.91)", "oklch(26.43% 0.01951 218.91)", "oklch(37.86% 0.01951 218.91)", "oklch(49.29% 0.01951 218.91)", "oklch(60.71% 0.01951 218.91)", "oklch(72.14% 0.01951 218.91)", "oklch(83.57% 0.01951 218.91)", "oklch(95.00% 0.01951 218.91)"]
+      },
+      "field-dark": {
+        "role": "neutral",
+        "displayName": "Night Field",
+        "canonical": "#19292e",
+        "tonalRamp": ["oklch(15.00% 0.02331 219.40)", "oklch(26.43% 0.02331 219.40)", "oklch(37.86% 0.02331 219.40)", "oklch(49.29% 0.02331 219.40)", "oklch(60.71% 0.02331 219.40)", "oklch(72.14% 0.02331 219.40)", "oklch(83.57% 0.02331 219.40)", "oklch(95.00% 0.02331 219.40)"]
+      },
+      "text-dark": {
+        "role": "neutral",
+        "displayName": "Mineral Chalk",
+        "canonical": "#e5eeea",
+        "tonalRamp": ["oklch(15.00% 0.01094 167.79)", "oklch(26.43% 0.01094 167.79)", "oklch(37.86% 0.01094 167.79)", "oklch(49.29% 0.01094 167.79)", "oklch(60.71% 0.01094 167.79)", "oklch(72.14% 0.01094 167.79)", "oklch(83.57% 0.01094 167.79)", "oklch(95.00% 0.01094 167.79)"]
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Night Sage Text",
+        "canonical": "#a2b7b1",
+        "tonalRamp": ["oklch(15.00% 0.02465 176.59)", "oklch(26.43% 0.02465 176.59)", "oklch(37.86% 0.02465 176.59)", "oklch(49.29% 0.02465 176.59)", "oklch(60.71% 0.02465 176.59)", "oklch(72.14% 0.02465 176.59)", "oklch(83.57% 0.02465 176.59)", "oklch(95.00% 0.02465 176.59)"]
+      },
+      "line-dark": {
+        "role": "neutral",
+        "displayName": "Night Rule",
+        "canonical": "#2e4246",
+        "tonalRamp": ["oklch(15.00% 0.02613 211.32)", "oklch(26.43% 0.02613 211.32)", "oklch(37.86% 0.02613 211.32)", "oklch(49.29% 0.02613 211.32)", "oklch(60.71% 0.02613 211.32)", "oklch(72.14% 0.02613 211.32)", "oklch(83.57% 0.02613 211.32)", "oklch(95.00% 0.02613 211.32)"]
+      },
+      "line-strong-dark": {
+        "role": "neutral",
+        "displayName": "Night Outline",
+        "canonical": "#64817d",
+        "tonalRamp": ["oklch(15.00% 0.03375 185.92)", "oklch(26.43% 0.03375 185.92)", "oklch(37.86% 0.03375 185.92)", "oklch(49.29% 0.03375 185.92)", "oklch(60.71% 0.03375 185.92)", "oklch(72.14% 0.03375 185.92)", "oklch(83.57% 0.03375 185.92)", "oklch(95.00% 0.03375 185.92)"]
+      },
+      "status-info": {
+        "role": "neutral",
+        "displayName": "Petrol Information",
+        "canonical": "#42646e",
+        "tonalRamp": ["oklch(15.00% 0.04231 218.20)", "oklch(26.43% 0.04231 218.20)", "oklch(37.86% 0.04231 218.20)", "oklch(49.29% 0.04231 218.20)", "oklch(60.71% 0.04231 218.20)", "oklch(72.14% 0.04231 218.20)", "oklch(83.57% 0.04231 218.20)", "oklch(95.00% 0.04231 218.20)"]
+      },
+      "status-success": {
+        "role": "neutral",
+        "displayName": "Forest Success",
+        "canonical": "#236448",
+        "tonalRamp": ["oklch(15.00% 0.08091 161.81)", "oklch(26.43% 0.08091 161.81)", "oklch(37.86% 0.08091 161.81)", "oklch(49.29% 0.08091 161.81)", "oklch(60.71% 0.08091 161.81)", "oklch(72.14% 0.08091 161.81)", "oklch(83.57% 0.08091 161.81)", "oklch(95.00% 0.08091 161.81)"]
+      },
+      "status-error": {
+        "role": "neutral",
+        "displayName": "Terracotta Error",
+        "canonical": "#a13b2d",
+        "tonalRamp": ["oklch(15.00% 0.13831 30.47)", "oklch(26.43% 0.13831 30.47)", "oklch(37.86% 0.13831 30.47)", "oklch(49.29% 0.13831 30.47)", "oklch(60.71% 0.13831 30.47)", "oklch(72.14% 0.13831 30.47)", "oklch(83.57% 0.13831 30.47)", "oklch(95.00% 0.13831 30.47)"]
+      },
+      "status-busy": {
+        "role": "neutral",
+        "displayName": "Ochre Pending",
+        "canonical": "#805615",
+        "tonalRamp": ["oklch(15.00% 0.09469 72.77)", "oklch(26.43% 0.09469 72.77)", "oklch(37.86% 0.09469 72.77)", "oklch(49.29% 0.09469 72.77)", "oklch(60.71% 0.09469 72.77)", "oklch(72.14% 0.09469 72.77)", "oklch(83.57% 0.09469 72.77)", "oklch(95.00% 0.09469 72.77)"]
+      },
+      "status-info-dark": {
+        "role": "neutral",
+        "displayName": "Pale Petrol Information",
+        "canonical": "#a6cbd4",
+        "tonalRamp": ["oklch(15.00% 0.04127 214.14)", "oklch(26.43% 0.04127 214.14)", "oklch(37.86% 0.04127 214.14)", "oklch(49.29% 0.04127 214.14)", "oklch(60.71% 0.04127 214.14)", "oklch(72.14% 0.04127 214.14)", "oklch(83.57% 0.04127 214.14)", "oklch(95.00% 0.04127 214.14)"]
+      },
+      "status-success-dark": {
+        "role": "neutral",
+        "displayName": "Mint Success",
+        "canonical": "#8bdbb6",
+        "tonalRamp": ["oklch(15.00% 0.09513 163.45)", "oklch(26.43% 0.09513 163.45)", "oklch(37.86% 0.09513 163.45)", "oklch(49.29% 0.09513 163.45)", "oklch(60.71% 0.09513 163.45)", "oklch(72.14% 0.09513 163.45)", "oklch(83.57% 0.09513 163.45)", "oklch(95.00% 0.09513 163.45)"]
+      },
+      "status-error-dark": {
+        "role": "neutral",
+        "displayName": "Coral Error",
+        "canonical": "#ffb0a1",
+        "tonalRamp": ["oklch(15.00% 0.09573 31.11)", "oklch(26.43% 0.09573 31.11)", "oklch(37.86% 0.09573 31.11)", "oklch(49.29% 0.09573 31.11)", "oklch(60.71% 0.09573 31.11)", "oklch(72.14% 0.09573 31.11)", "oklch(83.57% 0.09573 31.11)", "oklch(95.00% 0.09573 31.11)"]
+      },
+      "status-busy-dark": {
+        "role": "neutral",
+        "displayName": "Gold Pending",
+        "canonical": "#e8bd72",
+        "tonalRamp": ["oklch(15.00% 0.10567 80.36)", "oklch(26.43% 0.10567 80.36)", "oklch(37.86% 0.10567 80.36)", "oklch(49.29% 0.10567 80.36)", "oklch(60.71% 0.10567 80.36)", "oklch(72.14% 0.10567 80.36)", "oklch(83.57% 0.10567 80.36)", "oklch(95.00% 0.10567 80.36)"]
+      },
+      "preview-text": {
+        "role": "neutral",
+        "displayName": "Subtitle Chalk",
+        "canonical": "#f1f4eb",
+        "tonalRamp": ["oklch(15.00% 0.01230 121.70)", "oklch(26.43% 0.01230 121.70)", "oklch(37.86% 0.01230 121.70)", "oklch(49.29% 0.01230 121.70)", "oklch(60.71% 0.01230 121.70)", "oklch(72.14% 0.01230 121.70)", "oklch(83.57% 0.01230 121.70)", "oklch(95.00% 0.01230 121.70)"]
+      },
+      "preview-muted": {
+        "role": "neutral",
+        "displayName": "Subtitle Sage",
+        "canonical": "#bdd0c8",
+        "tonalRamp": ["oklch(15.00% 0.02330 168.62)", "oklch(26.43% 0.02330 168.62)", "oklch(37.86% 0.02330 168.62)", "oklch(49.29% 0.02330 168.62)", "oklch(60.71% 0.02330 168.62)", "oklch(72.14% 0.02330 168.62)", "oklch(83.57% 0.02330 168.62)", "oklch(95.00% 0.02330 168.62)"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Settings Heading",
+        "purpose": "The page heading; responsive size with tight tracking."
+      },
+      "title": {
+        "displayName": "Section Title",
+        "purpose": "The AI tutor, Reading, and Flashcards headings."
+      },
+      "body": {
+        "displayName": "Interface Body",
+        "purpose": "Default Settings text."
+      },
+      "label": {
+        "displayName": "Field Label",
+        "purpose": "Labels and medium-weight field references."
+      },
+      "control": {
+        "displayName": "Secondary Control",
+        "purpose": "Load, test, and export button text."
+      },
+      "caption": {
+        "displayName": "Helper Text",
+        "purpose": "Help text and connection feedback."
+      },
+      "technical": {
+        "displayName": "Technical Value",
+        "purpose": "Endpoint URLs and exact model or combo IDs."
+      },
+      "japanese-preview": {
+        "displayName": "Japanese Sample",
+        "purpose": "Japanese text in the two live reading previews."
+      }
+    },
+    "shadows": [
+      {
+        "name": "toast",
+        "value": "0 6px 24px #00000012",
+        "purpose": "Only the transient save-result toast is lifted."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-state",
+        "value": ".16s ease",
+        "purpose": "Button backgrounds, field borders, and toast transitions."
+      },
+      {
+        "name": "reading-preview",
+        "value": ".22s cubic-bezier(.16, 1, .3, 1)",
+        "purpose": "Fade from .75 opacity and translateY(4px) to the settled sample."
+      },
+      {
+        "name": "anchor-scroll",
+        "value": "smooth",
+        "purpose": "Section navigation scrolling."
+      },
+      {
+        "name": "reduced-motion",
+        "value": ".01ms",
+        "purpose": "Animation and transition duration under prefers-reduced-motion: reduce; one iteration and automatic anchor scrolling."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "1150px",
+        "query": "(max-width: 1150px)"
+      },
+      {
+        "name": "stacked-content",
+        "value": "960px",
+        "query": "(max-width: 960px)"
+      },
+      {
+        "name": "top-navigation",
+        "value": "760px",
+        "query": "(max-width: 760px)"
+      },
+      {
+        "name": "stacked-controls",
+        "value": "480px",
+        "query": "(max-width: 480px)"
+      },
+      {
+        "name": "wide-top-inset",
+        "value": "1600px",
+        "query": "(min-width: 1600px)"
+      }
+    ],
+    "scope": {
+      "targets": [
+        "options.html",
+        "options.css",
+        "options.js"
+      ],
+      "excludes": [
+        "YouTube learning interface"
+      ]
+    },
+    "colorModes": {
+      "default": "light",
+      "darkQuery": "(prefers-color-scheme: dark)",
+      "darkTokenSuffix": "-dark",
+      "fixedPreviewBackground": "{colors.rail}"
+    },
+    "tonalRampNote": "Derived OKLCH lightness ramps for swatch previews only; the frontmatter records the implemented colors.",
+    "assets": [
+      {
+        "path": "assets/fonts/Onest-Variable.ttf",
+        "kind": "font",
+        "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/onest/Onest%5Bwght%5D.ttf",
+        "license": "assets/fonts/OFL-Onest.txt",
+        "licenseSource": "https://raw.githubusercontent.com/google/fonts/main/ofl/onest/OFL.txt"
+      },
+      {
+        "kind": "inline-svg",
+        "source": "Authored paths in options.html; no new shipping raster assets."
+      }
+    ],
+    "evidence": {
+      "reviewDirectory": ".impeccable/review",
+      "states": [
+        "first-desktop-light",
+        "first-desktop-dark",
+        "first-tablet-light",
+        "first-tablet-dark",
+        "first-mobile-light",
+        "first-mobile-dark",
+        "full-document companions",
+        "anki-error-*"
+      ],
+      "configuration": "Explicit mocks; displayed ports and counts are not product defaults."
+    }
+  },
+  "components": [
+    {
+      "name": "Save Settings",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Filled ochre primary action; saving disables it until storage responds.",
+      "html": "<button class=\"ds-primary\" type=\"button\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg>Save Settings</button>",
+      "css": ".ds-primary{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;border:1px solid transparent;border-radius:6px;background:var(--accent,#865714);color:var(--accent-text,#fff);font-size:13px;font-weight:550;line-height:1.5;cursor:pointer;transition:background .16s ease,border-color .16s ease}.ds-primary:hover{background:var(--accent-hover,#70450c)}.ds-primary:focus-visible{outline:2px solid var(--accent,#865714);outline-offset:4px;}.ds-primary:disabled{cursor:wait;opacity:.65}.ds-primary svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;}@media(prefers-reduced-motion:reduce){.ds-primary{transition-duration:.01ms}}"
+    },
+    {
+      "name": "Secondary Action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined action for discovery, connection tests, and export.",
+      "html": "<button class=\"ds-secondary\" type=\"button\">Test 9Router</button>",
+      "css": ".ds-secondary{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:10px 14px;border:1px solid var(--line-strong,#7b9387);border-radius:6px;background:var(--surface,#fff);color:var(--text,#23342f);font-size:12px;font-weight:550;line-height:1.5;white-space:nowrap;cursor:pointer;transition:background .16s ease,border-color .16s ease}.ds-secondary:hover{border-color:var(--muted,#5b7067);background:var(--canvas,#f6f8f6)}.ds-secondary:focus-visible{outline:2px solid var(--accent,#865714);outline-offset:4px;}.ds-secondary:disabled{cursor:wait;opacity:.65}@media(prefers-reduced-motion:reduce){.ds-secondary{transition-duration:.01ms}}"
+    },
+    {
+      "name": "Clear Cards",
+      "kind": "button",
+      "refersTo": "button-clear",
+      "description": "Quiet red text action; the application asks for confirmation before clearing.",
+      "html": "<button class=\"ds-clear\" type=\"button\">Clear Cards</button>",
+      "css": ".ds-clear{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:8px 0;border:0;background:transparent;color:var(--status-error,#a13b2d);font-size:12px;line-height:1.55;cursor:pointer}.ds-clear:hover{text-decoration:underline;text-underline-offset:4px}.ds-clear:focus-visible{outline:2px solid var(--accent,#865714);outline-offset:4px;}"
+    },
+    {
+      "name": "Technical Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "A standard field with a strong outline and monospace model or endpoint content.",
+      "html": "<label class=\"ds-field-label\" for=\"ds-model\">Model or Combo</label><input class=\"ds-field ds-technical\" id=\"ds-model\" type=\"text\" placeholder=\"Choose a model above or enter a combo\">",
+      "css": ".ds-field-label{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:block;margin-bottom:8px;color:var(--text,#23342f);font-size:13px;font-weight:550;line-height:1.55}.ds-field{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;width:100%;min-width:0;height:42px;padding:9px 12px;border:1px solid var(--line-strong,#7b9387);border-radius:6px;background:var(--field,#fdfefd);color:var(--text,#23342f);font-size:14px;line-height:1.55;caret-color:var(--accent,#865714);transition:border-color .16s ease}.ds-field:hover{border-color:var(--muted,#5b7067)}.ds-field:focus{border-color:var(--accent,#865714)}.ds-field:focus-visible{outline:2px solid var(--accent,#865714);outline-offset:4px;}.ds-technical{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px}.ds-field-help{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:8px 0 0;color:var(--muted,#5b7067);font-size:12px;line-height:1.6}@media(prefers-reduced-motion:reduce){.ds-field{transition-duration:.01ms}}.ds-field::placeholder{color:var(--muted,#5b7067);opacity:1}"
+    },
+    {
+      "name": "Native Reading Select",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "A native select; changing it updates both reading previews without saving.",
+      "html": "<label class=\"ds-field-label\" for=\"ds-reading\">Default Subtitle Reading Mode</label><select class=\"ds-field ds-select\" id=\"ds-reading\"><option>Furigana — hiragana above kanji</option><option>Romaji — alphabetic pronunciation</option><option>Hidden — Japanese text only</option></select><p class=\"ds-field-help\">Try a style in the preview below.</p>",
+      "css": ".ds-field-label{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:block;margin-bottom:8px;color:var(--text,#23342f);font-size:13px;font-weight:550;line-height:1.55}.ds-field{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;width:100%;min-width:0;height:42px;padding:9px 12px;border:1px solid var(--line-strong,#7b9387);border-radius:6px;background:var(--field,#fdfefd);color:var(--text,#23342f);font-size:14px;line-height:1.55;caret-color:var(--accent,#865714);transition:border-color .16s ease}.ds-field:hover{border-color:var(--muted,#5b7067)}.ds-field:focus{border-color:var(--accent,#865714)}.ds-field:focus-visible{outline:2px solid var(--accent,#865714);outline-offset:4px;}.ds-technical{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px}.ds-field-help{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:8px 0 0;color:var(--muted,#5b7067);font-size:12px;line-height:1.6}@media(prefers-reduced-motion:reduce){.ds-field{transition-duration:.01ms}}.ds-select{padding-right:26px}.ds-select:disabled{color:var(--muted,#5b7067);cursor:default}"
+    },
+    {
+      "name": "Settings Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-link",
+      "description": "Petrol section navigation; vertical on desktop and horizontally scrollable on mobile.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Settings sections\"><a class=\"ds-nav-link ds-active\" href=\"#ai-settings\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z\"/></svg>AI tutor</a><a class=\"ds-nav-link\" href=\"#reading-settings\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H4Zm16 0h-4a3 3 0 0 0-3 2m7-2v12h-4a3 3 0 0 0-3 2\"/></svg>Reading</a></nav>",
+      "css": ".ds-nav{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;flex-direction:column;gap:6px;padding:20px;background:var(--rail,#203a3f)}.ds-nav-link{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:7px;color:var(--rail-muted,#b1c4c0);font-size:14px;font-weight:500;line-height:1.55;text-decoration:none}.ds-nav-link:hover{background:var(--rail-active,#315057);color:var(--rail-text,#eff4ed)}.ds-nav-link.ds-active{background:var(--rail-active,#315057);color:var(--rail-accent,#f0c271)}.ds-nav-link:focus-visible{outline:2px solid var(--rail-accent,#f0c271);outline-offset:4px}.ds-nav svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;}@media(max-width:760px){.ds-nav{flex-direction:row;gap:4px;overflow-x:auto;scrollbar-width:none}.ds-nav-link{flex:0 0 auto;gap:8px;padding:10px 12px;font-size:12px}.ds-nav svg{width:16px;height:16px}}"
+    },
+    {
+      "name": "Japanese Reading Preview",
+      "kind": "card",
+      "refersTo": "reading-preview",
+      "description": "Fixed petrol sample with real Japanese ruby text; the application also renders romaji and hidden-reading variants.",
+      "html": "<div class=\"ds-preview\" aria-label=\"Reading style preview\"><div class=\"ds-preview-label\"><span>Reading preview</span><span class=\"ds-preview-mode\">Furigana</span></div><div class=\"ds-preview-stage\"><p class=\"ds-japanese\" lang=\"ja\"><ruby>好<rt>す</rt></ruby>きな<ruby>動画<rt>どうが</rt></ruby>で、<br><ruby>日本語<rt>にほんご</rt></ruby>を<ruby>学<rt>まな</rt></ruby>ぶ。</p></div><p class=\"ds-preview-translation\">Learn Japanese with the videos you love.</p></div>",
+      "css": ".ds-preview{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:18px 22px 17px;border-radius:9px;background:#203a3f;color:#f1f4eb}.ds-preview-label{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#bdd0c8;font-size:12px;line-height:1.55}.ds-preview-mode{color:#f0c271}.ds-preview-stage{display:grid;align-items:center;min-height:102px;margin:12px 0 10px}.ds-japanese{margin:0;font-size:25px;font-weight:450;line-height:1.8;letter-spacing:.02em;animation:ds-preview-in .22s cubic-bezier(.16,1,.3,1)}.ds-japanese ruby{ruby-align:center}.ds-japanese rt{color:#f0c271;font-size:12px;font-weight:450}.ds-preview-translation{margin:0;color:#bdd0c8;font-size:12px;line-height:1.55}@keyframes ds-preview-in{from{opacity:.75;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@media(max-width:1150px){.ds-preview{padding-inline:18px}.ds-japanese{font-size:23px}}@media(max-width:760px){.ds-preview-stage{min-height:94px}.ds-japanese{font-size:25px}}@media(prefers-reduced-motion:reduce){.ds-japanese{animation-duration:.01ms;animation-iteration-count:1}}"
+    },
+    {
+      "name": "Connection Status",
+      "kind": "custom",
+      "refersTo": "connection-status",
+      "description": "Wrapping live-region feedback; green means the named operation succeeded, not that settings were saved.",
+      "html": "<p class=\"ds-status\" role=\"status\" aria-live=\"polite\">Choose a model or enter your combo name.</p>",
+      "css": ".ds-status{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:12px 14px;border:1px solid var(--line,#d7e1db);border-radius:6px;color:var(--status-info,#42646e);font-size:12px;line-height:1.6;overflow-wrap:anywhere}.ds-status.ds-success{color:var(--status-success,#236448)}.ds-status.ds-error{color:var(--status-error,#a13b2d)}"
+    },
+    {
+      "name": "Persistent Save Workflow",
+      "kind": "custom",
+      "refersTo": "button-primary",
+      "description": "The production footer is fixed to the viewport, offset by the rail; this preview shows its contents.",
+      "html": "<div class=\"ds-save-bar\"><p class=\"ds-save-state ds-pending\" role=\"status\" aria-live=\"polite\">Unsaved changes</p><button class=\"ds-primary\" type=\"button\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg>Save Settings</button></div>",
+      "css": ".ds-primary{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;border:1px solid transparent;border-radius:6px;background:var(--accent,#865714);color:var(--accent-text,#fff);font-size:13px;font-weight:550;line-height:1.5;cursor:pointer;transition:background .16s ease,border-color .16s ease}.ds-primary:hover{background:var(--accent-hover,#70450c)}.ds-primary:focus-visible{outline:2px solid var(--accent,#865714);outline-offset:4px;}.ds-primary:disabled{cursor:wait;opacity:.65}.ds-primary svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;}@media(prefers-reduced-motion:reduce){.ds-primary{transition-duration:.01ms}}.ds-save-bar{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:15px 20px;border-top:1px solid var(--line,#d7e1db);background:var(--canvas,#f6f8f6)}.ds-save-state{font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:inline-flex;align-items:center;gap:8px;margin:0;color:var(--muted,#5b7067);font-size:12px;line-height:1.55}.ds-save-state:before{content:\"\";width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:currentColor}.ds-save-state.ds-pending{color:var(--status-busy,#805615)}.ds-save-state.ds-error{color:var(--status-error,#a13b2d)}@media(max-width:480px){.ds-save-bar{gap:12px}.ds-save-state{max-width:16ch;line-height:1.45}.ds-primary{padding-inline:16px}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Listening Room",
+    "overview": "Quiet mineral surfaces and a deep petrol rail make Settings feel like a focused place to prepare for listening. Warm ochre marks useful actions and the current destination; thin rules and aligned fields organize the work.\n\nThis records the finished Settings implementation in `options.html`, `options.css`, and `options.js`. It does not establish a replacement system for the YouTube learning interface. Appearance follows the operating system, as requested by the user.",
+    "keyCharacteristics": [
+      "Petrol navigation, mineral surfaces, and warm ochre actions.",
+      "Standard controls arranged in ruled, open sections.",
+      "Live Japanese reading samples with restrained motion.",
+      "Persistent save feedback and explicit connection states."
+    ],
+    "rules": [
+      {
+        "name": "The System Appearance Rule",
+        "body": "Resolve both appearances through the existing CSS custom properties; retain the reading sample's deliberate fixed petrol treatment.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ruled Groups Rule",
+        "body": "Group settings with thin separators, aligned field edges, and open space; reserve the enclosed petrol container for the reading sample.",
+        "section": "layout"
+      },
+      {
+        "name": "The Observed State Rule",
+        "body": "Say what the completed operation proved, retain actionable failure text, and keep connection tests distinct from saved configuration.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** follow system appearance through the paired color tokens.",
+      "**Do** align standard fields in open sections separated by thin rules.",
+      "**Do** show reading changes in both Japanese samples before saving.",
+      "**Do** keep pending changes visible until a successful storage write.",
+      "**Do** pair every connection color with text describing observed state."
+    ],
+    "donts": [
+      "**Don't** treat model discovery as a successful AI request or a saved setting.",
+      "**Don't** replace the native controls and setup disclosure with decorative substitutes.",
+      "**Don't** apply this Settings redesign to the YouTube learning interface without a separate design decision."
+    ]
+  }
+}

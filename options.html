@@ -2,123 +2,212 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>LinguaPlay — Extension Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>LinguaPlay — Settings</title>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
-
-  <div class="container">
-
-    <!-- Header -->
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 28px;">
-      <div style="width: 36px; height: 36px; border-radius: 10px; background: #7c3aed; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">
-        言
+  <a class="skip-link" href="#settings-main">Skip to settings</a>
+  <div class="settings-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#ai-settings" aria-label="LinguaPlay settings">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M5 6h8a5 5 0 0 1 5 5v17a5 5 0 0 0-5-5H5zm22 0h-5a5 5 0 0 0-4 2M27 6v17h-5a5 5 0 0 0-4 2M9 11h4m-4 5h4m9-5h2m-2 5h2"/></svg>
+        <span>LinguaPlay<small>Japanese on YouTube</small></span>
+      </a>
+      <nav class="settings-nav" aria-label="Settings sections">
+        <a class="nav-link" href="#ai-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg>AI tutor</a>
+        <a class="nav-link" href="#reading-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H4Zm16 0h-4a3 3 0 0 0-3 2m7-2v12h-4a3 3 0 0 0-3 2"/></svg>Reading</a>
+        <a class="nav-link" href="#flashcard-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="7" width="15" height="13" rx="2"/><path d="M16 7V4a1 1 0 0 0-1-1H3v13h2m4-4h7m-7 4h4"/></svg>Flashcards</a>
+        <a class="nav-link" href="#setup-guide" id="nav-setup-guide"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .7-1.5 1-1.5 2m0 3h.01"/></svg>Setup guide</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <a class="youtube-link" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="4"/><path d="m10 9 5 3-5 3Z"/></svg>Open YouTube<svg class="external-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
+        <p class="appearance-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>Follows system appearance</p>
       </div>
-      <div>
-        <h1 style="font-size: 20px; font-weight: bold; color: white;">LinguaPlay Settings</h1>
-        <p style="font-size: 12px; color: #a78bfa;">Configure AI Linguistic Models, Anki Deck Sync, and Immersion Preferences</p>
-      </div>
-    </div>
+    </aside>
 
-    <!-- AI Models Card -->
-    <div class="card">
-      <h2><span>🤖</span> 9Router AI</h2>
-
-      <!-- 9Router -->
-      <div class="form-group router-settings" id="group-9router">
-        <label for="9router-url">9Router API Base URL</label>
-        <input type="text" id="9router-url" value="http://127.0.0.1:20128/v1" placeholder="http://127.0.0.1:20128/v1" aria-describedby="9router-help-text">
-        <label for="9router-key">9Router API Key</label>
-        <input type="password" id="9router-key" placeholder="Key from your 9Router dashboard, if required" autocomplete="off">
-        <label for="9router-model">Model or Combo</label>
-        <div class="router-model-row">
-          <input type="text" id="9router-model" list="9router-models" placeholder="Load models or paste an ID from 9Router" aria-describedby="9router-status-text" autocomplete="off">
-          <datalist id="9router-models"></datalist>
-          <button id="load-9router-models-btn" class="btn-secondary" type="button">Load Models</button>
-          <button id="test-9router-btn" class="btn-secondary" type="button">Test 9Router</button>
+    <main class="settings-main" id="settings-main">
+      <header class="page-header">
+        <div class="page-title">
+          <h1>Settings</h1>
+          <p>Connect your tutor. Find your reading rhythm.</p>
+          <a class="guide-link" id="open-setup-guide" href="#setup-guide">First time here? Open the setup guide <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a>
         </div>
-        <p id="9router-status-text" class="help-text" role="status" aria-live="polite">Load Models to choose an available model, or enter your combo name.</p>
-        <p id="9router-help-text" class="help-text">Start 9Router and connect your providers in its dashboard. Enter the router's key here; manage provider keys and fallback combos in 9Router. Test 9Router sends a short AI request. Click Save Settings to use it for Sensei.</p>
-      </div>
-
-    </div>
-
-    <!-- Optional Japanese parser -->
-    <div class="card">
-      <h2>Japanese Parser (Optional)</h2>
-      <div class="form-group" id="group-server">
-        <label for="server-url">Japanese Parser Server URL</label>
-        <div style="display: flex; gap: 8px;">
-          <input type="text" id="server-url" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000" style="flex: 1;">
-          <button id="test-server-btn" class="btn-secondary" type="button">Test Parser</button>
+        <div class="reading-preview" aria-label="Reading style preview">
+          <div class="preview-label"><span>Reading preview</span><span class="preview-mode" id="reading-preview-label">Furigana</span></div>
+          <div class="preview-stage">
+            <p id="preview-furigana" class="preview-japanese" lang="ja"><ruby>好<rt>す</rt></ruby>きな<ruby>動画<rt>どうが</rt></ruby>で、<br><ruby>日本語<rt>にほんご</rt></ruby>を<ruby>学<rt>まな</rt></ruby>ぶ。</p>
+            <p id="preview-romaji" class="preview-romaji" lang="ja-Latn" hidden>Suki na dōga de,<br>nihongo o manabu.</p>
+            <p id="preview-hidden" class="preview-japanese" lang="ja" hidden>好きな動画で、<br>日本語を学ぶ。</p>
+          </div>
+          <p class="preview-translation">Learn Japanese with the videos you love.</p>
         </div>
-        <p id="server-status-text" class="help-text">Used only for offline Sudachi readings and dictionary forms. AI requests go to 9Router.</p>
-        <label style="display:flex; align-items:center; gap:8px; margin-top:10px;">
-          <input type="checkbox" id="auto-start-server" checked>
-          Start parser server when a video plays
-        </label>
-        <p class="help-text">Requires the local launcher. A running server is reused and stays available after playback stops.</p>
-      </div>
-    </div>
+      </header>
 
-    <!-- Anki Card Sync Card -->
-    <div class="card">
-      <h2><span>🗃️</span> Anki Flashcard Sync</h2>
-
-      <div class="form-group">
-        <label for="anki-deck">Anki Target Deck Name</label>
-        <input type="text" id="anki-deck" value="LinguaPlay">
-        <p class="help-text">Cards will automatically be created under this deck name in Anki.</p>
-      </div>
-
-      <div class="form-group">
-        <label for="ankiconnect-url">AnkiConnect URL</label>
-        <div style="display: flex; gap: 8px;">
-          <input type="text" id="ankiconnect-url" value="http://127.0.0.1:8765" style="flex: 1;">
-          <button id="test-anki-btn" class="btn-secondary" type="button">Test AnkiConnect</button>
+      <section class="settings-section" id="ai-settings" aria-labelledby="ai-heading">
+        <div class="section-heading">
+          <h2 id="ai-heading">AI tutor</h2>
+          <p>The model behind Sensei Chat, grammar explanations, and song identification.</p>
+          <span class="service-label">Powered by 9Router</span>
         </div>
-        <p id="anki-status-text" class="help-text">Requires Anki open with AnkiConnect add-on (code 2055492159).</p>
-      </div>
-    </div>
-
-    <!-- Immersion Preferences -->
-    <div class="card">
-      <h2><span>⚙️</span> Immersion & Subtitle Display</h2>
-
-      <div class="form-group">
-        <label for="reading-mode">Default Subtitle Reading Mode</label>
-        <select id="reading-mode">
-          <option value="furigana">Furigana (Hiragana ruby above Kanji)</option>
-          <option value="romaji">Romaji (Alphabetical pronunciation)</option>
-          <option value="hidden">Hidden (Kanji only for pure immersion)</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Stored Flashcards Export Card -->
-    <div class="card">
-      <h2><span>💾</span> Stored Flashcard Collection</h2>
-      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 12px;">
-        When AnkiConnect is offline, cards are automatically stored in the extension collection.
-      </p>
-      <div style="display: flex; align-items: center; justify-content: space-between;">
-        <span id="saved-card-counter" style="font-size: 14px; font-weight: bold; color: #a78bfa;">0 cards in storage</span>
-        <div style="display: flex; gap: 8px;">
-          <button id="export-tsv-btn" class="btn-secondary" type="button">📥 Export TSV File</button>
-          <button id="clear-cards-btn" class="btn-secondary" type="button" style="color: #fca5a5; border-color: rgba(244,63,94,0.3);">Clear Cards</button>
+        <div class="section-content router-settings" id="group-9router">
+          <div class="connection-fields">
+          <div class="field">
+            <label for="9router-url">9Router API Base URL</label>
+            <input class="technical" type="text" id="9router-url" value="http://127.0.0.1:20128/v1" placeholder="http://127.0.0.1:20128/v1" aria-describedby="9router-url-help">
+            <p class="help-text" id="9router-url-help">Use the API address ending in /v1, rather than the dashboard URL.</p>
+          </div>
+          <div class="field">
+            <label for="9router-key">9Router API Key</label>
+            <input type="password" id="9router-key" placeholder="Paste your router key" autocomplete="off" aria-describedby="9router-help-text">
+            <p id="9router-help-text" class="help-text">Use your router key here. Provider keys stay in 9Router. Leave blank only if router authentication is disabled.</p>
+          </div>
+          </div>
+          <div class="field">
+            <label for="9router-models">Available Models</label>
+            <div class="field-row">
+              <select id="9router-models" aria-describedby="9router-status-text" disabled><option value="">Models load when 9Router is reachable</option></select>
+              <button id="load-9router-models-btn" class="btn-secondary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5m-4.5-4A8 8 0 0 1 18 5l2 2M4 17l2 2a8 8 0 0 0 13.5-3"/></svg>Load Models</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="9router-model">Model or Combo</label>
+            <div class="field-row">
+              <input class="technical" type="text" id="9router-model" placeholder="Choose a model above or enter a combo" aria-describedby="9router-status-text" autocomplete="off">
+              <button id="test-9router-btn" class="btn-secondary" type="button">Test 9Router</button>
+            </div>
+            <p class="help-text">Select an exact model ID or type a combo from your 9Router dashboard.</p>
+          </div>
+          <p id="9router-status-text" class="connection-status" role="status" aria-live="polite">Models load automatically. You can also enter your model ID or combo name.</p>
         </div>
+      </section>
+
+      <section class="settings-section" id="reading-settings" aria-labelledby="reading-heading">
+        <div class="section-heading">
+          <h2 id="reading-heading">Reading</h2>
+          <p>A little guidance, or full immersion. Choose how Japanese subtitles look.</p>
+        </div>
+        <div class="section-content">
+          <div class="field">
+            <label for="reading-mode">Default Subtitle Reading Mode</label>
+            <select id="reading-mode">
+              <option value="furigana">Furigana — hiragana above kanji</option>
+              <option value="romaji">Romaji — alphabetic pronunciation</option>
+              <option value="hidden">Hidden — Japanese text only</option>
+            </select>
+            <p class="help-text">Try a style in the preview below. You can also switch modes in the YouTube player.</p>
+          </div>
+          <div class="inline-reading-preview" aria-label="Sample subtitle">
+            <p class="help-text">Sample subtitle</p>
+            <div class="preview-stage" aria-live="polite" aria-atomic="true">
+              <p id="reading-example-furigana" class="preview-japanese" lang="ja"><ruby>好<rt>す</rt></ruby>きな<ruby>動画<rt>どうが</rt></ruby>で、<br><ruby>日本語<rt>にほんご</rt></ruby>を<ruby>学<rt>まな</rt></ruby>ぶ。</p>
+              <p id="reading-example-romaji" class="preview-romaji" lang="ja-Latn" hidden>Suki na dōga de,<br>nihongo o manabu.</p>
+              <p id="reading-example-hidden" class="preview-japanese" lang="ja" hidden>好きな動画で、<br>日本語を学ぶ。</p>
+            </div>
+            <p class="help-text">Learn Japanese with the videos you love.</p>
+          </div>
+          <fieldset class="optional-tool" id="group-server">
+            <legend>Japanese parser <span class="optional-label">Optional</span></legend>
+            <p class="tool-description">Add contextual readings and dictionary forms with the local Sudachi backend.</p>
+            <div class="field">
+              <label for="server-url">Japanese Parser Server URL</label>
+              <div class="field-row">
+                <input class="technical" type="text" id="server-url" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
+                <button id="test-server-btn" class="btn-secondary" type="button">Test Parser</button>
+              </div>
+              <p id="server-status-text" class="help-text" role="status" aria-live="polite">For offline readings. AI requests use 9Router.</p>
+            </div>
+            <label class="check-row" for="auto-start-server">
+              <input type="checkbox" id="auto-start-server" checked>
+              <span>Start parser server when a video plays<small>Requires the local launcher. A running server is reused.</small></span>
+            </label>
+          </fieldset>
+        </div>
+      </section>
+
+      <section class="settings-section" id="flashcard-settings" aria-labelledby="flashcards-heading">
+        <div class="section-heading">
+          <h2 id="flashcards-heading">Flashcards</h2>
+          <p>Keep the words you want to come back to. Send them to Anki or export a local copy.</p>
+        </div>
+        <div class="section-content">
+          <div class="tool-title"><h3>Anki connection</h3><span class="optional-label">Optional</span></div>
+          <div class="field">
+            <label for="anki-deck">Anki Target Deck Name</label>
+            <input type="text" id="anki-deck" value="LinguaPlay">
+            <p class="help-text">Create a deck with this exact name in Anki first.</p>
+          </div>
+          <div class="field">
+            <label for="ankiconnect-url">AnkiConnect URL</label>
+            <div class="field-row">
+              <input class="technical" type="text" id="ankiconnect-url" value="http://127.0.0.1:8765">
+              <button id="test-anki-btn" class="btn-secondary" type="button">Test AnkiConnect</button>
+            </div>
+            <p id="anki-status-text" class="help-text" role="status" aria-live="polite">Keep Anki open with AnkiConnect installed. Add-on code: 2055492159.</p>
+          </div>
+          <div class="collection">
+            <div><h3>Local collection</h3><p id="saved-card-counter" class="collection-count">0 cards in storage</p><p class="help-text">Saved in this browser. Export a copy for Anki.</p></div>
+            <div class="collection-actions">
+              <button id="export-tsv-btn" class="btn-secondary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg>Export TSV File</button>
+              <button id="clear-cards-btn" class="btn-text danger" type="button">Clear Cards</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    <details class="setup-guide" id="setup-guide">
+      <summary>
+        <h2 class="setup-guide-title">Settings setup guide
+          <span class="setup-guide-subtitle">Start here for 9Router, automatic startup, and optional tools.</span>
+        </h2>
+      </summary>
+      <div class="setup-guide-content">
+        <p>Subtitles, reading modes, and your local flashcard collection work without AI setup. To use Sensei Chat and AI grammar explanations, connect 9Router below.</p>
+
+        <h3>Connect your AI tutor</h3>
+        <ol>
+          <li>
+            <strong>Install and start 9Router.</strong> Install a current <a href="https://nodejs.org/en/download" target="_blank" rel="noopener noreferrer">Node.js LTS release</a>, then run these commands in a terminal:
+            <pre><code>npm install -g 9router
+9router</code></pre>
+          </li>
+          <li><strong>Connect a provider.</strong> Open the <a href="http://127.0.0.1:20128/dashboard" target="_blank" rel="noopener noreferrer">9Router dashboard</a>, enable a provider, and copy your router API key if router authentication is enabled. Provider credentials belong in 9Router.</li>
+          <li><strong>Fill in 9Router AI below.</strong> For this computer, keep <code>http://127.0.0.1:20128/v1</code> as the API Base URL. Paste the router key into <strong>9Router API Key</strong>. Use your hosted router's API URL if it runs elsewhere.</li>
+          <li><strong>Choose, test, and save.</strong> Choose a model from <strong>Available Models</strong>, which loads from your router when this page opens. Click <strong>Load Models</strong> to refresh it or allow access to a hosted router. The selected ID, including its provider prefix, fills <strong>Model or Combo</strong>. You can also type a combo name there. Click <strong>Test 9Router</strong>; after a successful reply, click <strong>Save Settings</strong> at the bottom of this page. Testing sends a real AI request and does not save the form.</li>
+        </ol>
+        <p>Open or refresh a YouTube video with Japanese captions, click a word, and try <strong>Ask Sensei</strong> or <strong>Sensei Chat</strong>.</p>
+
+        <h3>Start 9Router automatically</h3>
+        <p>In 9Router, choose <strong>Hide to Tray (Background)</strong> if shown. Open its tray menu and choose <strong>Enable Auto-start</strong> to launch it when you log in. Tray support depends on your desktop. If you already use a login service, keep that as your startup method.</p>
+        <p>The extension needs 9Router running for AI. <strong>Start parser server when a video plays</strong> controls the separate Japanese parser.</p>
+
+        <h3>Add optional tools when you need them</h3>
+        <ul>
+          <li><strong>Anki:</strong> install <a href="https://ankiweb.net/shared/info/2055492159" target="_blank" rel="noopener noreferrer">AnkiConnect</a> (add-on code <code>2055492159</code>), restart Anki, and keep it open. Create a deck whose name matches <strong>Anki Target Deck Name</strong>. Keep <code>http://127.0.0.1:8765</code> for local Anki, click <strong>Test AnkiConnect</strong>, and save.</li>
+          <li><strong>Japanese Parser:</strong> the companion LangPlay backend adds contextual Sudachi readings. Its default URL is <code>http://127.0.0.1:8000</code>. Follow the <a href="https://github.com/Marsel204/LangPlayeExt/blob/main/docs/local-backend.md" target="_blank" rel="noopener noreferrer">parser and local launcher setup guide</a> before enabling automatic parser startup, then use <strong>Test Parser</strong>. Without it, you can turn off parser startup and use fallback readings.</li>
+          <li><strong>Reading and cards:</strong> choose Furigana, Romaji, or Hidden as your default reading mode, then save. <strong>Export TSV File</strong> downloads your locally saved cards for later import into Anki. <strong>Clear Cards</strong> removes the local collection after confirmation.</li>
+        </ul>
+
+        <h3>If the AI test fails</h3>
+        <p>Check that the dashboard opens, the API URL ends in <code>/v1</code>, the router key is correct, and the selected model works in 9Router. A loaded model list alone does not confirm that an AI request will work.</p>
+        <p>If OpenCode reports <code>wreq-js unavailable</code>, install its missing dependency with the command for your platform, then restart 9Router and test again. These commands use 9Router's default data directory.</p>
+        <p><strong>Linux / macOS:</strong></p>
+        <pre><code>npm --prefix "$HOME/.9router/runtime" install wreq-js</code></pre>
+        <p><strong>Windows PowerShell:</strong></p>
+        <pre><code>npm --prefix "$env:APPDATA\9router\runtime" install wreq-js</code></pre>
+        <p>A hosted endpoint may ask for browser access when you test or save. Allow access to your chosen server to finish setup.</p>
       </div>
-    </div>
-
-    <!-- Save Button -->
-    <button id="save-settings-btn" class="btn-primary" style="width: 100%;">
-      Save Settings
-    </button>
-
+    </details>
+    </main>
   </div>
-
-  <div id="save-toast" class="toast">✓ Settings saved successfully!</div>
-
+  <footer class="save-bar">
+    <div class="save-bar-inner">
+      <p id="settings-save-state" class="save-state" role="status" aria-live="polite">No pending changes</p>
+      <button id="save-settings-btn" class="btn-primary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>Save Settings</button>
+    </div>
+  </footer>
+  <div id="save-toast" class="toast" role="status" aria-live="polite">Settings saved successfully.</div>
   <script src="js/card-export.js"></script>
   <script src="options.js"></script>
 </body>

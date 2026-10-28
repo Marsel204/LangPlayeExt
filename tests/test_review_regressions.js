@@ -530,6 +530,7 @@ function createBackgroundHarness({ allowed = true, router = {} } = {}) {
   const sandbox = {
     console, URL, AbortSignal,
     chrome: {
+      action: { onClicked: { addListener() {} } },
       runtime: { id: 'test-extension', onInstalled: { addListener() {} }, onMessage: { addListener(callback) { sandbox.listener = callback; } } },
       storage: { local: { get: async () => router } },
       permissions: { contains: async () => allowed }
@@ -565,15 +566,23 @@ test('the source rule table and browser deinflector remain identical', () => {
   assert.ok(!JSON.stringify(sourceRules).includes('\ufffd'));
 });
 
-function createOptionsHarness(config = {}, { allowed = true, granted = true } = {}) {
+function createOptionsHarness(config = {}, { allowed = true, granted = true, fetch: fetchImpl } = {}) {
   const elements = new Map();
   for (const match of fs.readFileSync(path.join(root, 'options.html'), 'utf8').matchAll(/id="([^"]+)"/g)) {
-    elements.set(match[1], { value: '', style: {}, classList: { add() {}, remove() {} }, listeners: {}, addEventListener(event, callback) { this.listeners[event] = callback; } });
+    elements.set(match[1], {
+      value: '', style: {}, children: [],
+      get options() { return this.children; },
+      replaceChildren(...children) { this.children = children; },
+      appendChild(child) { this.children.push(child); },
+      classList: { add() {}, remove() {} }, listeners: {},
+      addEventListener(event, callback) { this.listeners[event] = callback; }
+    });
   }
   const saved = [];
   const requested = [];
   const sandbox = {
-    URL, AbortSignal, setTimeout() {},
+    URL, AbortController, AbortSignal, setTimeout() {},
+    fetch: fetchImpl || (async () => ({ ok: true, json: async () => ({ data: [] }) })),
     document: { getElementById: id => elements.get(id), createElement: () => ({}), addEventListener(_event, callback) { sandbox.ready = callback; } },
     chrome: {
       storage: { local: {
@@ -670,11 +679,8 @@ test('9Router does not save settings when endpoint access is denied', async () =
 test('9Router discovers prefixed models and combos without overwriting a manually entered model', async () => {
   const h = createOptionsHarness();
   const calls = [];
-  const suggestions = [];
   h.elements.get('9router-model').value = 'manual-combo';
   h.elements.get('9router-key').value = 'router-test-key';
-  h.elements.get('9router-models').replaceChildren = () => { suggestions.length = 0; };
-  h.elements.get('9router-models').appendChild = option => suggestions.push(option.value);
   h.sandbox.fetch = async (url, options) => {
     calls.push({ url, options });
     return { ok: true, json: async () => ({ data: [{ id: 'provider/model' }, { id: 'study-combo', kind: 'llm' }, { id: 'provider/model' }, { id: 'embedding', kind: 'embedding' }, {}] }) };
@@ -683,10 +689,208 @@ test('9Router discovers prefixed models and combos without overwriting a manuall
   assert.equal(calls[0].url, 'http://127.0.0.1:20128/v1/models');
   assert.equal(calls[0].options.method, 'GET');
   assert.equal(calls[0].options.headers.Authorization, 'Bearer router-test-key');
-  assert.deepEqual(suggestions, ['provider/model', 'study-combo']);
+  assert.deepEqual(h.elements.get('9router-models').options.map(option => option.value), ['', 'provider/model', 'study-combo']);
   assert.equal(h.elements.get('9router-model').value, 'manual-combo');
   assert.equal(h.saved.length, 0, 'Loading models does not save or switch providers');
   assert.equal(h.elements.get('load-9router-models-btn').disabled, false);
+});
+
+async function waitForOptionsRouter(h) {
+  for (let i = 0; i < 20; i++) {
+    await new Promise(resolve => setImmediate(resolve));
+    if (!h.elements.get('load-9router-models-btn').disabled) return;
+  }
+  assert.fail('The router controls remained busy');
+}
+
+test('Settings previews the selected reading mode and marks only pending edits', async () => {
+  const h = createOptionsHarness({ linguaplay_reading_mode: 'romaji', linguaplay_9router_model: 'saved-model' });
+  await waitForOptionsRouter(h);
+  const state = h.elements.get('settings-save-state');
+  assert.equal(state.textContent, 'No pending changes');
+  assert.equal(h.elements.get('preview-romaji').hidden, false);
+  assert.equal(h.elements.get('preview-furigana').hidden, true);
+  h.elements.get('reading-mode').value = 'hidden';
+  h.elements.get('reading-mode').listeners.change();
+  assert.equal(h.elements.get('preview-hidden').hidden, false);
+  assert.equal(h.elements.get('reading-preview-label').textContent, 'Japanese only');
+  assert.equal(state.textContent, 'Unsaved changes');
+  h.elements.get('reading-mode').value = 'romaji';
+  h.elements.get('reading-mode').listeners.change();
+  assert.equal(state.textContent, 'No pending changes');
+  h.elements.get('9router-key').value = 'new-router-key';
+  h.elements.get('9router-key').listeners.input();
+  assert.equal(state.textContent, 'Unsaved changes');
+  assert.equal(h.saved.length, 0);
+});
+
+test('Settings keeps edits made during a storage write visibly unsaved', async () => {
+  const h = createOptionsHarness({ linguaplay_9router_model: 'saved-model' });
+  await waitForOptionsRouter(h);
+  let complete;
+  h.sandbox.chrome.storage.local.set = (_values, callback) => { complete = callback; };
+  h.elements.get('anki-deck').value = 'First deck';
+  h.elements.get('anki-deck').listeners.input();
+  await h.elements.get('save-settings-btn').listeners.click();
+  assert.equal(h.elements.get('save-settings-btn').disabled, true);
+  assert.equal(h.elements.get('settings-save-state').textContent, 'Saving settings…');
+  h.elements.get('anki-deck').value = 'Later edit';
+  h.elements.get('anki-deck').listeners.input();
+  complete();
+  assert.equal(h.elements.get('settings-save-state').textContent, 'Unsaved changes');
+  assert.equal(h.elements.get('save-settings-btn').disabled, false);
+});
+
+test('Settings exposes failed saves and opens the setup guide from both help links', async () => {
+  const h = createOptionsHarness();
+  await waitForOptionsRouter(h);
+  h.sandbox.chrome.runtime = { lastError: { message: 'Storage quota exceeded' } };
+  await h.elements.get('save-settings-btn').listeners.click();
+  assert.equal(h.elements.get('settings-save-state').textContent, 'Could not save changes');
+  assert.match(h.elements.get('save-toast').textContent, /failed.*Storage quota exceeded/);
+  assert.equal(h.elements.get('save-settings-btn').disabled, false);
+  for (const id of ['open-setup-guide', 'nav-setup-guide']) {
+    h.elements.get('setup-guide').open = false;
+    h.elements.get(id).listeners.click();
+    assert.equal(h.elements.get('setup-guide').open, true);
+  }
+});
+
+test('Settings saves one consistent form snapshot while host access is pending', async () => {
+  const h = createOptionsHarness();
+  await waitForOptionsRouter(h);
+  h.elements.get('9router-url').value = 'https://first.example/v1';
+  h.elements.get('9router-key').value = 'first-key';
+  h.elements.get('9router-url').listeners.input();
+  let allow;
+  h.sandbox.chrome.permissions.contains = () => new Promise(resolve => { allow = resolve; });
+  const saving = h.elements.get('save-settings-btn').listeners.click();
+  h.elements.get('9router-url').value = 'https://later.example/v1';
+  h.elements.get('9router-key').value = 'later-key';
+  h.elements.get('9router-url').listeners.input();
+  allow(true);
+  await saving;
+  assert.equal(h.saved[0].linguaplay_9router_url, 'https://first.example/v1');
+  assert.equal(h.saved[0].linguaplay_9router_key, 'first-key');
+  assert.equal(h.elements.get('settings-save-state').textContent, 'Unsaved changes');
+});
+
+test('Settings validates AnkiConnect versions and API errors before reporting success', async () => {
+  for (const [data, expected] of [
+    [{ result: 6, error: null }, /AnkiConnect is active \(API version 6\)/],
+    [{ result: 7, error: null }, /AnkiConnect is active \(API version 7\)/],
+    [{}, /Invalid AnkiConnect response/],
+    [null, /Invalid AnkiConnect response/],
+    [{ result: null, error: null }, /Invalid AnkiConnect response/],
+    [{ result: '6', error: null }, /Invalid AnkiConnect response/],
+    [{ result: 5, error: null }, /Invalid AnkiConnect response/],
+    [{ result: 6.5, error: null }, /Invalid AnkiConnect response/],
+    [{ result: null, error: 'Invalid API key' }, /Invalid API key/],
+    [{ result: 6, error: 'Access denied' }, /Access denied/],
+  ]) {
+    const h = createOptionsHarness();
+    await waitForOptionsRouter(h);
+    h.sandbox.fetch = async (_url, request) => {
+      assert.equal(JSON.parse(request.body).action, 'version');
+      return { ok: true, json: async () => data };
+    };
+    await h.elements.get('test-anki-btn').listeners.click();
+    const status = h.elements.get('anki-status-text');
+    assert.match(status.textContent, expected);
+    const valid = expected.source.includes('is active');
+    assert.equal(status.style.color, valid ? 'var(--status-success)' : 'var(--status-error)');
+    if (!valid) assert.doesNotMatch(status.textContent, /is active/);
+  }
+});
+
+test('Options automatically discovers the full model list without replacing the saved choice', async () => {
+  const calls = [];
+  const h = createOptionsHarness({
+    linguaplay_9router_model: 'cx/gpt-6-luna',
+    linguaplay_9router_key: 'router-test-key'
+  }, { fetch: async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, json: async () => ({ data: [
+      { id: 'oc/free-model' }, { id: 'cx/gpt-6-luna' }, { id: 'cx/another-model' }
+    ] }) };
+  } });
+  await waitForOptionsRouter(h);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'http://127.0.0.1:20128/v1/models');
+  assert.equal(calls[0].options.method, 'GET');
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer router-test-key');
+  assert.equal(h.requested.length, 0, 'Opening Settings must not request host access');
+  const picker = h.elements.get('9router-models');
+  assert.deepEqual(picker.options.filter(option => option.value).map(option => option.value), ['cx/another-model', 'cx/gpt-6-luna', 'oc/free-model']);
+  assert.equal(picker.value, 'cx/gpt-6-luna');
+  assert.equal(picker.disabled, false);
+  picker.value = 'oc/free-model';
+  picker.listeners.change();
+  assert.equal(h.elements.get('9router-model').value, 'oc/free-model');
+  h.elements.get('9router-model').value = 'my custom combo';
+  h.elements.get('9router-model').listeners.input();
+  assert.equal(picker.value, '');
+  assert.equal(picker.options.length, 4, 'Typing a combo must leave the full model list available');
+  assert.equal(h.saved.length, 0, 'Discovery and selection only change the form');
+});
+
+test('Options waits for a user action before granting a remote router access', async () => {
+  let fetches = 0;
+  const h = createOptionsHarness({ linguaplay_9router_url: 'https://router.example/v1' }, {
+    allowed: false, granted: false,
+    fetch: async () => { fetches++; throw new Error('Must not fetch without access'); }
+  });
+  await waitForOptionsRouter(h);
+  assert.equal(fetches, 0);
+  assert.equal(h.requested.length, 0);
+  assert.match(h.elements.get('9router-status-text').textContent, /Click Load Models/);
+  await h.elements.get('load-9router-models-btn').listeners.click();
+  assert.equal(h.requested.length, 1);
+  assert.equal(fetches, 0);
+  assert.equal(h.elements.get('9router-models').disabled, true);
+});
+
+test('Options loads an already authorized remote router and preserves a manual combo on errors', async () => {
+  for (const data of [{ data: [] }, { error: { message: 'Invalid router key' } }, { notAModelList: true }]) {
+    let endpoint;
+    const h = createOptionsHarness({
+      linguaplay_9router_url: 'https://router.example/gateway/v1',
+      linguaplay_9router_model: 'manual-combo'
+    }, { fetch: async url => {
+      endpoint = url;
+      return { ok: !data.error, json: async () => data };
+    } });
+    await waitForOptionsRouter(h);
+    assert.equal(endpoint, 'https://router.example/gateway/v1/models');
+    assert.equal(h.requested.length, 0);
+    assert.equal(h.elements.get('9router-models').disabled, true);
+    assert.equal(h.elements.get('9router-model').value, 'manual-combo');
+    assert.equal(h.elements.get('test-9router-btn').disabled, false);
+    assert.equal(h.saved.length, 0);
+  }
+});
+
+test('Options discards an older catalog after the router URL or key changes', async () => {
+  for (const field of ['9router-url', '9router-key']) {
+    let finishFirst;
+    let firstSignal;
+    let calls = 0;
+    const h = createOptionsHarness({}, { fetch: async (_url, options) => {
+      if (++calls === 1) {
+        firstSignal = options.signal;
+        return new Promise(resolve => { finishFirst = resolve; });
+      }
+      return { ok: true, json: async () => ({ data: [{ id: 'new/model' }] }) };
+    } });
+    h.elements.get(field).value = field === '9router-url' ? 'http://localhost:20200/v1' : 'new-key';
+    h.elements.get(field).listeners.input();
+    assert.equal(firstSignal.aborted, true);
+    assert.equal(h.elements.get('9router-models').disabled, true);
+    await h.elements.get('load-9router-models-btn').listeners.click();
+    finishFirst({ ok: true, json: async () => ({ data: [{ id: 'old/model' }] }) });
+    await waitForOptionsRouter(h);
+    assert.deepEqual(h.elements.get('9router-models').options.filter(option => option.value).map(option => option.value), ['new/model']);
+  }
 });
 
 test('9Router connection test uses unsaved settings and reports empty replies or API errors', async () => {

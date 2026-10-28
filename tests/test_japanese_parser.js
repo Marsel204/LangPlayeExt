@@ -80,6 +80,7 @@ function worker(config = {}, permission = true) {
   const sandbox = { URL, AbortSignal, console, fetch: async (url, options) => {
     calls.push({ url, options }); return { ok: true, json: async () => ({ status: 'success', tokens: [token('猫', 'ネコ')], engine: 'sudachi' }) };
   }, chrome: {
+    action: { onClicked: { addListener() {} } },
     storage: { local: { get: async () => config } }, permissions: { contains: async () => permission },
     runtime: { id: 'test', onInstalled: { addListener() {} }, onMessage: { addListener(fn) { listener = fn; } }, sendNativeMessage() { assert.fail('Parsing must not launch a process'); } },
   } };
