@@ -2,11 +2,161 @@
  * LinguaPlay Chrome Extension — Options Script (options.js)
  */
 
+// Display labels from 9Router's public provider registry (0.5.112). These do not
+// determine access or membership; new and custom prefixes still appear as-is.
+// https://github.com/decolua/9router/blob/master/src/shared/constants/providers.js
+const ROUTER_PROVIDER_NAMES = Object.freeze({
+  "gc": "Gemini CLI",
+  "kr": "Kiro AI",
+  "mmf": "MiMo Code Free",
+  "oc": "OpenCode Free",
+  "bpm": "BytePlus ModelArk",
+  "cf": "Cloudflare",
+  "coqui": "Coqui TTS",
+  "edge-tts": "Edge TTS",
+  "gemini": "Gemini",
+  "google-tts": "Google TTS",
+  "kimchi": "Kimchi",
+  "local-device": "Local Device",
+  "nvidia": "NVIDIA NIM",
+  "ollama": "Ollama Cloud",
+  "openrouter": "OpenRouter",
+  "searxng": "SearXNG",
+  "tortoise": "Tortoise TTS",
+  "vx": "Vertex AI",
+  "af": "API.airforce",
+  "bzl": "Bazaarlink",
+  "kgw": "Kilo Gateway",
+  "ps": "Poolside",
+  "agnes": "Agnes AI",
+  "nous": "Nous Research",
+  "ag": "Antigravity",
+  "cc": "Claude Code",
+  "cl": "Cline",
+  "clinepass": "ClinePass",
+  "cbcn": "CodeBuddy CN",
+  "cx": "OpenAI Codex",
+  "cu": "Cursor IDE",
+  "gh": "GitHub Copilot",
+  "glm": "Zai GLM Coding",
+  "gcli": "Grok CLI (Grok Build)",
+  "if": "iFlow AI",
+  "kc": "Kilo Code",
+  "kimi": "Kimi",
+  "qdcn": "Qoder CN",
+  "qd": "Qoder",
+  "xai": "xAI (Grok)",
+  "mimo": "Xiaomi MiMo",
+  "cbai": "CodeBuddy",
+  "zd": "Zed",
+  "muse": "Muse (Meta Model API)",
+  "mm": "MiniMax Code",
+  "mmg": "MiniMax Code (Global)",
+  "alicode-intl": "Alibaba Coding",
+  "alicode": "Alibaba",
+  "anthropic": "Anthropic",
+  "aai": "AssemblyAI",
+  "polly": "AWS Polly",
+  "azure": "Azure OpenAI",
+  "bfl": "Black Forest Labs",
+  "bb": "Blackbox AI",
+  "brave": "Brave Search",
+  "cartesia": "Cartesia",
+  "cerebras": "Cerebras",
+  "ch": "Chutes AI",
+  "cohere": "Cohere",
+  "comfyui": "ComfyUI",
+  "cmc": "Command Code",
+  "dg": "Deepgram",
+  "ds": "DeepSeek",
+  "el": "ElevenLabs",
+  "exa": "Exa",
+  "fal": "Fal.ai",
+  "fl": "Featherless",
+  "firecrawl": "Firecrawl",
+  "fireworks": "Fireworks AI",
+  "glm-cn": "GLM (China)",
+  "gpse": "Google PSE",
+  "groq": "Groq",
+  "hf": "HuggingFace",
+  "hyp": "Hyperbolic",
+  "inworld": "Inworld TTS",
+  "jina": "Jina AI",
+  "jina-reader": "Jina Reader",
+  "linkup": "Linkup",
+  "minimax-cn": "Minimax (China)",
+  "minimax": "Minimax Coding",
+  "mistral": "Mistral",
+  "nb": "NanoBanana API",
+  "nebius": "Nebius AI",
+  "ollama-local": "Ollama Local",
+  "ollama-search": "Ollama Search",
+  "openai": "OpenAI",
+  "ocg": "OpenCode Go",
+  "ocz": "OpenCode Zen",
+  "pplx": "Perplexity",
+  "pa": "Perplexity Agent",
+  "playht": "PlayHT",
+  "recraft": "Recraft",
+  "runway": "Runway ML",
+  "sdwebui": "SD WebUI",
+  "searchapi": "SearchAPI",
+  "serper": "Serper",
+  "siliconflow": "SiliconFlow",
+  "sensenova": "SenseNova",
+  "stability": "Stability AI",
+  "tavily": "Tavily",
+  "together": "Together AI",
+  "topaz": "Topaz",
+  "venice": "Venice AI",
+  "vercel": "Vercel AI Gateway",
+  "vxp": "Vertex Partner",
+  "ark": "Volcengine Ark",
+  "voyage": "Voyage AI",
+  "xmtp": "Xiaomi MiMo (Token Plan)",
+  "youcom": "You.com Search",
+  "alims-intl": "Alibaba Studio",
+  "qianfan": "Baidu Qianfan",
+  "bm": "BluesMinds",
+  "llm7": "LLM7",
+  "samba": "SambaNova",
+  "hunyuan": "Tencent Hunyuan",
+  "morph": "Morph",
+  "tokenrouter": "TokenRouter",
+  "selfhosted-stt": "Self-hosted STT",
+  "selfhosted-tts": "Self-hosted TTS",
+  "selfhosted-embedding": "Self-hosted Embedding",
+  "fish": "Fish Audio",
+  "alitp-intl": "Alibaba Token Plan",
+  "xquik": "Xquik",
+  "tokenharbor": "Token Harbor",
+  "dahl": "Dahl Inference",
+  "atria": "Atria Dawn",
+  "bai": "B.AI",
+  "tinyfish": "TinyFish",
+  "v1m": "v1m (System One)",
+  "br": "AWS Bedrock",
+  "brx": "AWS Bedrock (xAI)",
+  "veo-free": "Veo AI Free Web",
+  "rc": "Runcrate",
+  "nace": "Nace Drex",
+  "gw": "Grok Web (Subscription)",
+  "pw": "Perplexity Web (Pro/Max)",
+  "deepseek-web": "DeepSeek Web",
+  "gemini-web": "Gemini Web",
+  "muse-web": "Muse Web",
+  "chatgpt-web": "ChatGPT Web",
+  "uc": "UC Web"
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   const routerUrl = document.getElementById('9router-url');
   const routerKey = document.getElementById('9router-key');
   const routerModel = document.getElementById('9router-model');
   const routerModels = document.getElementById('9router-models');
+  const routerProviderSearch = document.getElementById('9router-provider-search');
+  const routerProvider = document.getElementById('9router-provider');
+  const routerProviderHelp = document.getElementById('9router-provider-help');
   const loadRouterModelsBtn = document.getElementById('load-9router-models-btn');
   const testRouterBtn = document.getElementById('test-9router-btn');
   const routerStatusText = document.getElementById('9router-status-text');
@@ -30,9 +180,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let savedFormState = null;
   let isSaving = false;
   let saveError = null;
-  // No real setup connects this many providers; 9Router's full catalogue lists ~85.
-  const CATALOGUE_PROVIDER_THRESHOLD = 25;
   let routerModelIds = new Set();
+  let routerProviders = new Map();
+  let modelProviders = new Map();
+  let selectedProvider = '';
+  let catalogPlaceholder = 'Load models to choose a provider';
   let activeRouterCheck = null;
 
   // 1. Load saved settings
@@ -206,7 +358,114 @@ document.addEventListener('DOMContentLoaded', () => {
     syncModelPicker();
   }
 
+  function currentModelProvider() {
+    const model = routerModel.value.trim();
+    const exact = modelProviders.get(model);
+    if (exact) return exact;
+    const prefix = model.includes('/') ? `provider:${model.slice(0, model.indexOf('/'))}` : '';
+    return routerProviders.has(prefix) ? prefix : '';
+  }
+
+  function renderProviderModels() {
+    const provider = routerProviders.get(selectedProvider);
+    renderModelPicker(provider?.models || [], provider
+      ? `Choose from ${provider.models.length} model${provider.models.length === 1 ? '' : 's'}`
+      : routerProviders.size ? 'Choose a provider above' : catalogPlaceholder);
+  }
+
+  function renderProviderMenu() {
+    const normalize = value => value.toLowerCase().replace(/[\s_-]+/g, '');
+    const query = normalize(routerProviderSearch.value.trim());
+    const providers = [...routerProviders.entries()]
+      .filter(([, provider]) => normalize(`${provider.name} ${provider.prefix}`).includes(query))
+      .sort((a, b) => a[1].name.localeCompare(b[1].name) || a[0].localeCompare(b[0]));
+    if (routerProviders.size && !providers.some(([key]) => key === selectedProvider)) selectedProvider = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.disabled = true;
+    placeholder.textContent = providers.length ? 'Choose your provider' : routerProviders.size ? 'No matching providers' : catalogPlaceholder;
+    routerProvider.replaceChildren(placeholder);
+    for (const [key, provider] of providers) {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = `${provider.name}${provider.prefix ? ` (${provider.prefix})` : ''} — ${provider.models.length} model${provider.models.length === 1 ? '' : 's'}`;
+      routerProvider.appendChild(option);
+    }
+    routerProvider.value = providers.some(([key]) => key === selectedProvider) ? selectedProvider : '';
+    routerProvider.disabled = providers.length === 0;
+    routerProviderSearch.disabled = routerProviders.size === 0;
+    routerProviderHelp.textContent = !routerProviders.size
+      ? 'Load models, then choose your provider to narrow the list below.'
+      : !providers.length
+        ? 'No providers match. Try a different name or prefix, or clear the search.'
+        : `${providers.length}${query ? ' matching' : ''} provider${providers.length === 1 ? '' : 's'}${query ? '' : ' listed by 9Router'}. Choose one to see its models.`;
+    renderProviderModels();
+  }
+
+  function clearModelCatalog(message, resetProvider = false) {
+    routerProviders = new Map();
+    modelProviders = new Map();
+    catalogPlaceholder = message;
+    if (resetProvider) {
+      selectedProvider = '';
+      routerProviderSearch.value = '';
+    }
+    renderProviderMenu();
+  }
+
+  function loadModelCatalog(items) {
+    const models = new Map();
+    for (const item of items) {
+      if ((item?.kind && item.kind !== 'llm') || typeof item?.id !== 'string' || !item.id.trim()) continue;
+      if (!models.has(item.id) || item.owned_by === 'combo') models.set(item.id, item);
+    }
+    routerProviders = new Map();
+    modelProviders = new Map();
+    for (const [id, item] of [...models].sort((a, b) => a[0].localeCompare(b[0]))) {
+      const prefix = item.owned_by === 'combo' || !id.includes('/') ? '' : id.slice(0, id.indexOf('/'));
+      const key = prefix ? `provider:${prefix}` : 'combos';
+      if (!routerProviders.has(key)) routerProviders.set(key, {
+        prefix,
+        name: prefix ? Object.hasOwn(ROUTER_PROVIDER_NAMES, prefix) ? ROUTER_PROVIDER_NAMES[prefix] : prefix : 'Combos & unprefixed models',
+        models: []
+      });
+      routerProviders.get(key).models.push(id);
+      modelProviders.set(id, key);
+    }
+    if (!routerProviders.has(selectedProvider)) selectedProvider = currentModelProvider()
+      || (routerProviders.size === 1 ? routerProviders.keys().next().value : '');
+    catalogPlaceholder = 'No models available';
+    renderProviderMenu();
+  }
+
+  function updateCatalogStatus() {
+    if (activeRouterCheck && !activeRouterCheck.loadModels) return;
+    const provider = routerProviders.get(selectedProvider);
+    routerStatusText.textContent = !modelProviders.size
+      ? 'No models available. Connect a provider in the 9Router dashboard, then load models again, or enter your combo name.'
+      : provider
+        ? `Showing ${provider.models.length} model${provider.models.length === 1 ? '' : 's'} for ${provider.name}. Select a model, click Test 9Router, then save.`
+        : `Loaded ${modelProviders.size} models. Search for your provider above, then choose a model. You can also enter a model ID or combo manually.`;
+    routerStatusText.style.color = 'var(--status-info)';
+  }
+
+  routerProviderSearch.addEventListener('input', () => {
+    renderProviderMenu();
+    updateCatalogStatus();
+  });
+  routerProvider.addEventListener('change', () => {
+    selectedProvider = routerProviders.has(routerProvider.value) ? routerProvider.value : '';
+    renderProviderModels();
+    updateCatalogStatus();
+  });
+
   function modelChanged() {
+    const provider = currentModelProvider();
+    if (provider && provider !== selectedProvider) {
+      selectedProvider = provider;
+      routerProviderSearch.value = '';
+      renderProviderMenu();
+    }
     syncModelPicker();
     formChanged();
     if (activeRouterCheck && !activeRouterCheck.loadModels) cancelRouterCheck();
@@ -227,7 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
   for (const field of [routerUrl, routerKey]) {
     field.addEventListener('input', () => {
       cancelRouterCheck();
-      renderModelPicker([], 'Click Load Models to refresh');
+      clearModelCatalog('Click Load Models to refresh', true);
       routerStatusText.textContent = 'Connection settings changed. Click Load Models to refresh the list.';
       routerStatusText.style.color = 'var(--muted)';
       formChanged();
@@ -240,10 +499,9 @@ document.addEventListener('DOMContentLoaded', () => {
     activeRouterCheck = request;
     loadRouterModelsBtn.disabled = true;
     testRouterBtn.disabled = true;
-    if (loadModels) renderModelPicker([], 'Loading models…');
+    if (loadModels) clearModelCatalog('Loading models…');
     routerStatusText.textContent = loadModels ? 'Loading models from 9Router…' : 'Testing 9Router…';
     routerStatusText.style.color = 'var(--status-info)';
-    let statusColor = 'var(--status-success)';
     try {
       const endpoint = getRouterEndpoint();
       const model = routerModel.value.trim();
@@ -254,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const origin = `${endpoint.protocol}//${endpoint.hostname}/*`;
         if (!await chrome.permissions.contains({ origins: [origin] })) {
           if (activeRouterCheck !== request) return;
-          renderModelPicker([], 'Click Load Models to connect');
+          clearModelCatalog('Click Load Models to connect');
           routerStatusText.textContent = 'Click Load Models to allow access to this router and discover its models.';
           routerStatusText.style.color = 'var(--muted)';
           return;
@@ -276,27 +534,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) throw new Error(data.error?.message || `9Router returned HTTP ${response.status}. Check the router key and provider configuration.`);
       if (loadModels) {
         if (!Array.isArray(data.data)) throw new Error('9Router did not return a model list. Check that the base URL points to its /v1 API.');
-        const ids = [...new Set(data.data.filter(item => !item?.kind || item.kind === 'llm').map(item => item?.id).filter(id => typeof id === 'string' && id.trim()))].sort();
-        renderModelPicker(ids, ids.length ? `Choose from ${ids.length} available models` : 'No models available');
-        // 9Router lists its whole built-in catalogue when no provider connection is
-        // saved, and gives no marker for connected providers. Surface that case.
-        const providers = new Set(ids.filter(id => id.includes('/')).map(id => id.slice(0, id.indexOf('/'))));
-        const catalogueFallback = providers.size >= CATALOGUE_PROVIDER_THRESHOLD;
-        routerStatusText.textContent = !ids.length
-          ? 'No models available. Connect a provider in the 9Router dashboard, then load models again, or enter your combo name.'
-          : catalogueFallback
-            ? `9Router listed ${ids.length} models from ${providers.size} providers. That is its full catalogue, which it returns when no provider is saved as connected, so many of these will not work. Connect a provider in the 9Router dashboard and click Load Models again, or choose a model you know works and click Test 9Router.`
-            : `Loaded ${ids.length} model${ids.length === 1 ? '' : 's'}. Choose from Available Models, or type a combo below. Test 9Router, then save.`;
-        statusColor = catalogueFallback ? 'var(--status-busy)' : 'var(--status-success)';
+        loadModelCatalog(data.data);
+        updateCatalogStatus();
       } else {
         const content = data.choices?.[0]?.message?.content;
         if (typeof content !== 'string' || !content.trim()) throw new Error('9Router returned an empty reply. Check the model or combo in its dashboard.');
         routerStatusText.textContent = `9Router is working with ${model}. Click Save Settings to use it for Sensei.`;
+        routerStatusText.style.color = 'var(--status-success)';
       }
-      routerStatusText.style.color = statusColor;
     } catch (error) {
       if (activeRouterCheck !== request) return;
-      if (loadModels) renderModelPicker([], 'Could not load models. Click Load Models to retry.');
+      if (loadModels) clearModelCatalog('Could not load models. Click Load Models to retry.');
       routerStatusText.textContent = `${error.message} Ensure 9Router is running and the URL is reachable.`;
       routerStatusText.style.color = 'var(--status-error)';
     } finally {

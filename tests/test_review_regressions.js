@@ -689,13 +689,20 @@ test('9Router discovers prefixed models and combos without overwriting a manuall
   assert.equal(calls[0].url, 'http://127.0.0.1:20128/v1/models');
   assert.equal(calls[0].options.method, 'GET');
   assert.equal(calls[0].options.headers.Authorization, 'Bearer router-test-key');
-  assert.deepEqual(h.elements.get('9router-models').options.map(option => option.value), ['', 'provider/model', 'study-combo']);
+  const provider = h.elements.get('9router-provider');
+  assert.deepEqual(provider.options.filter(option => option.value).map(option => option.value).sort(), ['combos', 'provider:provider']);
+  provider.value = 'provider:provider';
+  provider.listeners.change();
+  assert.deepEqual(h.elements.get('9router-models').options.map(option => option.value), ['', 'provider/model']);
+  provider.value = 'combos';
+  provider.listeners.change();
+  assert.deepEqual(h.elements.get('9router-models').options.map(option => option.value), ['', 'study-combo']);
   assert.equal(h.elements.get('9router-model').value, 'manual-combo');
   assert.equal(h.saved.length, 0, 'Loading models does not save or switch providers');
   assert.equal(h.elements.get('load-9router-models-btn').disabled, false);
 });
 
-test('9Router warns when it returns its full catalogue instead of connected providers', async () => {
+test('9Router keeps broad catalogs behind provider selection without guessing connection state', async () => {
   const h = createOptionsHarness();
   const respond = data => { h.sandbox.fetch = async () => ({ ok: true, json: async () => ({ data }) }); };
   const status = () => h.elements.get('9router-status-text');
@@ -703,13 +710,123 @@ test('9Router warns when it returns its full catalogue instead of connected prov
   respond([{ id: 'oc/model' }, { id: 'cx/model' }, { id: 'study-combo' }]);
   await h.elements.get('load-9router-models-btn').listeners.click();
   assert.match(status().textContent, /^Loaded 3 models/);
-  assert.equal(status().style.color, 'var(--status-success)');
+  assert.equal(status().style.color, 'var(--status-info)');
 
   respond(Array.from({ length: 40 }, (_, i) => ({ id: `provider${i}/model` })));
   await h.elements.get('load-9router-models-btn').listeners.click();
-  assert.match(status().textContent, /40 models from 40 providers.*full catalogue.*no provider is saved as connected/);
-  assert.equal(status().style.color, 'var(--status-busy)');
-  assert.equal(h.elements.get('9router-models').options.length, 41, 'The list stays usable; only the status warns');
+  assert.match(status().textContent, /Loaded 40 models.*provider above/);
+  assert.doesNotMatch(status().textContent, /no provider is saved as connected/);
+  assert.equal(status().style.color, 'var(--status-info)');
+  assert.equal(h.elements.get('9router-provider').options.length, 41);
+  assert.equal(h.elements.get('9router-models').options.length, 1, 'Choose a provider before creating model options');
+  assert.equal(h.elements.get('9router-models').disabled, true);
+});
+
+test('Provider search narrows a full catalog by name and prefix without changing the configured model', async () => {
+  const catalog = [
+    { id: 'oc/free-one' }, { id: 'oc/free-two' }, { id: 'cx/gpt-model' },
+    ...Array.from({ length: 40 }, (_, i) => ({ id: `custom-${i}/model` }))
+  ];
+  const h = createOptionsHarness({ linguaplay_9router_model: 'my-manual-combo' }, {
+    fetch: async () => ({ ok: true, json: async () => ({ data: catalog }) })
+  });
+  await waitForOptionsRouter(h);
+  const search = h.elements.get('9router-provider-search');
+  assert.ok(search, 'Settings must offer provider search above the model list');
+  const provider = h.elements.get('9router-provider');
+  const models = h.elements.get('9router-models');
+  assert.equal(provider.options.filter(option => option.value).length, 42);
+  assert.equal(models.disabled, true, 'A fresh multi-provider catalog must not expose hundreds of unrelated models');
+  for (const query of ['opencode', 'OC']) {
+    search.value = query;
+    search.listeners.input();
+    assert.deepEqual(provider.options.filter(option => option.value).map(option => option.value), ['provider:oc']);
+    provider.value = 'provider:oc';
+    provider.listeners.change();
+    assert.deepEqual(models.options.filter(option => option.value).map(option => option.value), ['oc/free-one', 'oc/free-two']);
+    assert.equal(h.elements.get('9router-model').value, 'my-manual-combo');
+  }
+  search.value = 'no-such-provider';
+  search.listeners.input();
+  assert.equal(provider.disabled, true);
+  assert.equal(models.disabled, true);
+  assert.match(h.elements.get('9router-provider-help').textContent, /No providers match.*clear/i);
+  search.value = '';
+  search.listeners.input();
+  assert.equal(provider.options.filter(option => option.value).length, 42);
+  assert.equal(provider.disabled, false);
+  assert.equal(h.saved.length, 0);
+  assert.equal(h.elements.get('settings-save-state').textContent, 'No pending changes');
+  assert.doesNotMatch(h.elements.get('9router-status-text').textContent, /no provider is saved as connected/);
+});
+
+test('Provider filtering preserves custom prefixes, nested model IDs, and slash-containing combos', async () => {
+  const h = createOptionsHarness({ linguaplay_9router_model: 'my-gateway/team/model' }, {
+    fetch: async () => ({ ok: true, json: async () => ({ data: [
+      { id: 'my-gateway/team/model' }, { id: 'my-gateway/team/model' },
+      { id: 'oc/free-model' }, { id: 'study/fallback', owned_by: 'combo' }, { id: 'bare-combo' },
+      { id: 'oc/image', kind: 'image' }
+    ] }) })
+  });
+  await waitForOptionsRouter(h);
+  const provider = h.elements.get('9router-provider');
+  assert.ok(provider, 'Settings must offer a provider menu');
+  const models = h.elements.get('9router-models');
+  assert.equal(provider.value, 'provider:my-gateway');
+  assert.deepEqual(models.options.filter(option => option.value).map(option => option.value), ['my-gateway/team/model']);
+  assert.equal(models.value, 'my-gateway/team/model');
+  provider.value = 'combos';
+  provider.listeners.change();
+  assert.deepEqual(models.options.filter(option => option.value).map(option => option.value), ['bare-combo', 'study/fallback']);
+  models.value = 'study/fallback';
+  models.listeners.change();
+  assert.equal(h.elements.get('9router-model').value, 'study/fallback');
+  assert.equal(h.elements.get('settings-save-state').textContent, 'Unsaved changes');
+  h.elements.get('9router-model').value = 'oc/free-model';
+  h.elements.get('9router-model').listeners.input();
+  assert.equal(provider.value, 'provider:oc');
+  assert.equal(models.value, 'oc/free-model');
+});
+
+test('Provider filters survive refresh and clear on credential edits, failed loads, and missing providers', async () => {
+  let data = [{ id: 'cx/saved-model' }, { id: 'oc/free-model' }];
+  let calls = 0;
+  const h = createOptionsHarness({ linguaplay_9router_model: 'cx/saved-model' }, {
+    fetch: async () => { calls++; return { ok: true, json: async () => ({ data }) }; }
+  });
+  await waitForOptionsRouter(h);
+  const provider = h.elements.get('9router-provider');
+  const search = h.elements.get('9router-provider-search');
+  const models = h.elements.get('9router-models');
+  assert.equal(provider.value, 'provider:cx');
+  provider.value = 'provider:oc';
+  provider.listeners.change();
+  search.value = 'OpenCode';
+  search.listeners.input();
+  assert.equal(calls, 1, 'Searching or choosing a provider must reuse the loaded catalog');
+  await h.elements.get('load-9router-models-btn').listeners.click();
+  assert.equal(provider.value, 'provider:oc');
+  assert.equal(search.value, 'OpenCode');
+  assert.equal(h.elements.get('9router-model').value, 'cx/saved-model');
+  search.value = '';
+  search.listeners.input();
+  data = [{ id: 'cx/saved-model' }];
+  await h.elements.get('load-9router-models-btn').listeners.click();
+  assert.equal(provider.value, 'provider:cx');
+  assert.equal(models.value, 'cx/saved-model');
+  h.elements.get('9router-key').value = 'different-key';
+  h.elements.get('9router-key').listeners.input();
+  assert.equal(provider.disabled, true);
+  assert.equal(search.disabled, true);
+  assert.equal(search.value, '');
+  assert.equal(models.disabled, true);
+  h.sandbox.fetch = async () => { throw new Error('Router is offline'); };
+  await h.elements.get('load-9router-models-btn').listeners.click();
+  assert.equal(provider.disabled, true);
+  assert.equal(search.disabled, true);
+  assert.equal(models.disabled, true);
+  assert.equal(h.elements.get('9router-model').value, 'cx/saved-model');
+  assert.match(h.elements.get('9router-status-text').textContent, /offline/);
 });
 
 async function waitForOptionsRouter(h) {
@@ -838,16 +955,20 @@ test('Options automatically discovers the full model list without replacing the 
   assert.equal(calls[0].options.headers.Authorization, 'Bearer router-test-key');
   assert.equal(h.requested.length, 0, 'Opening Settings must not request host access');
   const picker = h.elements.get('9router-models');
-  assert.deepEqual(picker.options.filter(option => option.value).map(option => option.value), ['cx/another-model', 'cx/gpt-6-luna', 'oc/free-model']);
+  assert.deepEqual(picker.options.filter(option => option.value).map(option => option.value), ['cx/another-model', 'cx/gpt-6-luna']);
   assert.equal(picker.value, 'cx/gpt-6-luna');
   assert.equal(picker.disabled, false);
+  const provider = h.elements.get('9router-provider');
+  assert.equal(provider.value, 'provider:cx');
+  provider.value = 'provider:oc';
+  provider.listeners.change();
   picker.value = 'oc/free-model';
   picker.listeners.change();
   assert.equal(h.elements.get('9router-model').value, 'oc/free-model');
   h.elements.get('9router-model').value = 'my custom combo';
   h.elements.get('9router-model').listeners.input();
   assert.equal(picker.value, '');
-  assert.equal(picker.options.length, 4, 'Typing a combo must leave the full model list available');
+  assert.equal(picker.options.length, 2, 'Typing a combo must leave the filtered model list available');
   assert.equal(h.saved.length, 0, 'Discovery and selection only change the form');
 });
 
@@ -881,6 +1002,8 @@ test('Options loads an already authorized remote router and preserves a manual c
     assert.equal(endpoint, 'https://router.example/gateway/v1/models');
     assert.equal(h.requested.length, 0);
     assert.equal(h.elements.get('9router-models').disabled, true);
+    assert.equal(h.elements.get('9router-provider').disabled, true);
+    assert.equal(h.elements.get('9router-provider-search').disabled, true);
     assert.equal(h.elements.get('9router-model').value, 'manual-combo');
     assert.equal(h.elements.get('test-9router-btn').disabled, false);
     assert.equal(h.saved.length, 0);

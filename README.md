@@ -100,7 +100,7 @@ npm install -g 9router
 1. Open the 9Router dashboard at `http://localhost:20128`, connect your providers, and copy the router API key if authentication is enabled.
 2. Click the LinguaPlay toolbar icon to open the 9Router settings.
 3. Keep `http://127.0.0.1:20128/v1` for a router on the same computer, or enter your hosted router's API base URL. Enter the **router** key here; upstream provider keys stay in 9Router.
-4. Choose an ID from **Available Models**; the full list loads automatically when the configured router is reachable and browser access is already allowed. **Load Models** refreshes the list or requests access to a hosted router. Selecting a model fills **Model or Combo**, including its provider prefix. You can also type a combo name from your dashboard there.
+4. Search **Find your provider** by name or prefix (for example, `OpenCode` or `oc`), choose your **Provider**, then select an ID from **Available Models**. Only that provider's models appear; router combos are grouped under **Combos & unprefixed models**. The catalog loads automatically when browser access is already allowed; **Load Models** refreshes it or requests access to a hosted router. Selecting a model fills **Model or Combo** with its exact ID. You can also enter a model or combo there manually.
 5. Click **Test 9Router** to send a short AI request, then **Save Settings**.
 
 Sensei Chat, grammar breakdowns, and AI song identification use only the configured 9Router model or combo. Enter the router key in extension Options; upstream credentials stay in 9Router. Keep 9Router running while using these features. The extension does not start 9Router automatically; configure [automatic startup](docs/9router-autostart.md) once on each computer.

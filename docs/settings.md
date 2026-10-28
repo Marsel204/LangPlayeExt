@@ -41,15 +41,16 @@ These are the desktop npm commands from [9Router's CLI guide](https://github.com
 | --- | --- |
 | **9Router API Base URL** | `http://127.0.0.1:20128/v1` for a router on this computer. For a hosted router, use its API base URL, including its `/v1` path. This is the API URL, not the dashboard URL. |
 | **9Router API Key** | The router key from 9Router. Leave blank only if that router allows requests without authentication. Upstream provider credentials stay in the dashboard. |
-| **Available Models** | A dropdown containing all chat models returned by your configured router. It loads automatically when the router is reachable and browser access is already allowed. **Load Models** refreshes the list or requests access to a hosted router. |
+| **Find your provider / Provider** | Search by provider name or model prefix, for example `OpenCode` or `oc`, then choose a provider. Each choice shows its model count. Custom prefixes remain selectable; router combos and models without a prefix appear under **Combos & unprefixed models**. The provider of your saved model is selected automatically when it is listed. |
+| **Available Models** | Shows only the chat models returned for the selected provider. The catalog loads automatically when the router is reachable and browser access is already allowed. **Load Models** refreshes it or requests access to a hosted router. Choose a provider first when several are listed and no saved model identifies one. |
 | **Model or Combo** | Selecting from **Available Models** fills this field with the exact ID, including its provider prefix. You can also enter a model ID or the exact name of a combo you created in 9Router. A combo is a routing/fallback configuration managed in 9Router. |
 
-1. Choose a model in **Available Models**, or type a combo in **Model or Combo**. The dropdown always shows the full loaded list, even when the text field contains another model. If the list has not loaded, or you changed the URL or key, click **Load Models**. Discovery preserves your current model or combo until you select another one.
+1. Search for and select your **Provider**, then choose a model in **Available Models**. For router combos, choose **Combos & unprefixed models**; you can also type any model ID or combo directly in **Model or Combo**. Changing the provider filter does not replace your current model or save the form. If the catalog has not loaded, or you changed the URL or key, click **Load Models**.
 2. Click **Test 9Router**. It sends a short request using the current form values. A successful test says **9Router is working with …** below the model field. The test uses your provider's normal request allowance.
 3. Click **Save Settings** at the bottom of the page. Testing and loading models do not save the form.
 4. Open or refresh a YouTube video with Japanese captions. Click a word, then try **Ask Sensei (AI Grammar Tutor)** or **Sensei Chat**.
 
-A model list can load even when a provider request fails. Complete the AI test before relying on the connection. Models and free-tier availability depend on the providers enabled in your router; use the current list rather than copying an old model name from a screenshot.
+A model list can load even when a provider request fails. Some 9Router responses contain its full catalog, including unconnected providers. The provider menu filters that catalog for browsing; it does not verify connections or provider quota. Complete the AI test before relying on the connection. Models and free-tier availability depend on the providers enabled in your router; use the current list rather than copying an old model name from a screenshot.
 
 ### Keep it available after login
 
@@ -101,6 +102,7 @@ Click **Save Settings** after changing the default. You can also switch modes fr
 | Connection refused, a network error, or a timeout | Open the 9Router dashboard. Start or restart the server if it is unavailable. Check the host and port in the API URL; `127.0.0.1` refers to the computer running the browser. |
 | HTTP 401 or 403 | Check the router API key and router access settings. If 9Router reports an upstream authentication error, reconnect that provider in its dashboard. |
 | No models available | Enable a provider in the dashboard and reload the list. You can also enter a combo you have created there. |
+| No providers match your search | Clear **Find your provider**, or try the prefix shown in a known model ID, such as `oc`. Custom prefixes are listed exactly as returned by the router. Refresh the catalog with **Load Models** after enabling a provider. |
 | The model list loads but the AI test fails | Check the exact model or combo, provider login, quota, and provider availability in 9Router. Loading a list does not test a completion. |
 | HTTP 404 or a non-JSON response | Use the API base URL ending in `/v1`, rather than `/dashboard` or a website landing page. |
 | Settings were not saved after a permissions prompt | Allow browser access to the chosen remote server, then save again. Denying access keeps the previously saved settings. |
