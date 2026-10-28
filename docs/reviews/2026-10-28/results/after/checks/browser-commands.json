@@ -1,0 +1,52 @@
+[
+  {
+    "name": "p8",
+    "command": [
+      "node",
+      "tests/perf/perf_p8_browser.mjs",
+      "--out",
+      "docs/reviews/2026-10-28/results/after/perf"
+    ],
+    "code": 0,
+    "seconds": 26.54,
+    "failedGates": []
+  },
+  {
+    "name": "review-matrix",
+    "command": [
+      "node",
+      "tests/review/run_review_matrix.mjs",
+      "--mode",
+      "after",
+      "--repeat-processes",
+      "3",
+      "--repeat-browser",
+      "3",
+      "--perf",
+      "docs/reviews/2026-10-28/results/after/perf/perf.json",
+      "--out",
+      "docs/reviews/2026-10-28/results/after/review"
+    ],
+    "code": 0,
+    "seconds": 297.944,
+    "counts": {
+      "GREEN": 83
+    }
+  },
+  {
+    "name": "native-reading",
+    "command": [
+      "node",
+      "tests/review/run_native_reading.mjs",
+      "--mode",
+      "after",
+      "--out",
+      "docs/reviews/2026-10-28/results/after/review"
+    ],
+    "code": 0,
+    "seconds": 12.157,
+    "counts": {
+      "GREEN": 84
+    }
+  }
+]

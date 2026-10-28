@@ -40,20 +40,9 @@ const mockAiJson = {
 const fnMatch = contentJs.match(/function renderPedagogicalBreakdown\(aiJson, providerTitle\) \{([\s\S]*?)\n  \}/);
 assert.ok(fnMatch, 'renderPedagogicalBreakdown function found in content.js');
 
-const fnBody = fnMatch[1];
-const mockWanakana = {
-  toRomaji: (str) => {
-    const dict = { 'せかい': 'sekai', 'は': 'ha', 'とても': 'totemo', 'きれい': 'kirei', 'だった': 'datta', 'な': 'na' };
-    return dict[str] || str;
-  }
-};
-
-const renderFn = new Function('aiJson', 'providerTitle', 'window', `
-  const wanakana = window.wanakana;
-  ${fnBody}
-`);
-
-const renderedHtml = renderFn(mockAiJson, '⚡ DEEPSEEK SENSEI BREAKDOWN', { wanakana: mockWanakana });
+// Execute the full shipped closure so shared escaping and romaji helpers are real.
+const renderFn = require('./shipped_engine')().renderPedagogicalBreakdown;
+const renderedHtml = renderFn(mockAiJson, '⚡ DEEPSEEK SENSEI BREAKDOWN');
 
 // Requirement 1: Text Breakdown card elements (Image 1) MUST be deleted
 assert.strictEqual(
@@ -90,3 +79,11 @@ assert.strictEqual(
 );
 
 console.log('PASS: renderPedagogicalBreakdown adheres to user requirements!');
+
+// Malformed provider shapes must neither throw nor turn objects into markup.
+for (const value of [null, [], {data: null}, {word_by_word: {}}, {word_by_word: [null, [], {word: {}}, {word: '猫', meaning: {bad: true}}]}]) {
+  assert.doesNotThrow(() => renderFn(value, '<bad>'));
+}
+const escaped = renderFn({word_by_word:[{word:'"<img>', reading:'ねこ', romaji:'neko', meaning:'<svg>', role:'" data-injected="yes'}]}, '<provider>');
+assert.ok(escaped.includes('&lt;img&gt;') && escaped.includes('&lt;svg&gt;') && escaped.includes('&lt;provider&gt;'));
+assert.ok(!escaped.includes('<img') && !escaped.includes('<svg') && !escaped.includes('" data-injected="'));

@@ -32,7 +32,9 @@ assert.ok(
 );
 
 // 4. Verify Quick Anki (lp-quick-anki-btn) uses drawerContextSentence
-const quickAnkiMatch = contentJs.match(/document\.getElementById\(['"]lp-quick-anki-btn['"]\)[\s\S]*?addEventListener\('click'[\s\S]*?\{([\s\S]*?)(?:chrome\.storage\.local\.get)/);
+// Card persistence now lives in saveCard; match the actual listener, including
+// its pinned context, rather than the first preceding button lookup.
+const quickAnkiMatch = contentJs.match(/document\.getElementById\(['"]lp-quick-anki-btn['"]\)\.addEventListener\('click'[\s\S]*?\{([\s\S]*?)(?:await saveCard|chrome\.storage\.local\.get)/);
 assert.ok(quickAnkiMatch, 'lp-quick-anki-btn click listener found');
 const quickAnkiBody = quickAnkiMatch[1];
 assert.ok(
@@ -50,7 +52,7 @@ assert.ok(
 );
 
 // 6. Verify Save Enriched AI Card to Anki (lp-ai-anki-btn) uses drawerContextSentence
-const aiAnkiMatch = contentJs.match(/document\.getElementById\(['"]lp-ai-anki-btn['"]\)\??\.addEventListener\('click'[\s\S]*?\{([\s\S]*?)(?:chrome\.storage\.local\.get)/);
+const aiAnkiMatch = contentJs.match(/document\.getElementById\(['"]lp-ai-anki-btn['"]\)\??\.addEventListener\('click'[\s\S]*?\{([\s\S]*?)(?:await saveCard|chrome\.storage\.local\.get)/);
 assert.ok(aiAnkiMatch, 'lp-ai-anki-btn click listener found');
 const aiAnkiBody = aiAnkiMatch[1];
 assert.ok(

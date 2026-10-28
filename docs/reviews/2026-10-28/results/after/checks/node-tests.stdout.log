@@ -1,0 +1,140 @@
+PASS: background.js evaluated cleanly without crashing!
+✔ tests/test_background_crash.js (46.205299ms)
+✔ Quick Add reports durable outcomes: both confirmed (90.795419ms)
+✔ Quick Add reports durable outcomes: Anki failed (24.515867ms)
+✔ Quick Add reports durable outcomes: local failed (25.550349ms)
+✔ Quick Add reports durable outcomes: both failed (25.577334ms)
+✔ Quick Add reports durable outcomes: duplicate (31.922728ms)
+✔ card HTML highlights source text without splitting generated entities (13.909563ms)
+✔ shared TSV highlights source text and preserves four safe columns (2.021194ms)
+PASS: Markdown table formatting for Sensei chatbot verified!
+✔ tests/test_chat_markdown_tables.js (49.975615ms)
+PASS: Drawer context sentence isolation tests passed cleanly!
+✔ tests/test_drawer_context_sentence.js (51.842745ms)
+PASS: Drawer tab navigation structure verified!
+✔ tests/test_drawer_tabs.js (52.728463ms)
+✔ the unpacked extension has valid entry points without the standalone player (3.161484ms)
+✔ popup opens YouTube and searches encoded Japanese queries directly (3.777143ms)
+✔ popup study guidance appears only on YouTube watch pages (10.261539ms)
+✔ saved cards still export from the extension popup after removing the app (2.778187ms)
+PASS: renderPedagogicalBreakdown adheres to user requirements!
+✔ tests/test_gloss_romaji.js (88.899557ms)
+PASS: Header definition placement verified!
+✔ tests/test_header_definition.js (67.63183ms)
+✔ parser uses dictionary readings, verb lemmas, POS-aware particles and long vowels (8.598198ms)
+✔ identical requests share a promise and cache without further transport calls (0.646618ms)
+✔ invalid offsets, surfaces and morphemes fall back; astral offsets remain valid (0.790409ms)
+✔ failed transport is cooled down and recovers when the server becomes ready (1.01014ms)
+✔ navigation discards old responses without deleting a new in-flight request (2.890742ms)
+✔ cached romaji escapes markup in parser readings (3.932171ms)
+✔ worker dispatches to configured server and deduplicates concurrent calls (5.438322ms)
+✔ worker rejects untrusted senders, bad input, denied permissions and invalid URLs (8.496671ms)
+✔ worker reports a missing parser without returning fabricated tokens (2.174303ms)
+🧪 Testing LinguaPlay Logo Click & App Turn-Off Feature...
+✅ Test 14a: isAppEnabled state declaration verified
+✅ Test 14b: Interactive #linguaplay-bar-logo verified
+✅ Test 14c: setAppEnabled function implementation verified
+✅ Test 14d: LINGUAPLAY_SET_APP_STATE event contract verified
+✅ Test 14e: youtube-bridge.js app-disable guard verified
+✅ Test 14f: CSS styling for clickable logo and disabled state verified
+✅ Test 14g: Runtime state transition simulation verified
+
+🎉 ALL LOGO TOGGLE TESTS PASSED CLEANLY!
+
+✔ tests/test_logo_toggle.js (62.402832ms)
+✔ parseLRC parses standard and multi-timestamp LRC cues with duration calculations (2.024788ms)
+✔ parseSubtitleFile recognizes .lrc files and LRC content (0.588015ms)
+✔ cleanSongTitle sanitizes YouTube music video titles and extracts artist/track (2.539144ms)
+✔ manifest permits LRCLIB and keeps arbitrary endpoint access optional (1.800062ms)
+✔ background.js registers and dispatches FETCH_LRCLIB_LYRICS correctly (4.049282ms)
+✔ worker ignores removed unrestricted fetch handlers without issuing requests (3.916644ms)
+✔ background.js falls back to querying without duration if duration query fails (5.341372ms)
+✔ content.js includes lyrics modal UI, search inputs, and retry polling state (2.139395ms)
+✔ background.js falls back to Kugou Music when LRCLIB has no synced lyrics (3.571059ms)
+✔ content.js includes Audio Timing 1-click anchor sync, macro buttons, and storage persistence (3.824998ms)
+✔ background.js cascades to track-only search if composite query yields 0 results (1.243789ms)
+✔ content.js includes Sensei AI song identifier and 1-click modal button (2.022022ms)
+✔ content.js includes per-video lyrics caching with storage persistence (1.018253ms)
+✔ content.js places #linguaplay-sub-status badge inside #linguaplay-yt-controls next to the eye icon (2.1458ms)
+✔ clicking the green #linguaplay-sub-status button opens the modal, replaces stale inputs, and autosearches with LLM (50.306644ms)
+✔ long ASCII runs preserve WanaKana output without repeated kana conversion (64.023366ms)
+✔ the production overlay and drawer use parsed readings, grouped inflections and lemmas (69.665105ms)
+✔ parsing completed after hide and drawer close preserves visibility and current context (16.029349ms)
+[LinguaPlay] Innertube caption fetch error: TypeError: res.json is not a function
+    at fetchInnertubeCaptions (content.js:1365:32)
+    at async fetchYouTubeCaptions (content.js:1408:27)
+    at async Object.checkAndInitVideo (content.js:3820:20)
+    at async TestContext.<anonymous> (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/test_review_regressions.js:219:3)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+✔ late parser results cannot replace a newer caption, cleared overlay or selected word (16.892378ms)
+✔ YouTube startup follows playback, including already-playing and replacement videos (8.781623ms)
+✔ visibility toggles independently of toolbar, readings and drawer state (8.289519ms)
+✔ subtitle tracking continues while hidden and restoration uses the current time (7.140593ms)
+✔ a completed translation while hidden is retained for the previously open drawer (8.859868ms)
+✔ visibility controls isolate pointer and keyboard events without preventing button activation (7.30937ms)
+✔ native controls are placed before CC and reattached without duplicate buttons (6.297057ms)
+✔ the settings control toggles the toolbar and its accessible expanded state (4.142017ms)
+✔ a fresh page session resets subtitle visibility (10.673962ms)
+✔ the toolbar logo disables learning and restores original captions (5.918467ms)
+✔ re-enabling the app renders the current cue after playback advances while off (6.084879ms)
+✔ a saved disabled app keeps original captions available after UI injection (7.57838ms)
+✔ live subtitle readings retain the irregular 来る stem (4.714651ms)
+✔ control: ordinary subtitle words still use the production reading engine (9.339136ms)
+✔ 行った retains its previously supported 行く reading (13.47217ms)
+✔ deinflection resolves 飲んだ to 飲む (1.340352ms)
+✔ deinflection resolves 泳ぎました to 泳ぐ (3.735028ms)
+✔ deinflection resolves 遊ぼう to 遊ぶ (0.259854ms)
+✔ an unset provider continues to use the working local server (3.023176ms)
+✔ control: an explicit local provider dispatches to the local server (4.58536ms)
+✔ local analysis can finish after the former four-second deadline (38.559781ms)
+✔ local analysis reports the actual backend error (3.391466ms)
+✔ a chat response for a previous word cannot enter the new conversation (8.762839ms)
+✔ control: the configured DeepSeek chat uses the actual API builder (4.981633ms)
+✔ chat rejects overlapping sends without losing a draft and sends ordered history afterward (3.170982ms)
+✔ an old word response does not unlock a new word request (10.451443ms)
+✔ chat failures unlock retry and do not send an unanswered duplicate in history (2.795823ms)
+✔ IME confirmation does not submit an unfinished Japanese question (2.15156ms)
+✔ content custom-provider requests use the worker instead of page fetch (2.010338ms)
+✔ worker builds a request from saved endpoint and credentials (1.607226ms)
+✔ worker rejects unauthorized origins and invalid requests without fetching (2.343006ms)
+✔ the source rule table and browser deinflector remain identical (1.695011ms)
+✔ Options defaults agree with the content provider selection (1.938426ms)
+✔ Options defaults auto-start on and saves an explicit opt-out (1.124328ms)
+✔ saving a remote custom endpoint requests access only to its host (0.630132ms)
+✔ denied endpoint access does not replace existing settings (0.5216ms)
+✔ YouTube Sensei uses the configured gemini provider and model (2.348245ms)
+✔ YouTube Sensei uses the configured deepseek provider and model (2.021589ms)
+✔ YouTube Sensei uses the configured openrouter provider and model (2.192537ms)
+✔ the extension worker supports a custom endpoint without an API key (0.70645ms)
+✔ the extension worker explains an empty 403 response from a custom endpoint (0.61309ms)
+✔ untrusted origins and other extensions cannot launch a server (6.272905ms)
+✔ disabled auto-start and remote endpoints do not launch locally (6.068245ms)
+✔ a healthy local server is reused without invoking the launcher (2.744078ms)
+✔ simultaneous playback requests launch once using the saved port (3.985756ms)
+✔ missing native host reports setup instructions and avoids repeated launches (5.185465ms)
+✔ Options can request startup but the removed player cannot (2.551723ms)
+✔ worker reconciles legacy unindexed caches and bounds them without evicting cards or settings (46.01366ms)
+✔ a durable card save evicts expendable legacy caches and retries quota failures (5.303953ms)
+✔ invalid card shapes do not alter existing user cards (2.791073ms)
+✔ a later manual file selection owns the timeline even if the earlier read finishes last (72.662015ms)
+✔ overlapping manual lyric searches keep the later choice and its cache (14.606901ms)
+✔ navigation A to B to A rejects the first A acquisition (8.990303ms)
+✔ embedded caption data filters other videos and preserves nested strings and arrays (7.392525ms)
+✔ timeline lookup preserves first-array semantics for unsorted and non-finite input (8.885656ms)
+✔ unrelated player mutations cannot resurrect the previous video live caption (15.366108ms)
+Test 1 output: <span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">sekai</span> wa totemo kirei datta na
+Test 2 output: <span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">boku</span> ni wa todokanu sonzai de
+Test 3 output: oishikatta
+Test 4 output: ikanakatta
+PASS: All Yomitan deinflector and sentence Romaji tests passed cleanly!
+✔ tests/test_yomitan_deinflector.js (108.630177ms)
+✔ disabling the real bridge stops polling and requested caption changes until re-enabled (2.919595ms)
+ℹ tests 103
+ℹ suites 0
+ℹ pass 103
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 525.457725

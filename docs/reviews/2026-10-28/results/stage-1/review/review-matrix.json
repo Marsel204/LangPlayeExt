@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "mode": "after",
+  "fixtureMode": "fetch-intercept",
+  "node": "v26.8.1",
+  "startedFromUnchangedBaseline": false,
+  "reportable": false,
+  "runs": [
+    {
+      "kind": "node",
+      "proc": 0,
+      "code": 1,
+      "timedOut": false,
+      "durationMs": 445
+    }
+  ],
+  "counts": {
+    "HARNESS_ERROR": 4,
+    "GREEN": 1
+  },
+  "results": [
+    {
+      "id": "R-A12-generated",
+      "status": "HARNESS_ERROR",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [],
+      "deterministic": false,
+      "reason": "MISSING_REPETITIONS expected 1, got 0"
+    },
+    {
+      "id": "R-A12-corpus",
+      "status": "HARNESS_ERROR",
+      "target": {
+        "expected": "red",
+        "control": "R-A12-generated",
+        "witnessRegex": "^LEGACY_TESTS_EVALUATE_DUPLICATE_ENGINE$",
+        "runtime": "node"
+      },
+      "runs": [],
+      "deterministic": false,
+      "reason": "MISSING_REPETITIONS expected 1, got 0"
+    },
+    {
+      "id": "R-A12-bridge",
+      "status": "HARNESS_ERROR",
+      "target": {
+        "expected": "green",
+        "control": "R-A05-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [],
+      "deterministic": false,
+      "reason": "MISSING_REPETITIONS expected 1, got 0"
+    },
+    {
+      "id": "R-A05-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A05-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "selected": {
+              "languageCode": "ja",
+              "vssId": ".ja"
+            },
+            "cc": "true"
+          },
+          "signature": "VISIBLE_JAPANESE_RESTORED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "node.PROCESS_ERROR",
+      "status": "HARNESS_ERROR",
+      "runs": [
+        {
+          "id": "node.PROCESS_ERROR",
+          "process": 0,
+          "harnessError": "CHILD_EXIT 1",
+          "stderr": "/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/lib/fakes.js:15\n function schedule(fn,cb,isWrite=false){pending++;return new Promise((resolve,reject)=>defer(()=>{try{const v=fn();if(cb)cb(v);if(runtime.lastError&&!cb&&isWrite){reject(new Error(runtime.lastError.message));}else resolve(v);}catch(e){reject(e);}finally{delete runtime.lastError;pending--;}}));}\n                                                                                                                                                                          ^\n\nError: QUOTA_BYTES quota exceeded\n    at /home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/lib/fakes.js:15:171\n\nNode.js v26.8.1\n"
+        }
+      ],
+      "reason": "UNREGISTERED_CASE"
+    }
+  ],
+  "limitations": []
+}

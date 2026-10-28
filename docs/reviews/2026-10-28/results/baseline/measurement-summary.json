@@ -1,0 +1,34 @@
+{
+  "startedAt": "2026-10-28T06:51:00.966Z",
+  "finishedAt": "2026-10-28T07:12:30.363Z",
+  "elapsedSeconds": 1289.397,
+  "capSeconds": 1500,
+  "withinCap": true,
+  "coreCommands": "commands.json",
+  "performanceRecovery": "perf/recovery.json",
+  "browserRecovery": "review/review-matrix.json#recovery",
+  "unresolvedHarnessErrors": [
+    {
+      "id": "P7.tagStrip.vtt.n160000",
+      "error": "BOUNDED_CHILD spawnSync /home/marsel/.hermes/node/bin/node ETIMEDOUT"
+    },
+    {
+      "id": "P7.tagStrip.srt.n160000",
+      "error": "BOUNDED_CHILD spawnSync /home/marsel/.hermes/node/bin/node ETIMEDOUT"
+    },
+    {
+      "id": "P7.tagStrip.lrc.n160000",
+      "error": "BOUNDED_CHILD spawnSync /home/marsel/.hermes/node/bin/node ETIMEDOUT"
+    }
+  ],
+  "matrixCounts": {
+    "GREEN": 22,
+    "EXPECTED_RED": 53,
+    "HARNESS_ERROR": 1
+  },
+  "nativeReading": "review/native-reading.json",
+  "integrity": {
+    "trackedFiles": 54,
+    "changed": []
+  }
+}

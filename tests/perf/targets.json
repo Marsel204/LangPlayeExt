@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "source": "docs/reviews/2026-10-28/performance-test-proposal.md",
+  "P1": {"oracle": {"class":"GATE","bound":0}, "playReadsN50000":{"class":"GATE","median":16,"max":64}, "seekReadsN50000":{"class":"GATE","median":64,"max":64}, "sameExtraRenders":{"class":"GATE","bound":0}, "timingSlope":{"class":"SOFT","bound":0.35}},
+  "P2": {"exceptions":{"class":"GATE","bound":0}, "segmentersPer1000Renders":{"class":"GATE","bound":10}, "typicalOutput":{"class":"GATE","bound":"byte-identical baseline"},"slope":{"class":"SOFT","bound":1.25},"typicalLineP95ms":{"class":"SOFT","bound":16}},
+  "P3": {"sameTextRebuilds":{"class":"SOFT","bound":1},"captionRenders":{"class":"GATE","bound":50},"unrelatedRenders":{"class":"GATE","bound":0},"idleDomWrites":{"class":"GATE","bound":0}},
+  "P4": {"lyricsDuringCaptions":{"class":"GATE","bound":0},"modelInFlight":{"class":"GATE","bound":1},"staleWrites":{"class":"GATE","bound":0},"repeatTranslateRequests":{"class":"GATE","bound":0}},
+  "P5": {"steadyTrackMutations":{"class":"GATE","bound":0},"navigationListenerGrowth":{"class":"GATE","bound":0},"leaveWatch":{"class":"GATE","bound":"complete cleanup"}},
+  "P6": {"translationEntries":{"class":"GATE","bound":2000},"lyricsBytes":{"class":"GATE","bound":2500000},"savedCardsLost":{"class":"GATE","bound":0},"writeFailureFalseSuccess":{"class":"GATE","bound":0}},
+  "P7": {"tagStripSlope":{"class":"GATE","bound":1.3},"tagStripAlternativeRatio":{"class":"GATE","bound":8},"cueSlope":{"class":"SOFT","bound":1.2},"fixtureCount":{"class":"HARNESS","bound":"exact"}},
+  "P8": {"idleOwnRecords":{"class":"GATE","bound":0},"navigationNodes":{"class":"GATE","bound":50},"navigationListeners":{"class":"GATE","bound":5},"navigationHeapBytes":{"class":"SOFT","bound":2097152},"longTasksOver100ms":{"class":"SOFT","bound":0}}
+}

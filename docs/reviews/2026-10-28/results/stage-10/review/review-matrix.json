@@ -1,0 +1,324 @@
+{
+  "schema": 1,
+  "mode": "after",
+  "fixtureMode": "fetch-intercept",
+  "node": "v26.8.1",
+  "startedFromUnchangedBaseline": false,
+  "reportable": false,
+  "runs": [
+    {
+      "kind": "node",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 49
+    },
+    {
+      "kind": "browser",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 9374
+    }
+  ],
+  "counts": {
+    "GREEN": 10
+  },
+  "results": [
+    {
+      "id": "R-A11-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A11-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "loopbackPermission": true
+          },
+          "signature": "LOOPBACK_PERMISSION_PRESENT",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-manifest",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A11-control",
+        "witnessRegex": "^OPTIONAL_REQUIRED_WILDCARD_DUPLICATION$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A11-manifest",
+          "expected": "red",
+          "control": "R-A11-control",
+          "ok": true,
+          "witness": {
+            "duplicates": [],
+            "permissions": [
+              "storage",
+              "nativeMessaging",
+              "tabs"
+            ]
+          },
+          "signature": "OPTIONAL_REQUIRED_WILDCARD_DUPLICATION",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-deadHandlers",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A11-control",
+        "witnessRegex": "^UNUSED_PRIVILEGED_FETCH_HANDLERS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A11-deadHandlers",
+          "expected": "red",
+          "control": "R-A11-control",
+          "ok": true,
+          "witness": {
+            "dead": []
+          },
+          "signature": "UNUSED_PRIVILEGED_FETCH_HANDLERS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-worker-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A11-worker-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "res": {
+              "success": false,
+              "error": "Allow access to this endpoint by saving it in Extension Settings"
+            },
+            "fetches": 0
+          },
+          "signature": "WORKER_REFUSES_UNGRANTED_ORIGIN",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-deadHandlers-runtime",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A11-worker-control",
+        "witnessRegex": "^UNRESTRICTED_UNUSED_FETCH_REQUEST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A11-deadHandlers-runtime",
+          "expected": "red",
+          "control": "R-A11-worker-control",
+          "ok": true,
+          "witness": {
+            "res": {
+              "unhandled": true
+            },
+            "fetches": []
+          },
+          "signature": "UNRESTRICTED_UNUSED_FETCH_REQUEST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-browser-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^REAL_LOOPBACK_PERMISSION$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A11-browser-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "loopback": true
+          },
+          "signature": "REAL_LOOPBACK_PERMISSION",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-guard",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A11-browser-control",
+        "witnessRegex": "^UNREQUESTED_ORIGIN_ALREADY_GRANTED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A11-guard",
+          "expected": "red",
+          "control": "R-A11-browser-control",
+          "ok": true,
+          "witness": {
+            "permissionGranted": false
+          },
+          "signature": "UNREQUESTED_ORIGIN_ALREADY_GRANTED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-settingsError",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A07-clear-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A07-settingsError",
+          "expected": "green",
+          "control": "R-A07-clear-control",
+          "ok": true,
+          "witness": {
+            "text": "❌ Settings write failed: QUOTA_BYTES quota exceeded"
+          },
+          "signature": "SETTINGS_FAILURE_VISIBLE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A11-optionsPermission",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A11-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A11-optionsPermission",
+          "expected": "green",
+          "control": "R-A11-control",
+          "ok": true,
+          "witness": {
+            "requests": [
+              {
+                "origins": [
+                  "https://parser.fixture.invalid/*",
+                  "https://anki.fixture.invalid/*",
+                  "https://ai.fixture.invalid/*"
+                ]
+              }
+            ],
+            "writes": []
+          },
+          "signature": "ENDPOINT_PERMISSION_DENIAL_NO_SAVE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-clear-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-clear-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "cards": [],
+            "counter": "0 cards in storage"
+          },
+          "signature": "OPTIONS_CLEAR_DURABLE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    }
+  ],
+  "limitations": []
+}

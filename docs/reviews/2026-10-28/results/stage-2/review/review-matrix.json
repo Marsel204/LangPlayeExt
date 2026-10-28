@@ -1,0 +1,183 @@
+{
+  "schema": 1,
+  "mode": "after",
+  "fixtureMode": "fetch-intercept",
+  "node": "v26.8.1",
+  "startedFromUnchangedBaseline": false,
+  "reportable": false,
+  "runs": [
+    {
+      "kind": "node",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 1440
+    }
+  ],
+  "counts": {
+    "GREEN": 2,
+    "UNEXPECTED_RED": 1,
+    "HARNESS_ERROR": 2
+  },
+  "results": [
+    {
+      "id": "R-X01-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-X01-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "length": 100
+          },
+          "signature": "SHORT_KANA_SAFE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-X01",
+      "status": "UNEXPECTED_RED",
+      "target": {
+        "expected": "red",
+        "control": "R-X01-control",
+        "witnessRegex": "^LONG_KANA_RANGEERROR$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-X01",
+          "expected": "red",
+          "control": "R-X01-control",
+          "ok": false,
+          "witness": {
+            "exceptions": [
+              {
+                "method": "getWordReading",
+                "name": "RangeError",
+                "message": "Maximum call stack size exceeded"
+              },
+              {
+                "method": "generateSentenceRomaji",
+                "name": "RangeError",
+                "message": "Maximum call stack size exceeded"
+              },
+              {
+                "method": "handleTokenClick",
+                "name": "RangeError",
+                "message": "Maximum call stack size exceeded"
+              },
+              {
+                "method": "productionTokenListener",
+                "name": "RangeError",
+                "message": "Maximum call stack size exceeded"
+              }
+            ]
+          },
+          "signature": "LONG_KANA_RANGEERROR",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "UNEXPECTED_RED"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-X02-equivalence",
+      "status": "HARNESS_ERROR",
+      "target": {
+        "expected": "green",
+        "control": "R-A09-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-X02-equivalence",
+          "expected": "green",
+          "control": "R-A09-control",
+          "harnessError": "content.js:3807\nif(typeof stripMarkupTags === \"undefined\") throw new Error(\"HARNESS_ERROR MISSING_SYMBOL: stripMarkupTags\");\n                                           ^\n\nError: HARNESS_ERROR MISSING_SYMBOL: stripMarkupTags\n    at content.js:3807:50\n    at content.js:3817:3\n    at Script.runInContext (node:vm:150:12)\n    at Script.runInNewContext (node:vm:155:17)\n    at Object.runInNewContext (node:vm:311:38)\n    at create (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/lib/shipped.js:30:71)\n    at module.exports (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/review/lib/differential.js:2:51)\n    at Object.run (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/review/lib/cases.js:67:72)\n    at /home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/review/lib/worker.js:3:280",
+          "process": 0,
+          "kind": "node",
+          "status": "HARNESS_ERROR"
+        }
+      ],
+      "deterministic": true,
+      "reason": "CONTROL_OR_WITNESS_OR_PRECONDITION"
+    },
+    {
+      "id": "R-X01-equivalence",
+      "status": "HARNESS_ERROR",
+      "target": {
+        "expected": "green",
+        "control": "R-X01-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-X01-equivalence",
+          "expected": "green",
+          "control": "R-X01-control",
+          "harnessError": "content.js:3807\nif(typeof toRomajiSafe === \"undefined\") throw new Error(\"HARNESS_ERROR MISSING_SYMBOL: toRomajiSafe\");\n                                        ^\n\nError: HARNESS_ERROR MISSING_SYMBOL: toRomajiSafe\n    at content.js:3807:47\n    at content.js:3817:3\n    at Script.runInContext (node:vm:150:12)\n    at Script.runInNewContext (node:vm:155:17)\n    at Object.runInNewContext (node:vm:311:38)\n    at create (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/lib/shipped.js:30:71)\n    at module.exports (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/review/lib/differential.js:2:51)\n    at Object.run (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/review/lib/cases.js:68:72)\n    at /home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/review/lib/worker.js:3:280",
+          "process": 0,
+          "kind": "node",
+          "status": "HARNESS_ERROR"
+        }
+      ],
+      "deterministic": true,
+      "reason": "CONTROL_OR_WITNESS_OR_PRECONDITION"
+    },
+    {
+      "id": "R-A09-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A09-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "tracks": [
+              {
+                "baseUrl": "https://fixture.invalid/c",
+                "languageCode": "ja",
+                "name": {
+                  "simpleText": "Japanese"
+                }
+              }
+            ]
+          },
+          "signature": "FLAT_TRACK_PARSED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    }
+  ],
+  "limitations": []
+}

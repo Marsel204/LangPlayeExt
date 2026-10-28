@@ -1,0 +1,14 @@
+{"id":"P6.translationCache.n100","area":"P6","class":"GATE","counts":{"entries":100,"recent50Refetches":0},"target":{"bound":2000,"verdict":"pass"},"memory":{"heapDeltaBytes":240184,"usedHeapBytes":8580432}}
+{"id":"P6.translationCache.n1000","area":"P6","class":"GATE","counts":{"entries":1000,"recent50Refetches":0},"target":{"bound":2000,"verdict":"pass"},"memory":{"heapDeltaBytes":1945544,"usedHeapBytes":10555808}}
+{"id":"P6.translationCache.n10000","area":"P6","class":"GATE","counts":{"entries":10000,"recent50Refetches":0},"target":{"bound":2000,"verdict":"fail"},"memory":{"heapDeltaBytes":18663464,"usedHeapBytes":29220200}}
+{"id":"P6.lyricsCache.bytes8000.videos50","area":"P6","class":"GATE","counts":{"entries":50,"bytes":406940,"failedWrites":0,"cards":200},"target":{"bound":2500000,"verdict":"pass"}}
+{"id":"P6.lyricsCache.bytes8000.videos500","area":"P6","class":"GATE","counts":{"entries":500,"bytes":4069890,"failedWrites":0,"cards":200},"target":{"bound":2500000,"verdict":"fail"}}
+{"id":"P6.pressure.cards.bytes8000","area":"P6","class":"GATE","counts":{"cards":200,"settingsPersisted":true,"failedWrites":0},"target":{"bound":"preserve cards and settings","verdict":"pass"}}
+{"id":"P6.lyricsCache.bytes200000.videos50","area":"P6","class":"GATE","counts":{"entries":50,"bytes":10006940,"failedWrites":0,"cards":200},"target":{"bound":2500000,"verdict":"fail"}}
+{"id":"P6.lyricsCache.bytes200000.videos500","area":"P6","class":"GATE","counts":{"entries":51,"bytes":10207079,"failedWrites":449,"cards":200},"target":{"bound":2500000,"verdict":"fail"}}
+{"id":"P6.pressure.cards.bytes200000","area":"P6","class":"GATE","counts":{"cards":200,"settingsPersisted":true,"failedWrites":449},"target":{"bound":"preserve cards and settings","verdict":"pass"}}
+{"id":"P6.cards.n100","area":"P6","class":"OBSERVE","counts":{"lastSaveBytes":15771,"totalWriteBytes":799950,"cards":100}}
+{"id":"P6.cards.n500","area":"P6","class":"OBSERVE","counts":{"lastSaveBytes":78571,"totalWriteBytes":19699750,"cards":500}}
+{"id":"P6.cards.n2000","area":"P6","class":"OBSERVE","counts":{"lastSaveBytes":314071,"totalWriteBytes":314299000,"cards":2000}}
+{"id":"P6.offsetKeys","area":"P6","class":"OBSERVE","count":500}
+{"id":"P6.runtime","area":"P6","class":"OBSERVE","wallMs":19701.101683,"cpuMicros":{"user":13958308,"system":6188818},"eventLoopDelayMs":{"max":106.037247,"p99":27.377663},"heap":{"total_heap_size":108797952,"total_heap_size_executable":1048576,"total_physical_size":108797952,"total_available_size":2197445928,"used_heap_size":65463944,"heap_size_limit":2248146944,"malloced_memory":540736,"peak_malloced_memory":166945480,"does_zap_garbage":0,"number_of_native_contexts":4,"number_of_detached_contexts":0,"total_global_handles_size":12360,"used_global_handles_size":2944,"external_memory":2315623,"total_allocated_bytes":18754116184}}

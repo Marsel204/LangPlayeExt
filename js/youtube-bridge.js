@@ -44,6 +44,12 @@
   }
 
   let isAppEnabled = true;
+  let overlayHidden = false;
+  window.addEventListener('LINGUAPLAY_SET_OVERLAY_HIDDEN', e => {
+    if (typeof e.detail?.hidden !== 'boolean') return;
+    overlayHidden = e.detail.hidden;
+    if (!overlayHidden && isAppEnabled) ensureJapaneseTrackActive();
+  });
 
   window.addEventListener('LINGUAPLAY_SET_APP_STATE', (e) => {
     if (e.detail && typeof e.detail.enabled === 'boolean') {
@@ -52,7 +58,7 @@
   });
 
   function ensureJapaneseTrackActive() {
-    if (!isAppEnabled) return false;
+    if (!isAppEnabled || overlayHidden) return false;
     const player = getPlayer();
     if (!player) return false;
 
@@ -90,7 +96,7 @@
 
   // Listen for requests from Isolated World (content.js)
   window.addEventListener('LINGUAPLAY_REQUEST_TRACK_SWITCH', (e) => {
-    if (!isAppEnabled) return;
+    if (!isAppEnabled || overlayHidden) return;
     const player = getPlayer();
     if (!player) return;
     if (typeof player.loadModule === 'function') {

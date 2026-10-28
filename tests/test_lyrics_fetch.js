@@ -106,14 +106,15 @@ test('cleanSongTitle sanitizes YouTube music video titles and extracts artist/tr
   assert.equal(t8.artistName, 'Beverly');
 });
 
-test('manifest.json includes host permissions for https://lrclib.net/* and arbitrary lyrics URLs', () => {
+test('manifest permits LRCLIB and keeps arbitrary endpoint access optional', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(extRoot, 'manifest.json'), 'utf8'));
   assert.ok(manifest.host_permissions.includes('https://lrclib.net/*'), 'Manifest must allow https://lrclib.net/*');
-  assert.ok(
-    manifest.host_permissions.includes('<all_urls>') ||
-    (manifest.host_permissions.includes('http://*/*') && manifest.host_permissions.includes('https://*/*')),
-    'Manifest must permit fetching user-provided lyrics URLs'
-  );
+  // The unused arbitrary-lyrics proxy was removed; configured endpoints use
+  // explicit optional grants instead of blanket installation access.
+  for (const origin of ['http://*/*', 'https://*/*', '<all_urls>']) assert.ok(!manifest.host_permissions.includes(origin));
+  assert.ok(manifest.optional_host_permissions.includes('http://*/*'));
+  assert.ok(manifest.optional_host_permissions.includes('https://*/*'));
+  for (const permission of ['activeTab', 'scripting', 'downloads']) assert.ok(!manifest.permissions.includes(permission));
 });
 
 test('background.js registers and dispatches FETCH_LRCLIB_LYRICS correctly', async () => {
@@ -166,47 +167,22 @@ test('background.js registers and dispatches FETCH_LRCLIB_LYRICS correctly', asy
   }
 });
 
-test('background.js handles FETCH_LYRICS_URL action to fetch external lyrics from links', async () => {
+test('worker ignores removed unrestricted fetch handlers without issuing requests', () => {
   const bgCode = fs.readFileSync(path.join(extRoot, 'background.js'), 'utf8');
-
-  let messageListener = null;
-  const mockChrome = {
-    runtime: {
-      onInstalled: { addListener: () => {} },
-      onMessage: { addListener: (cb) => { messageListener = cb; } },
-      getURL: (p) => `chrome-extension://mock/${p}`
-    },
-    tabs: { create: () => {} },
-    storage: { local: { get: async () => ({}) } },
-    permissions: { contains: async () => true }
+  let listener;
+  let requests = 0;
+  const chrome = {
+    runtime: {onInstalled: {addListener() {}}, onMessage: {addListener(fn) {listener = fn;}}}
   };
-
-  const evalFn = new Function('chrome', bgCode);
-  evalFn(mockChrome);
-  assert.ok(messageListener);
-
-  const originalFetch = globalThis.fetch;
-  try {
-    globalThis.fetch = async (url) => {
-      assert.equal(url, 'https://example.com/custom_song.lrc');
-      return {
-        ok: true,
-        text: async () => '[00:05.00]テスト歌詞リンク'
-      };
-    };
-
-    const response = await new Promise(resolve => {
-      messageListener({
-        action: 'FETCH_LYRICS_URL',
-        url: 'https://example.com/custom_song.lrc'
-      }, { id: 'mock-id' }, resolve);
-    });
-
-    assert.equal(response.success, true);
-    assert.ok(response.content.includes('[00:05.00]テスト歌詞リンク'));
-  } finally {
-    globalThis.fetch = originalFetch;
+  new Function('chrome', 'fetch', bgCode)(chrome, () => {requests++; throw Error('Unexpected privileged fetch');});
+  assert.ok(listener);
+  for (const action of ['FETCH_LYRICS_URL', 'FETCH_YOUTUBE_CAPTIONS']) {
+    let replied = false;
+    const kept = listener({action, url: 'https://example.invalid/song.lrc', videoId: 'A'}, {id: 'test'}, () => {replied = true;});
+    assert.notEqual(kept, true);
+    assert.equal(replied, false);
   }
+  assert.equal(requests, 0);
 });
 
 test('background.js falls back to querying without duration if duration query fails', async () => {

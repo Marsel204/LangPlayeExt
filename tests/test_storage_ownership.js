@@ -1,0 +1,11 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');const {storage}=require('./perf/lib/fakes'),{background}=require('./perf/lib/worker-fixture');
+test('worker reconciles legacy unindexed caches and bounds them without evicting cards or settings',async()=>{
+ const cards=[{word:'kept'}],seed={linguaplay_cards:cards,linguaplay_server_url:'http://127.0.0.1:19002'};for(let i=0;i<80;i++)seed['lp_lyrics_cache_old'+i]={syncedLyrics:'[00:00.00]猫'+'a'.repeat(8000),cachedAt:i};const s=storage(seed),worker=background(s);const r=await worker.request({action:'CACHE_LYRICS',vid:'new',payload:{syncedLyrics:'[00:00.00]新しい歌詞'}});assert.equal(r.success,true);const keys=Object.keys(s.state).filter(k=>k.startsWith('lp_lyrics_cache_')&&k!=='lp_lyrics_cache_index');assert.ok(keys.length>=1&&keys.length<=50);assert.ok(keys.includes('lp_lyrics_cache_new'));assert.ok(keys.reduce((n,k)=>n+Buffer.byteLength(JSON.stringify(s.state[k])),0)<=2000000);assert.deepEqual(s.state.linguaplay_cards,cards);assert.equal(s.state.linguaplay_server_url,seed.linguaplay_server_url);assert.equal(s.state.lp_lyrics_cache_index.length,keys.length);
+});
+test('a durable card save evicts expendable legacy caches and retries quota failures',async()=>{
+ const s=storage({linguaplay_cards:[{word:'kept'}],lp_lyrics_cache_legacy:{syncedLyrics:'x'.repeat(8000)},linguaplay_ai_provider:'deepseek'},{quota:10000}),worker=background(s);const r=await worker.request({action:'SAVE_CARD',card:{word:'猫',meaning:'a'.repeat(3000)}});assert.equal(r.success,true);assert.deepEqual(s.state.linguaplay_cards.map(c=>c.word),['kept','猫']);assert.equal(s.state.linguaplay_ai_provider,'deepseek');assert.ok(s.writes.some(w=>w.failed));assert.ok(!Object.keys(s.state).some(k=>k.startsWith('lp_lyrics_cache_')));
+});
+test('invalid card shapes do not alter existing user cards',async()=>{
+ const s=storage({linguaplay_cards:[{word:'kept'}]}),worker=background(s);for(const card of [[],null,{word:''},{word:'猫',unexpected:'field'},{word:'猫',meaning:{}},{word:'猫',sentence:'x'.repeat(4001)}]){const r=await worker.request({action:'SAVE_CARD',card});assert.equal(r.success,false);assert.deepEqual(s.state.linguaplay_cards,[{word:'kept'}]);}
+});

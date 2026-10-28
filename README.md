@@ -37,6 +37,8 @@ Click the **LinguaPlay** logo in the toolbar to turn the app off and restore nat
 
 For music videos without captions, click **Lyrics** to search for synced lyrics by track and artist. You can also use the toolbar's **folder** button to load a Japanese `.srt`, `.vtt`, or `.lrc` file. Adjust the timing offset or use **Sync Line 1 to Playhead** in the Lyrics Manager when the text is out of sync.
 
+Your latest manual file or lyrics selection stays active until you choose another source or leave the video. While the overlay is hidden, LinguaPlay leaves your native caption language and CC choice alone.
+
 ### 2. Click a word to understand the sentence
 
 Click any word in the subtitle overlay. Playback pauses and LinguaPlay opens its drawer in YouTube's sidebar.
@@ -59,7 +61,9 @@ Sensei uses your chosen AI provider. Its answers depend on the model and should 
 
 Click **Quick Add to Anki** to save the selected word with its reading, meaning, and sentence context. After an AI breakdown, **Save Enriched AI Card to Anki** saves an enriched card.
 
-With Anki and AnkiConnect running, cards go to your target deck. If AnkiConnect is unavailable, cards are saved in the extension collection. Open the extension popup or Options and choose **Export TSV** to export the collection later. The TSV contains sentence, word, reading, and meaning columns.
+Both buttons use your configured AnkiConnect URL and deck and keep a local copy. Create that deck in Anki first. The result states what completed: **Added to Anki · stored locally**, **Kept locally — Anki: …**, or a local-storage failure. An existing duplicate is reported as **Already in Anki**. Kana readings and romaji are stored separately.
+
+Open the extension popup or Options and choose **Export TSV** to export the collection later. Both exports contain identical sentence, word, kana reading, and meaning columns, including the sentence translation when available. The TSV retains the historical `LinguaPlay Japanese Immersion` deck header.
 
 ## Install the extension
 
@@ -93,9 +97,13 @@ Click the extension's toolbar icon and open **Options / Keys**. Choose a provide
 
 The default provider is **Local Antigravity CLI / Server**. Set up the companion backend or select another provider before requesting a breakdown or chat response.
 
+Song identification, breakdowns, and chat use only the selected provider. A saved key for another provider does not enable automatic fallback. Enter and correct API keys in extension Options; the YouTube drawer links there when a key needs attention.
+
 For local AI, automatic server startup on Linux, and offline **Sudachi** parsing, follow the [local backend setup guide](docs/local-backend.md). Sudachi improves contextual readings and dictionary forms. A lightweight fallback keeps subtitles usable when it is unavailable.
 
 For a custom endpoint, use its API base URL, such as `http://127.0.0.1:11434/v1`, and the exact model ID it serves. The Options page includes connection guidance for Ollama and host access.
+
+Saving or testing a remote custom-AI, parser/server, or AnkiConnect endpoint may ask for access to its origin. Denying access leaves existing settings intact. Default HTTP endpoints on `127.0.0.1` and `localhost` work on any port without an extra grant.
 
 ## Connect Anki
 
@@ -134,6 +142,8 @@ The extension uses plain JavaScript, HTML, and CSS. `content.js` and `content.cs
 python3 build_content_js.py
 ```
 
+On a committed tree, `python3 -I build_content_js.py && git diff --exit-code content.js` checks generator correspondence. During development, save the bundle before regeneration and compare it with `cmp`. Reading tests load the shipped engine; `data/kanji-dict.js` contains reading data only.
+
 Run the extension checks:
 
 ```bash
@@ -144,5 +154,7 @@ node tests/browser_custom_ai.mjs
 ```
 
 The browser check requires Chromium and uses a disposable profile and local test API. It does not invoke an AI model. Set `CHROMIUM_PATH` if your executable has another name. See the [backend guide](docs/local-backend.md) for real Sudachi integration checks.
+
+The code-review regressions and performance harness are in `tests/review` and `tests/perf`. Their baseline evidence and fix report are under `docs/reviews/2026-10-28`. The counts in `PARSING_VERIFICATION.md` describe an earlier snapshot.
 
 </details>

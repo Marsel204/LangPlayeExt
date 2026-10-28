@@ -1,0 +1,192 @@
+{
+  "schema": 1,
+  "source": "/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/docs/reviews/2026-10-28/results/baseline/perf/raw",
+  "results": [
+    {
+      "id": "P7.tagStrip.scaling.vtt",
+      "area": "P7",
+      "class": "GATE",
+      "evidence": "derived",
+      "checks": [
+        {
+          "process": 0,
+          "lo": 5000,
+          "hi": 40000,
+          "ratio": 65.62277268808397,
+          "slope": 2.01204154888856,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        },
+        {
+          "process": 1,
+          "lo": 5000,
+          "hi": 40000,
+          "ratio": 55.491604168115686,
+          "slope": 1.93139920144828,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        },
+        {
+          "process": 2,
+          "lo": 5000,
+          "hi": 40000,
+          "ratio": 74.16402356619935,
+          "slope": 2.070882536815508,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        }
+      ],
+      "confirmation": [
+        {
+          "process": 0,
+          "lo": 20000,
+          "hi": 160000,
+          "ratio": 67.61282751982324,
+          "slope": 2.0264083585893236,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        },
+        {
+          "process": 1,
+          "lo": 20000,
+          "hi": 160000,
+          "ratio": 63.75595756230019,
+          "slope": 1.998162751078464,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        }
+      ],
+      "target": {
+        "bound": {
+          "slope": 1.3,
+          "alternativeRatio": 8
+        },
+        "verdict": "fail"
+      }
+    },
+    {
+      "id": "P7.tagStrip.scaling.srt",
+      "area": "P7",
+      "class": "GATE",
+      "evidence": "derived",
+      "checks": [
+        {
+          "process": 0,
+          "lo": 5000,
+          "hi": 40000,
+          "ratio": 65.17213086929273,
+          "slope": 2.008727753666236,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        },
+        {
+          "process": 1,
+          "lo": 5000,
+          "hi": 40000,
+          "ratio": 63.26227124376985,
+          "slope": 1.9944244824495925,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        },
+        {
+          "process": 2,
+          "lo": 5000,
+          "hi": 40000,
+          "ratio": 62.85948264538858,
+          "slope": 1.9913528310697137,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        }
+      ],
+      "confirmation": [
+        {
+          "process": 0,
+          "lo": 20000,
+          "hi": 160000,
+          "ratio": 62.99584243895733,
+          "slope": 1.992394904179214,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        },
+        {
+          "process": 1,
+          "lo": 20000,
+          "hi": 160000,
+          "ratio": 62.241928404768764,
+          "slope": 1.9866049513563622,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        }
+      ],
+      "target": {
+        "bound": {
+          "slope": 1.3,
+          "alternativeRatio": 8
+        },
+        "verdict": "fail"
+      }
+    },
+    {
+      "id": "P7.tagStrip.scaling.lrc",
+      "area": "P7",
+      "class": "GATE",
+      "evidence": "derived",
+      "checks": [
+        {
+          "process": 0,
+          "lo": 5000,
+          "hi": 40000,
+          "ratio": 68.12365191556081,
+          "slope": 2.030027956920618,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        },
+        {
+          "process": 1,
+          "lo": 5000,
+          "hi": 40000,
+          "ratio": 62.3794061424748,
+          "slope": 1.987665971026331,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        },
+        {
+          "process": 2,
+          "lo": 5000,
+          "hi": 40000,
+          "ratio": 69.89037298205304,
+          "slope": 2.0423406135982494,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        }
+      ],
+      "confirmation": [
+        {
+          "process": 0,
+          "lo": 20000,
+          "hi": 160000,
+          "ratio": 63.32649727136146,
+          "slope": 1.9949124592821865,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        },
+        {
+          "process": 1,
+          "lo": 20000,
+          "hi": 160000,
+          "ratio": 61.16971135339089,
+          "slope": 1.9782485210713006,
+          "noisy": false,
+          "effectBeyond3MAD": true
+        }
+      ],
+      "target": {
+        "bound": {
+          "slope": 1.3,
+          "alternativeRatio": 8
+        },
+        "verdict": "fail"
+      }
+    }
+  ]
+}

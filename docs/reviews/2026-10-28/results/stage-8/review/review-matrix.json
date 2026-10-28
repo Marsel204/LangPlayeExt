@@ -1,0 +1,534 @@
+{
+  "schema": 1,
+  "mode": "after",
+  "fixtureMode": "fetch-intercept",
+  "node": "v26.8.1",
+  "startedFromUnchangedBaseline": false,
+  "reportable": false,
+  "runs": [
+    {
+      "kind": "node",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 204
+    },
+    {
+      "kind": "browser",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 8810
+    }
+  ],
+  "counts": {
+    "GREEN": 15
+  },
+  "results": [
+    {
+      "id": "R-A06-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "cards": [
+              {
+                "word": "来ない",
+                "reading": "こない",
+                "romaji": "konai",
+                "meaning": "<span style=\"opacity:0.6;\">Looking up definition…</span>",
+                "sentence": "来ないがいる",
+                "sentence_en": "",
+                "date": "2026-10-28T10:03:37.723Z"
+              }
+            ],
+            "stubRequests": 1,
+            "deck": "LinguaPlay",
+            "controlBoundaryRelay": true
+          },
+          "signature": "DEFAULT_QUICK_SAVE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-route",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A06-control",
+        "witnessRegex": "^IGNORED_ANKI_ENDPOINT_DECK$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-route",
+          "expected": "red",
+          "control": "R-A06-control",
+          "ok": true,
+          "witness": {
+            "actualUrl": "http://127.0.0.1:33447",
+            "configuredUrl": "http://127.0.0.1:33447",
+            "deck": "MyDeck",
+            "stubRequests": 1
+          },
+          "signature": "IGNORED_ANKI_ENDPOINT_DECK",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-reading",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A06-control",
+        "witnessRegex": "^QUICK_SURFACE_AS_READING$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-reading",
+          "expected": "red",
+          "control": "R-A06-control",
+          "ok": true,
+          "witness": {
+            "card": {
+              "word": "来ない",
+              "reading": "こない",
+              "romaji": "konai",
+              "meaning": "<span style=\"opacity:0.6;\">Looking up definition…</span>",
+              "sentence": "来ない",
+              "sentence_en": "",
+              "date": "2026-10-28T10:03:37.783Z"
+            }
+          },
+          "signature": "QUICK_SURFACE_AS_READING",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-status-apiError",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A06-control",
+        "witnessRegex": "^ANKI_FAILURE_FALSE_SUCCESS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-status-apiError",
+          "expected": "red",
+          "control": "R-A06-control",
+          "ok": true,
+          "witness": {
+            "label": "⚠ Kept locally — Anki: deck was not found; create the configured deck in Anki, then retry"
+          },
+          "signature": "ANKI_FAILURE_FALSE_SUCCESS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-status-offline",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A06-control",
+        "witnessRegex": "^ANKI_FAILURE_FALSE_SUCCESS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-status-offline",
+          "expected": "red",
+          "control": "R-A06-control",
+          "ok": true,
+          "witness": {
+            "label": "⚠ Kept locally — Anki: offline fixture"
+          },
+          "signature": "ANKI_FAILURE_FALSE_SUCCESS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-enriched",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A03-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-enriched",
+          "expected": "green",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "n": 1,
+            "label": "⏳ Adding…"
+          },
+          "signature": "ENRICHED_LOCAL_STORAGE_DISCLOSED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-envelope-bare",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A03-control",
+        "witnessRegex": "^ENRICHED_READING_ENVELOPE_LOST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-envelope-bare",
+          "expected": "red",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "card": {
+              "word": "来ない",
+              "reading": "こない",
+              "romaji": "konai",
+              "meaning": "does not come",
+              "sentence": "来ないがいる",
+              "sentence_en": "",
+              "date": "2026-10-28T10:03:37.817Z"
+            }
+          },
+          "signature": "ENRICHED_READING_ENVELOPE_LOST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-envelope-wrapped",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A03-control",
+        "witnessRegex": "^ENRICHED_READING_ENVELOPE_LOST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A06-envelope-wrapped",
+          "expected": "red",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "card": {
+              "word": "来ない",
+              "reading": "こない",
+              "romaji": "konai",
+              "meaning": "does not come",
+              "sentence": "来ないがいる",
+              "sentence_en": "",
+              "date": "2026-10-28T10:03:37.823Z"
+            }
+          },
+          "signature": "ENRICHED_READING_ENVELOPE_LOST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-card-A",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^ANKI_FIELDS_CONTAIN_MARKUP$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-card-A",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "note": {
+              "deckName": "LinguaPlay",
+              "modelName": "Basic",
+              "fields": {
+                "Front": "猫 <span style=\"font-size:0.8em;color:#94a3b8;\">neko</span>",
+                "Back": "<div><strong>Meaning:</strong> &lt;img data-injected src=x onerror=\"void(0)\"&gt;</div><br><div><strong>Sentence:</strong> <b>猫</b> &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt;</div><div style=\"color:#94a3b8; font-size:0.9em;\">fixture translation</div>"
+              },
+              "tags": [
+                "linguaplay",
+                "youtube"
+              ]
+            },
+            "injected": [
+              0,
+              0
+            ]
+          },
+          "signature": "ANKI_FIELDS_CONTAIN_MARKUP",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-card-B",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^TSV_HTML_UNESCAPED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-card-B",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "options": {
+              "text": "#separator:Tab\n#html:true\n#deck:LinguaPlay Japanese Immersion\n<b>猫</b> <b>猫</b> &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt;\t猫\tねこ\t&lt;img data-injected src=x onerror=\"void(0)\"&gt; meaning next<br><small style=\"color:#94a3b8\">a cat</small>\n",
+              "columns": [
+                4
+              ],
+              "injected": 0
+            },
+            "popup": {
+              "text": "#separator:Tab\n#html:true\n#deck:LinguaPlay Japanese Immersion\n<b>猫</b> <b>猫</b> &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt;\t猫\tねこ\t&lt;img data-injected src=x onerror=\"void(0)\"&gt; meaning next<br><small style=\"color:#94a3b8\">a cat</small>\n",
+              "columns": [
+                4
+              ],
+              "injected": 0
+            }
+          },
+          "signature": "TSV_HTML_UNESCAPED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-exporters",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A02-control",
+        "witnessRegex": "^EXPORT_BYTES_DIVERGE$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A06-exporters",
+          "expected": "red",
+          "control": "R-A02-control",
+          "ok": true,
+          "witness": {
+            "options": {
+              "text": "#separator:Tab\n#html:true\n#deck:LinguaPlay Japanese Immersion\n<b>猫</b> <b>猫</b> &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt;\t猫\tねこ\t&lt;img data-injected src=x onerror=\"void(0)\"&gt; meaning next<br><small style=\"color:#94a3b8\">a cat</small>\n",
+              "columns": [
+                4
+              ],
+              "injected": 0
+            },
+            "popup": {
+              "text": "#separator:Tab\n#html:true\n#deck:LinguaPlay Japanese Immersion\n<b>猫</b> <b>猫</b> &lt;img data-injected src=x onerror=&quot;void(0)&quot;&gt;\t猫\tねこ\t&lt;img data-injected src=x onerror=\"void(0)\"&gt; meaning next<br><small style=\"color:#94a3b8\">a cat</small>\n",
+              "columns": [
+                4
+              ],
+              "injected": 0
+            }
+          },
+          "signature": "EXPORT_BYTES_DIVERGE",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-enriched-route",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A03-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A06-enriched-route",
+          "expected": "green",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "url": "http://127.0.0.1:19012",
+            "label": "✓ Added to Anki · stored locally"
+          },
+          "signature": "ENRICHED_CONTRACT",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A06-enriched-failure",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A03-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A06-enriched-failure",
+          "expected": "green",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "url": "http://127.0.0.1:19012",
+            "label": "⚠ Kept locally — Anki: deck was not found; create the configured deck in Anki, then retry"
+          },
+          "signature": "ENRICHED_CONTRACT",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A03-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A03-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "currentVideoId": null,
+            "currentSubIndex": -1,
+            "renderedSentence": "",
+            "activeLiveSentence": "",
+            "drawerContextVersion": 1,
+            "subtitleRenderVersion": 0,
+            "lastAiData": {
+              "contextual_meaning": "CURRENT_ANSWER",
+              "contextVersion": 1
+            },
+            "drawerContextSentence": "猫がいる",
+            "timelineLength": 0,
+            "sentenceTranslationCacheSize": 1
+          },
+          "signature": "CURRENT_RESPONSE_APPLIED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A02-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^CHAT_MARKDOWN_ESCAPES_PAYLOAD$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A02-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "injected": 0,
+            "text": "fixture question⚠️ Sensei error: Missing DeepSeek API key. Add it in Extension Settings.fixture question 2<img data-injected src=x onerror=\"void(0)\">"
+          },
+          "signature": "CHAT_MARKDOWN_ESCAPES_PAYLOAD",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    }
+  ],
+  "limitations": []
+}

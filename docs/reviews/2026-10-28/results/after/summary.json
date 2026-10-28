@@ -1,0 +1,335 @@
+{
+  "browserCommands": [
+    {
+      "name": "p8",
+      "command": [
+        "node",
+        "tests/perf/perf_p8_browser.mjs",
+        "--out",
+        "docs/reviews/2026-10-28/results/after/perf"
+      ],
+      "code": 0,
+      "seconds": 26.54,
+      "failedGates": []
+    },
+    {
+      "name": "review-matrix",
+      "command": [
+        "node",
+        "tests/review/run_review_matrix.mjs",
+        "--mode",
+        "after",
+        "--repeat-processes",
+        "3",
+        "--repeat-browser",
+        "3",
+        "--perf",
+        "docs/reviews/2026-10-28/results/after/perf/perf.json",
+        "--out",
+        "docs/reviews/2026-10-28/results/after/review"
+      ],
+      "code": 0,
+      "seconds": 297.944,
+      "counts": {
+        "GREEN": 83
+      }
+    },
+    {
+      "name": "native-reading",
+      "command": [
+        "node",
+        "tests/review/run_native_reading.mjs",
+        "--mode",
+        "after",
+        "--out",
+        "docs/reviews/2026-10-28/results/after/review"
+      ],
+      "code": 0,
+      "seconds": 12.157,
+      "counts": {
+        "GREEN": 84
+      }
+    }
+  ],
+  "schema": 1,
+  "status": "complete",
+  "date": "2026-10-28",
+  "implementationModel": "gpt-6.1-sol, max",
+  "baselineHead": "3187787fd723fa20686cb97523d3b5ab1ccaffab",
+  "checks": {
+    "nodeTests": 103,
+    "nodePass": 103,
+    "legacySuites": 15,
+    "nativeHostTests": 7,
+    "chromium": "pass",
+    "commands": [
+      {
+        "name": "node-tests",
+        "command": [
+          "node",
+          "--test",
+          "tests/test_background_crash.js",
+          "tests/test_card_contracts.js",
+          "tests/test_chat_markdown_tables.js",
+          "tests/test_drawer_context_sentence.js",
+          "tests/test_drawer_tabs.js",
+          "tests/test_extension_separation.js",
+          "tests/test_gloss_romaji.js",
+          "tests/test_header_definition.js",
+          "tests/test_japanese_parser.js",
+          "tests/test_logo_toggle.js",
+          "tests/test_lyrics_fetch.js",
+          "tests/test_reading_robustness.js",
+          "tests/test_review_regressions.js",
+          "tests/test_server_startup.js",
+          "tests/test_storage_ownership.js",
+          "tests/test_watch_ownership.js",
+          "tests/test_yomitan_deinflector.js",
+          "tests/test_youtube_bridge_toggle.js"
+        ],
+        "code": 0,
+        "seconds": 0.566
+      },
+      {
+        "name": "legacy",
+        "command": [
+          "node",
+          "run_tests.js"
+        ],
+        "code": 0,
+        "seconds": 0.114
+      },
+      {
+        "name": "native-host",
+        "command": [
+          "python3",
+          "-I",
+          "tests/test_native_host.py"
+        ],
+        "code": 0,
+        "seconds": 2.269
+      },
+      {
+        "name": "chromium",
+        "command": [
+          "node",
+          "tests/browser_custom_ai.mjs"
+        ],
+        "code": 0,
+        "seconds": 6.681
+      },
+      {
+        "name": "harness-selfcheck",
+        "command": [
+          "node",
+          "tests/perf/run_perf.mjs",
+          "--self-check"
+        ],
+        "code": 0,
+        "seconds": 0.465
+      },
+      {
+        "name": "process-selfcheck",
+        "command": [
+          "node",
+          "tests/perf/process-selfcheck.mjs"
+        ],
+        "code": 0,
+        "seconds": 0.114
+      },
+      {
+        "name": "diff",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "code": 0,
+        "seconds": 0.016
+      }
+    ]
+  },
+  "review": {
+    "counts": {
+      "GREEN": 84
+    },
+    "cases": 84,
+    "processRepetitions": 3,
+    "browserRepetitions": 3,
+    "nativeReadingRepetitions": 3
+  },
+  "performance": {
+    "gateRows": 246,
+    "uniqueGateIds": 86,
+    "failedGates": [],
+    "harnessErrors": [],
+    "nativeIdleMutations": 0,
+    "nativeNavigationDelta": {
+      "nodes": 0,
+      "listeners": 0,
+      "heap": 151872
+    },
+    "parser160kColdMsRange": [
+      0.21857800000000083,
+      1.2124190000000041
+    ],
+    "parserScalingSlopeRange": [
+      0.7882927195122484,
+      0.9883588961630204
+    ],
+    "softMisses": [
+      {
+        "id": "P3.sameText",
+        "process": 0,
+        "target": {
+          "bound": "<=1 rebuild",
+          "verdict": "fail"
+        },
+        "counts": {
+          "create": 9000,
+          "append": 9000,
+          "remove": 0,
+          "html": 1000,
+          "text": 6000,
+          "style": 0,
+          "class": 20000,
+          "attribute": 0,
+          "queries": 2000,
+          "addListener": 3000,
+          "removeListener": 0,
+          "observerCallbacks": 0,
+          "renders": 1000
+        }
+      },
+      {
+        "id": "P3.sameText",
+        "process": 1,
+        "target": {
+          "bound": "<=1 rebuild",
+          "verdict": "fail"
+        },
+        "counts": {
+          "create": 9000,
+          "append": 9000,
+          "remove": 0,
+          "html": 1000,
+          "text": 6000,
+          "style": 0,
+          "class": 20000,
+          "attribute": 0,
+          "queries": 2000,
+          "addListener": 3000,
+          "removeListener": 0,
+          "observerCallbacks": 0,
+          "renders": 1000
+        }
+      },
+      {
+        "id": "P3.sameText",
+        "process": 2,
+        "target": {
+          "bound": "<=1 rebuild",
+          "verdict": "fail"
+        },
+        "counts": {
+          "create": 9000,
+          "append": 9000,
+          "remove": 0,
+          "html": 1000,
+          "text": 6000,
+          "style": 0,
+          "class": 20000,
+          "attribute": 0,
+          "queries": 2000,
+          "addListener": 3000,
+          "removeListener": 0,
+          "observerCallbacks": 0,
+          "renders": 1000
+        }
+      }
+    ]
+  },
+  "integrity": {
+    "baselineFilesChecked": 120,
+    "baselineChanged": [],
+    "implementationUnchanged": true,
+    "generatorIdempotent": true,
+    "syntaxFiles": 7,
+    "harnessAmendments": 7
+  },
+  "measurement": {
+    "startedAt": "2026-10-28T10:10:03.669000+00:00",
+    "finishedAt": "2026-10-28T10:31:30.040085+00:00",
+    "elapsedSeconds": 1286.371,
+    "capSeconds": 1500,
+    "withinCap": true,
+    "includes": [
+      "preserved failed complete performance attempt",
+      "P7 three-process metadata recheck",
+      "successful complete three-process performance run",
+      "native P8 browser run",
+      "three-process/browser regression matrix",
+      "three native-reading browser runs"
+    ]
+  },
+  "resolved": {
+    "A01": "Removed credential entry from the page; the existing Options control opens extension settings.",
+    "A02": "Escaped external DOM, attribute, card and TSV fields; malformed AI entries are rejected or skipped. Card highlighting splits source text before encoding so entity names cannot be highlighted accidentally.",
+    "A03": "Added analysis ownership and a same-context duplicate gate; stale successes and errors cannot change a new drawer context or enrich its card.",
+    "A04": "Centralized timeline installation, added acquisition generations and source ranks, and ordered manual requests. Captions settle before automatic lyrics; the latest manual selection wins.",
+    "A05": "Published overlay-hidden state to the MAIN-world bridge; hidden playback leaves native CC and track choices alone.",
+    "A06": "Unified Quick and enriched Anki saves, configured routing/deck, kana and romaji, bare/wrapped AI data, truthful outcome labels, and one safe TSV exporter.",
+    "A07": "Serialized card save and clear in the real worker, validated payloads, checked acknowledgements/errors, and retried durable saves after evicting expendable caches.",
+    "A08": "Disposed old watch state and DOM synchronously; leaving watch detaches video listeners and observers, clears parser state, and hides stale UI.",
+    "A09": "Replaced truncated caption-array regex extraction with a bounded balanced JSON scanner; filtered caption URLs belonging to another video.",
+    "A10": "Identification and analysis use the selected provider only; saved keys no longer enable cross-provider fallback.",
+    "A11": "Removed required wildcard hosts, three unused permissions and two unused fetch proxies. Save and Test request missing configured endpoint origins; denial prevents settings writes.",
+    "A12": "Removed the duplicate reading engine from the data file and repointed legacy reading tests at the shipped closure. The unrelated legacy copied helper tests remain outside this reading-engine change.",
+    "X01": "Bounded WanaKana conversion at semantic boundaries, including long marks, sokuon, syllabic n and surrogate pairs; skipped identity ASCII chunks without changing their output.",
+    "X02": "Replaced quadratic tag stripping with a linear scanner that preserves original regex semantics.",
+    "X03/R01": "Bounded translations to 500 LRU entries and lyrics to 50 entries / 2,000,000 indexed payload bytes. Reconciled legacy unindexed keys and preserved user cards/settings.",
+    "X04": "Guarded repeated class/style/hidden writes and reused one lazy Japanese Segmenter.",
+    "R03": "Honored the configured caption backend and bounded acquisition fetches with AbortSignals.",
+    "R04": "Serialized title and channel prompt fields with JSON.stringify."
+  },
+  "comparisons": [
+    {
+      "id": "timeline",
+      "label": "Cue object field reads per update",
+      "detail": "50,000 cues · tail playback · median",
+      "before": 99920,
+      "after": 0,
+      "note": "The index reads 2N cue fields once; each lookup uses binary searches on numeric arrays."
+    },
+    {
+      "id": "requests",
+      "label": "Model requests for five repeated clicks",
+      "detail": "One unchanged word and sentence",
+      "before": 5,
+      "after": 1
+    },
+    {
+      "id": "translations",
+      "label": "Translation cache entries",
+      "detail": "After 10,000 unique sentences",
+      "before": 10000,
+      "after": 500
+    }
+  ],
+  "limitations": [
+    "Real YouTube lifecycle/CSP, external model services, optional permission dialog grant, real Sudachi and real Anki/CORS were not exercised.",
+    "The existing Chromium suite skips real Sudachi without PARSER_SERVER_DIR.",
+    "Same-text render memoization remains a SOFT miss, explicitly deferred in the proposal.",
+    "Provider/Anki transport migration, cross-provider opt-in, network disclosure policy, legacy TSV deck header, duplicate cleanup, timer/observer redesign and long-duration leak claims remain deferred."
+  ],
+  "artifacts": {
+    "aggregateReview": "../../aggregate-review.md",
+    "sonnetResultsReview": "../../results-review-and-fix-proposal.md",
+    "performance": "perf/perf.json",
+    "nativeBrowser": "perf/p8-browser.json",
+    "review": "review/review-matrix.json",
+    "checks": "checks/commands.json",
+    "baselineIntegrity": "baseline-integrity.json",
+    "snapshot": "implementation-snapshot.json"
+  }
+}

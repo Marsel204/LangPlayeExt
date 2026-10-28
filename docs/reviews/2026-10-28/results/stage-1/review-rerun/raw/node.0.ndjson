@@ -1,0 +1,4 @@
+{"id":"R-A05-control","expected":"green","control":null,"ok":true,"witness":{"selected":{"languageCode":"ja","vssId":".ja"},"cc":"true"},"signature":"VISIBLE_JAPANESE_RESTORED","fixtureMode":"node-fake"}
+{"id":"R-A12-generated","expected":"green","control":null,"ok":true,"witness":{"equal":true,"generatedSha":"f3d4bab5397bdff0d2c0b18ab6dd74c904c07f3fd991e7b01188ab102faaff0b","shippedSha":"f3d4bab5397bdff0d2c0b18ab6dd74c904c07f3fd991e7b01188ab102faaff0b"},"signature":"GENERATOR_BYTE_IDENTICAL","fixtureMode":"node-fake"}
+{"id":"R-A12-corpus","expected":"red","control":"R-A12-generated","ok":true,"witness":{"legacyForkUsed":false,"exported":false,"productionEngineExecuted":true,"differences":null},"signature":"LEGACY_TESTS_EVALUATE_DUPLICATE_ENGINE","fixtureMode":"node-fake"}
+{"id":"R-A12-bridge","expected":"green","control":"R-A05-control","ok":true,"witness":{"samples":500,"mismatches":[]},"signature":"BRIDGE_CONTENT_PREDICATE_AGREEMENT","fixtureMode":"node-fake"}

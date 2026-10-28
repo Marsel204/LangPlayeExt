@@ -1,0 +1,166 @@
+{
+  "schema": 1,
+  "mode": "after",
+  "fixtureMode": "fetch-intercept",
+  "node": "v26.8.1",
+  "startedFromUnchangedBaseline": false,
+  "reportable": false,
+  "runs": [
+    {
+      "kind": "node",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 29714
+    }
+  ],
+  "counts": {
+    "GREEN": 4,
+    "HARNESS_ERROR": 1
+  },
+  "results": [
+    {
+      "id": "R-X01-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-X01-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "length": 100
+          },
+          "signature": "SHORT_KANA_SAFE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-X01",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-X01-control",
+        "witnessRegex": "^LONG_KANA_RANGEERROR$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-X01",
+          "expected": "red",
+          "control": "R-X01-control",
+          "ok": true,
+          "witness": {
+            "exceptions": []
+          },
+          "signature": "LONG_KANA_RANGEERROR",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-X02-equivalence",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A09-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-X02-equivalence",
+          "expected": "green",
+          "control": "R-A09-control",
+          "ok": true,
+          "witness": {
+            "cases": 100000,
+            "productionFunction": "stripMarkupTags"
+          },
+          "signature": "DIFFERENTIAL_EQUIVALENCE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-X01-equivalence",
+      "status": "HARNESS_ERROR",
+      "target": {
+        "expected": "green",
+        "control": "R-X01-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-X01-equivalence",
+          "expected": "green",
+          "control": "R-X01-control",
+          "harnessError": "RangeError: Maximum call stack size exceeded\n    at Object.keys (<anonymous>)\n    at i (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/lib/wanakana.min.js:1:3509)\n    at o (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/lib/wanakana.min.js:1:3350)\n    at i (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/lib/wanakana.min.js:1:3551)\n    at o (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/lib/wanakana.min.js:1:3350)\n    at i (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/lib/wanakana.min.js:1:3551)\n    at o (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/lib/wanakana.min.js:1:3350)\n    at i (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/lib/wanakana.min.js:1:3551)\n    at o (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/lib/wanakana.min.js:1:3350)\n    at i (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/lib/wanakana.min.js:1:3551)",
+          "process": 0,
+          "kind": "node",
+          "status": "HARNESS_ERROR"
+        }
+      ],
+      "deterministic": true,
+      "reason": "CONTROL_OR_WITNESS_OR_PRECONDITION"
+    },
+    {
+      "id": "R-A09-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A09-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "tracks": [
+              {
+                "baseUrl": "https://fixture.invalid/c",
+                "languageCode": "ja",
+                "name": {
+                  "simpleText": "Japanese"
+                }
+              }
+            ]
+          },
+          "signature": "FLAT_TRACK_PARSED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    }
+  ],
+  "limitations": []
+}

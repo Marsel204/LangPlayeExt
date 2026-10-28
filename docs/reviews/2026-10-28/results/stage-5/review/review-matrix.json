@@ -1,0 +1,185 @@
+{
+  "schema": 1,
+  "mode": "after",
+  "fixtureMode": "fetch-intercept",
+  "node": "v26.8.1",
+  "startedFromUnchangedBaseline": false,
+  "reportable": false,
+  "runs": [
+    {
+      "kind": "node",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 68
+    },
+    {
+      "kind": "browser",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 9331
+    }
+  ],
+  "counts": {
+    "GREEN": 5
+  },
+  "results": [
+    {
+      "id": "R-A05-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A05-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "selected": {
+              "languageCode": "ja",
+              "vssId": ".ja"
+            },
+            "cc": "true"
+          },
+          "signature": "VISIBLE_JAPANESE_RESTORED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A05-node",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A05-control",
+        "witnessRegex": "^HIDDEN_OVERLAY_CC_JA_RESTORED$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A05-node",
+          "expected": "red",
+          "control": "R-A05-control",
+          "ok": true,
+          "witness": {
+            "selected": {
+              "languageCode": "en",
+              "vssId": ".en"
+            },
+            "cc": "false",
+            "counts": {
+              "load": 0,
+              "get": 0,
+              "set": 0
+            }
+          },
+          "signature": "HIDDEN_OVERLAY_CC_JA_RESTORED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A05-browser-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^VISIBLE_POLL_CONTROL$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A05-browser-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "selected": "ja",
+            "cc": "true"
+          },
+          "signature": "VISIBLE_POLL_CONTROL",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A05-browser",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A05-browser-control",
+        "witnessRegex": "^REAL_HIDDEN_OVERLAY_CC_JA_RESTORED$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A05-browser",
+          "expected": "red",
+          "control": "R-A05-browser-control",
+          "ok": true,
+          "witness": {
+            "selected": "en",
+            "cc": "false",
+            "sets": 0,
+            "pollsObserved": 1
+          },
+          "signature": "REAL_HIDDEN_OVERLAY_CC_JA_RESTORED",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A05-browser-multipoll",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A05-browser-control",
+        "runtime": "browser",
+        "witnessRegex": "^THREE_HIDDEN_POLLS$",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A05-browser-multipoll",
+          "expected": "green",
+          "control": "R-A05-browser-control",
+          "ok": true,
+          "witness": {
+            "selected": "en",
+            "cc": "false",
+            "pollsObserved": 3
+          },
+          "signature": "THREE_HIDDEN_POLLS",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    }
+  ],
+  "limitations": []
+}

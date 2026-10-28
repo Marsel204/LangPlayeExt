@@ -1,0 +1,20 @@
+Node v26.8.1; Chromium fixtureMode=fetch-intercept
+GREEN              R-A04-control OLD_VIDEO_DROPPED
+GREEN              R-A04-overlap LYRICS_WHILE_CAPTIONS_PENDING
+GREEN              R-A04-priority LATE_LYRICS_OVERWRITE_PRIORITY
+GREEN              R-A04-manual LATE_LYRICS_OVERWRITE_MANUAL
+GREEN              R-A04-sameIndex TIMELINE_REPLACEMENT_STALE_INDEX
+GREEN              R-A08-control CURRENT_CAPTION_APPEARS
+GREEN              R-A08-newVideo NAVIGATION_STALE_DOM_newVideo
+GREEN              R-A08-leaveWatch NAVIGATION_STALE_DOM_leaveWatch
+GREEN              R-A08-backForward NAVIGATION_STALE_DOM_backForward
+GREEN              R-A09-control FLAT_TRACK_PARSED
+GREEN              R-A09-runs NESTED_TRACK_EXTRACTION_NULL
+GREEN              R-A09-strings NESTED_TRACK_EXTRACTION_NULL
+GREEN              R-R03-routing HARDCODED_CAPTION_BACKEND
+GREEN              R-A09-fetchedHtml FETCHED_HTML_NESTED_TRACK_LOST
+GREEN              R-A08-browser-newVideo REAL_NAVIGATION_STALE_DOM
+GREEN              R-A08-browser-leaveWatch REAL_NAVIGATION_STALE_DOM
+GREEN              R-A04-cachedLate CACHED_LATE_CANNOT_OVERWRITE_CAPTIONS
+GREEN              R-A05-browser-control VISIBLE_POLL_CONTROL
+{"GREEN":18}

@@ -1,0 +1,2029 @@
+{
+  "schema": 1,
+  "phase": "after",
+  "env": "env-before.json",
+  "runs": [
+    {
+      "area": "p1_timeline",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 4626
+    },
+    {
+      "area": "p4_requests",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 165
+    },
+    {
+      "area": "p5_lifetimes",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 134
+    }
+  ],
+  "results": [
+    {
+      "id": "P1.install.reads.play.head.n500",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 1000,
+        "cues": 500
+      },
+      "target": {
+        "bound": 2000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.play.head.n500",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 500,
+        "updates": 1200
+      },
+      "counts": {
+        "updates": 1200,
+        "cueFieldReads": {
+          "total": 1000,
+          "perUpdate": {
+            "n": 1200,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        17.45447200000001,
+        11.138598000000002,
+        10.531963000000019,
+        12.14145499999998,
+        10.387842999999975,
+        10.408077999999989,
+        7.267799999999966,
+        9.876952000000017,
+        8.635133999999994,
+        10.774294999999995,
+        13.245010999999977,
+        7.854524000000026,
+        9.63095599999997,
+        12.540260999999987,
+        13.358934999999974
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 7.267799999999966,
+        "median": 10.531963000000019,
+        "mean": 11.016418466666659,
+        "p90": 13.358934999999974,
+        "p95": 17.45447200000001,
+        "max": 17.45447200000001,
+        "mad": 1.6094919999999604,
+        "cvPct": 22.173286959223606,
+        "coldFirstCall": 11.803960999999987
+      },
+      "cpuMicros": {
+        "user": 227829,
+        "system": 21006
+      },
+      "maxBlockMs": 17.45447200000001,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": null,
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.play.head.n500",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.play.tail.n500",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 1000,
+        "cues": 500
+      },
+      "target": {
+        "bound": 2000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.play.tail.n500",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 500,
+        "updates": 1200
+      },
+      "counts": {
+        "updates": 1200,
+        "cueFieldReads": {
+          "total": 1000,
+          "perUpdate": {
+            "n": 1200,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        7.735439999999983,
+        8.005215000000021,
+        8.544104000000004,
+        7.505965000000003,
+        10.799487999999997,
+        7.532497000000035,
+        8.093883000000005,
+        10.084924,
+        11.23715900000002,
+        7.820598999999902,
+        7.823894999999993,
+        7.824483999999984,
+        10.81547599999999,
+        8.931298999999967,
+        10.778520999999955
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 7.505965000000003,
+        "median": 8.093883000000005,
+        "mean": 8.902196599999991,
+        "p90": 10.81547599999999,
+        "p95": 11.23715900000002,
+        "max": 11.23715900000002,
+        "mad": 0.5613859999999704,
+        "cvPct": 15.319957153289435,
+        "coldFirstCall": 8.08453099999997
+      },
+      "cpuMicros": {
+        "user": 151939,
+        "system": 8094
+      },
+      "maxBlockMs": 11.23715900000002,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": null,
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.play.tail.n500",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.seek.random.n500",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 1000,
+        "cues": 500
+      },
+      "target": {
+        "bound": 2000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.seek.random.n500",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 500,
+        "updates": 300
+      },
+      "counts": {
+        "updates": 300,
+        "cueFieldReads": {
+          "total": 1000,
+          "perUpdate": {
+            "n": 300,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        13.493551000000025,
+        18.111507000000074,
+        13.040926000000013,
+        27.045760000000087,
+        38.45808899999997,
+        16.51974699999994,
+        16.273772000000008,
+        16.422596,
+        14.2537430000001,
+        14.838933999999995,
+        21.063080000000014,
+        16.746808999999985,
+        13.667791999999963,
+        18.80375700000002,
+        17.426498000000038
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 13.040926000000013,
+        "median": 16.51974699999994,
+        "mean": 18.41110406666668,
+        "p90": 27.045760000000087,
+        "p95": 38.45808899999997,
+        "max": 38.45808899999997,
+        "mad": 2.266003999999839,
+        "cvPct": 34.49807803928796,
+        "coldFirstCall": 14.719224999999938
+      },
+      "cpuMicros": {
+        "user": 469025,
+        "system": 22586
+      },
+      "maxBlockMs": 38.45808899999997,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": null,
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.seek.random.n500",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.seek.gap.n500",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 1000,
+        "cues": 500
+      },
+      "target": {
+        "bound": 2000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.seek.gap.n500",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 500,
+        "updates": 300
+      },
+      "counts": {
+        "updates": 300,
+        "cueFieldReads": {
+          "total": 1000,
+          "perUpdate": {
+            "n": 300,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        8.423084999999901,
+        10.51741099999981,
+        8.522238000000016,
+        7.259417999999869,
+        11.755394000000024,
+        7.258856000000151,
+        8.400910000000067,
+        7.309701000000132,
+        8.387658999999985,
+        7.943866999999955,
+        8.132663000000093,
+        8.781858000000057,
+        9.561541999999918,
+        10.470422999999982,
+        10.229049000000032
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 7.258856000000151,
+        "median": 8.423084999999901,
+        "mean": 8.863604933333333,
+        "p90": 10.51741099999981,
+        "p95": 11.755394000000024,
+        "max": 11.755394000000024,
+        "mad": 1.113383999999769,
+        "cvPct": 14.776888378217427,
+        "coldFirstCall": 11.887765000000059
+      },
+      "cpuMicros": {
+        "user": 137480,
+        "system": 1812
+      },
+      "maxBlockMs": 11.887765000000059,
+      "timingBatches": 128,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": null,
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.seek.gap.n500",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.same.cue.n500",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 1000,
+        "cues": 500
+      },
+      "target": {
+        "bound": 2000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.same.cue.n500",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 500,
+        "updates": 1200
+      },
+      "counts": {
+        "updates": 1200,
+        "cueFieldReads": {
+          "total": 1000,
+          "perUpdate": {
+            "n": 1200,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        6.867829999999913,
+        6.981913999999961,
+        6.516709000000219,
+        6.603322000000162,
+        7.2467209999999795,
+        6.787669000000051,
+        9.110666000000037,
+        6.393141000000014,
+        7.1149259999999686,
+        6.511831000000029,
+        6.5480280000001585,
+        7.7827149999998255,
+        6.640194000000065,
+        7.822300999999925,
+        7.652315999999928
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 6.393141000000014,
+        "median": 6.867829999999913,
+        "mean": 7.1053522000000156,
+        "p90": 7.822300999999925,
+        "p95": 9.110666000000037,
+        "max": 9.110666000000037,
+        "mad": 0.3511209999996936,
+        "cvPct": 9.932471033516405,
+        "coldFirstCall": 7.29573900000014
+      },
+      "cpuMicros": {
+        "user": 108623,
+        "system": 979
+      },
+      "maxBlockMs": 9.110666000000037,
+      "timingBatches": 32,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": null,
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.same.cue.n500",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.same.renderCalls.n500",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "extraRenders": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.play.head.n5000",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 10000,
+        "cues": 5000
+      },
+      "target": {
+        "bound": 20000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.play.head.n5000",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 5000,
+        "updates": 1200
+      },
+      "counts": {
+        "updates": 1200,
+        "cueFieldReads": {
+          "total": 10000,
+          "perUpdate": {
+            "n": 1200,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        7.839832999999999,
+        8.229497999999921,
+        11.679231999999956,
+        7.820277999999917,
+        7.711342000000059,
+        7.670924999999897,
+        7.8889120000001185,
+        10.998826999999892,
+        7.3714510000002065,
+        8.54443399999991,
+        7.620603000000074,
+        10.56044299999985,
+        7.564739000000145,
+        7.056347000000187,
+        7.507657000000108
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 7.056347000000187,
+        "median": 7.820277999999917,
+        "mean": 8.404301400000016,
+        "p90": 10.998826999999892,
+        "p95": 11.679231999999956,
+        "max": 11.679231999999956,
+        "mad": 0.3126209999998082,
+        "cvPct": 16.574642735542103,
+        "coldFirstCall": 9.255930000000035
+      },
+      "cpuMicros": {
+        "user": 140938,
+        "system": 10826
+      },
+      "maxBlockMs": 11.679231999999956,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": null,
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.play.head.n5000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.play.tail.n5000",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 10000,
+        "cues": 5000
+      },
+      "target": {
+        "bound": 20000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.play.tail.n5000",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 5000,
+        "updates": 1200
+      },
+      "counts": {
+        "updates": 1200,
+        "cueFieldReads": {
+          "total": 10000,
+          "perUpdate": {
+            "n": 1200,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        9.977790999999797,
+        14.939910999999938,
+        10.087787000000162,
+        8.16279899999995,
+        9.06646899999987,
+        11.743516999999883,
+        7.525243000000046,
+        8.838091000000077,
+        7.836968999999954,
+        8.174777000000176,
+        12.094501000000037,
+        8.809003999999959,
+        7.219560000000001,
+        8.072374000000082,
+        12.130048999999872
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 7.219560000000001,
+        "median": 8.838091000000077,
+        "mean": 9.645256133333321,
+        "p90": 12.130048999999872,
+        "p95": 14.939910999999938,
+        "max": 14.939910999999938,
+        "mad": 1.1396999999997206,
+        "cvPct": 21.92546553331726,
+        "coldFirstCall": 7.297395000000051
+      },
+      "cpuMicros": {
+        "user": 163847,
+        "system": 9783
+      },
+      "maxBlockMs": 14.939910999999938,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": null,
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.play.tail.n5000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.seek.random.n5000",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 10000,
+        "cues": 5000
+      },
+      "target": {
+        "bound": 20000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.seek.random.n5000",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 5000,
+        "updates": 300
+      },
+      "counts": {
+        "updates": 300,
+        "cueFieldReads": {
+          "total": 10000,
+          "perUpdate": {
+            "n": 300,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        13.314826999999923,
+        12.400944000000209,
+        19.73248199999989,
+        12.332421999999951,
+        13.152475999999751,
+        18.451070999999956,
+        13.004895000000033,
+        12.546995000000152,
+        16.851180000000113,
+        12.906800000000203,
+        12.15937299999996,
+        17.40931899999987,
+        12.499171999999817,
+        13.918171999999686,
+        18.03393099999994
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 12.15937299999996,
+        "median": 13.152475999999751,
+        "mean": 14.58093726666663,
+        "p90": 18.451070999999956,
+        "p95": 19.73248199999989,
+        "max": 19.73248199999989,
+        "mad": 0.7656959999999344,
+        "cvPct": 17.71731745880398,
+        "coldFirstCall": 17.55582100000015
+      },
+      "cpuMicros": {
+        "user": 244856,
+        "system": 17705
+      },
+      "maxBlockMs": 19.73248199999989,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": null,
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.seek.random.n5000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.seek.gap.n5000",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 10000,
+        "cues": 5000
+      },
+      "target": {
+        "bound": 20000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.seek.gap.n5000",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 5000,
+        "updates": 300
+      },
+      "counts": {
+        "updates": 300,
+        "cueFieldReads": {
+          "total": 10000,
+          "perUpdate": {
+            "n": 300,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        11.705573000000186,
+        8.38601000000017,
+        8.651562999999896,
+        8.515622000000349,
+        9.24502399999983,
+        8.641294000000016,
+        8.68069800000012,
+        8.45024199999989,
+        8.195769000000382,
+        8.558870999999726,
+        8.385764999999992,
+        8.271347000000333,
+        8.258678000000145,
+        8.287968000000092,
+        9.98426100000006
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 8.195769000000382,
+        "median": 8.515622000000349,
+        "mean": 8.814579000000078,
+        "p90": 9.98426100000006,
+        "p95": 11.705573000000186,
+        "max": 11.705573000000186,
+        "mad": 0.16507599999977174,
+        "cvPct": 10.106990556809464,
+        "coldFirstCall": 8.277908999999909
+      },
+      "cpuMicros": {
+        "user": 140143,
+        "system": 207
+      },
+      "maxBlockMs": 11.705573000000186,
+      "timingBatches": 128,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": null,
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.seek.gap.n5000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.same.cue.n5000",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 10000,
+        "cues": 5000
+      },
+      "target": {
+        "bound": 20000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.same.cue.n5000",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 5000,
+        "updates": 1200
+      },
+      "counts": {
+        "updates": 1200,
+        "cueFieldReads": {
+          "total": 10000,
+          "perUpdate": {
+            "n": 1200,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        7.054870999999821,
+        6.876681999999619,
+        7.065669000000071,
+        7.058957000000191,
+        6.996006999999736,
+        7.151652999999897,
+        7.194868999999926,
+        7.050619999999981,
+        6.9090980000000854,
+        6.913841999999931,
+        7.628064999999879,
+        6.741547000000082,
+        7.129707999999937,
+        6.757775000000038,
+        6.85841900000014
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 6.741547000000082,
+        "median": 7.050619999999981,
+        "mean": 7.025852133333289,
+        "p90": 7.194868999999926,
+        "p95": 7.628064999999879,
+        "max": 7.628064999999879,
+        "mad": 0.13677800000004936,
+        "cvPct": 2.967477107896097,
+        "coldFirstCall": 9.665505999999823
+      },
+      "cpuMicros": {
+        "user": 106681,
+        "system": 61
+      },
+      "maxBlockMs": 9.665505999999823,
+      "timingBatches": 32,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": null,
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.same.cue.n5000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.same.renderCalls.n5000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "extraRenders": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.play.head.n50000",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 100000,
+        "cues": 50000
+      },
+      "target": {
+        "bound": 200000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.play.head.n50000",
+      "area": "P1",
+      "class": "GATE",
+      "workload": {
+        "cues": 50000,
+        "updates": 1200
+      },
+      "counts": {
+        "updates": 1200,
+        "cueFieldReads": {
+          "total": 100000,
+          "perUpdate": {
+            "n": 1200,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        7.081130999999914,
+        7.863985999999841,
+        10.970390999999836,
+        9.223210000000108,
+        8.56979599999977,
+        7.62575599999991,
+        7.518875000000207,
+        11.298967999999604,
+        7.870784000000185,
+        7.8120090000002165,
+        7.260432999999921,
+        12.123806000000059,
+        7.294683000000077,
+        6.954897000000074,
+        7.183652000000166
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 6.954897000000074,
+        "median": 7.8120090000002165,
+        "mean": 8.443491799999993,
+        "p90": 11.298967999999604,
+        "p95": 12.123806000000059,
+        "max": 12.123806000000059,
+        "mad": 0.6283570000000509,
+        "cvPct": 19.26087743066149,
+        "coldFirstCall": 7.836722000000009
+      },
+      "cpuMicros": {
+        "user": 142675,
+        "system": 6843
+      },
+      "maxBlockMs": 12.123806000000059,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": {
+          "median": 16,
+          "max": 64
+        },
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.play.head.n50000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.play.tail.n50000",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 100000,
+        "cues": 50000
+      },
+      "target": {
+        "bound": 200000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.play.tail.n50000",
+      "area": "P1",
+      "class": "GATE",
+      "workload": {
+        "cues": 50000,
+        "updates": 1200
+      },
+      "counts": {
+        "updates": 1200,
+        "cueFieldReads": {
+          "total": 100000,
+          "perUpdate": {
+            "n": 1200,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        10.272735000000011,
+        7.500103999999737,
+        7.437839000000167,
+        7.151164000000335,
+        10.903928999999607,
+        7.114838999999847,
+        7.626687999999831,
+        7.5822870000001785,
+        7.345945000000029,
+        11.54144899999983,
+        8.303280000000086,
+        7.2854520000000775,
+        7.933823000000302,
+        11.977363999999852,
+        9.511585000000196
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 7.114838999999847,
+        "median": 7.626687999999831,
+        "mean": 8.63256553333334,
+        "p90": 11.54144899999983,
+        "p95": 11.977363999999852,
+        "max": 11.977363999999852,
+        "mad": 0.4755239999994956,
+        "cvPct": 19.30536315180458,
+        "coldFirstCall": 7.679167000000234
+      },
+      "cpuMicros": {
+        "user": 145321,
+        "system": 9873
+      },
+      "maxBlockMs": 11.977363999999852,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": {
+          "median": 16,
+          "max": 64
+        },
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.play.tail.n50000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.seek.random.n50000",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 100000,
+        "cues": 50000
+      },
+      "target": {
+        "bound": 200000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.seek.random.n50000",
+      "area": "P1",
+      "class": "GATE",
+      "workload": {
+        "cues": 50000,
+        "updates": 300
+      },
+      "counts": {
+        "updates": 300,
+        "cueFieldReads": {
+          "total": 100000,
+          "perUpdate": {
+            "n": 300,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        12.16426199999978,
+        17.80706999999984,
+        12.296987000000172,
+        12.569224999999733,
+        17.698801000000003,
+        14.450311000000056,
+        15.737656000000243,
+        17.700026999999864,
+        12.62283699999989,
+        12.094676000000618,
+        17.931345999999394,
+        13.99170200000026,
+        13.346508999999969,
+        18.860822000000553,
+        18.787161000000197
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 12.094676000000618,
+        "median": 14.450311000000056,
+        "mean": 15.203959466666705,
+        "p90": 18.787161000000197,
+        "p95": 18.860822000000553,
+        "max": 18.860822000000553,
+        "mad": 2.2860490000002756,
+        "cvPct": 16.949691388424505,
+        "coldFirstCall": 13.035809999999856
+      },
+      "cpuMicros": {
+        "user": 350648,
+        "system": 10696
+      },
+      "maxBlockMs": 18.860822000000553,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": {
+          "median": 64,
+          "max": 64
+        },
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.seek.random.n50000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.seek.gap.n50000",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 100000,
+        "cues": 50000
+      },
+      "target": {
+        "bound": 200000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.seek.gap.n50000",
+      "area": "P1",
+      "class": "GATE",
+      "workload": {
+        "cues": 50000,
+        "updates": 300
+      },
+      "counts": {
+        "updates": 300,
+        "cueFieldReads": {
+          "total": 100000,
+          "perUpdate": {
+            "n": 300,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        0.1176740000000791,
+        0.11679000000003725,
+        0.11969200000021374,
+        0.1246659999997064,
+        0.11842799999976705,
+        0.12315500000022439,
+        0.12923500000033528,
+        0.12105299999984709,
+        0.12602900000001682,
+        0.12326900000061869,
+        0.12136099999952421,
+        0.12556800000038493,
+        0.12332600000081584,
+        0.11791099999936705,
+        0.12259900000026391
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 0.11679000000003725,
+        "median": 0.12259900000026391,
+        "mean": 0.12205040000008012,
+        "p90": 0.12602900000001682,
+        "p95": 0.12923500000033528,
+        "max": 0.12923500000033528,
+        "mad": 0.002907000000050175,
+        "cvPct": 2.80182625601001,
+        "coldFirstCall": 0.1217079999996713
+      },
+      "cpuMicros": {
+        "user": 1873,
+        "system": 0
+      },
+      "maxBlockMs": 0.12923500000033528,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": {
+          "median": 64,
+          "max": 64
+        },
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.seek.gap.n50000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.install.reads.same.cue.n50000",
+      "area": "P1",
+      "class": "SOFT",
+      "counts": {
+        "reads": 100000,
+        "cues": 50000
+      },
+      "target": {
+        "bound": 200000,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.same.cue.n50000",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 50000,
+        "updates": 1200
+      },
+      "counts": {
+        "updates": 1200,
+        "cueFieldReads": {
+          "total": 100000,
+          "perUpdate": {
+            "n": 1200,
+            "min": 0,
+            "median": 0,
+            "mean": 0,
+            "p90": 0,
+            "p95": 0,
+            "max": 0,
+            "mad": 0,
+            "cvPct": 0
+          }
+        },
+        "oracleErrors": 0
+      },
+      "samples": [
+        0.22177199999987351,
+        0.22096200000032695,
+        0.22075800000038726,
+        0.22163699999964592,
+        0.22075499999937165,
+        0.219625000000633,
+        0.22001100000034057,
+        0.2260630000000674,
+        0.21678799999972398,
+        0.21802200000001903,
+        0.22000299999945128,
+        0.22441100000014558,
+        0.2229830000005677,
+        0.22097800000028656,
+        0.22098100000039267
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 0.21678799999972398,
+        "median": 0.22096200000032695,
+        "mean": 0.22104993333341555,
+        "p90": 0.22441100000014558,
+        "p95": 0.2260630000000674,
+        "max": 0.2260630000000674,
+        "mad": 0.0009509999999863794,
+        "cvPct": 0.9963367005961656,
+        "coldFirstCall": 0.22384600000077626
+      },
+      "cpuMicros": {
+        "user": 3324,
+        "system": 13
+      },
+      "maxBlockMs": 0.2260630000000674,
+      "timingBatches": 1,
+      "timingFloorMs": 5,
+      "target": {
+        "bound": {
+          "median": 64,
+          "max": 64
+        },
+        "verdict": "n/a"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.oracle.same.cue.n50000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "errors": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.same.renderCalls.n50000",
+      "area": "P1",
+      "class": "GATE",
+      "counts": {
+        "extraRenders": 0
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.characterisation",
+      "area": "P1",
+      "class": "OBSERVE",
+      "golden": [
+        {
+          "name": "touching",
+          "t": -1,
+          "index": -1,
+          "text": ""
+        },
+        {
+          "name": "touching",
+          "t": 0,
+          "index": 0,
+          "text": "猫"
+        },
+        {
+          "name": "touching",
+          "t": 2,
+          "index": 0,
+          "text": "猫"
+        },
+        {
+          "name": "touching",
+          "t": 2.000001,
+          "index": 1,
+          "text": "犬"
+        },
+        {
+          "name": "touching",
+          "t": 4,
+          "index": 1,
+          "text": "犬"
+        },
+        {
+          "name": "touching",
+          "t": 4.000001,
+          "index": -1,
+          "text": ""
+        },
+        {
+          "name": "overlap",
+          "t": 1,
+          "index": 0,
+          "text": "猫"
+        },
+        {
+          "name": "overlap",
+          "t": 2,
+          "index": 0,
+          "text": "猫"
+        },
+        {
+          "name": "overlap",
+          "t": 4,
+          "index": 0,
+          "text": "猫"
+        },
+        {
+          "name": "overlap",
+          "t": 4.1,
+          "index": 1,
+          "text": "犬"
+        },
+        {
+          "name": "overlap",
+          "t": 5,
+          "index": 1,
+          "text": "犬"
+        },
+        {
+          "name": "duplicate",
+          "t": 1,
+          "index": 0,
+          "text": "猫"
+        },
+        {
+          "name": "duplicate",
+          "t": 3,
+          "index": 0,
+          "text": "猫"
+        }
+      ],
+      "process": 0
+    },
+    {
+      "id": "P1.install.vtt",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 500
+      },
+      "samples": [
+        0.8186539999996967,
+        0.7936970000000656,
+        0.7930510000005597,
+        0.8148379999993267,
+        0.7830459999995583,
+        0.7819760000002134,
+        11.13688000000002,
+        0.8121599999994942,
+        0.8032940000002782,
+        0.7927159999999276,
+        0.7836830000005648,
+        0.7830500000000029,
+        0.7911779999994906,
+        0.7943990000003396,
+        0.795270999999957
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 0.7819760000002134,
+        "median": 0.7936970000000656,
+        "mean": 1.485192866666633,
+        "p90": 0.8186539999996967,
+        "p95": 11.13688000000002,
+        "max": 11.13688000000002,
+        "mad": 0.010013999999500811,
+        "cvPct": 173.68428822298648,
+        "coldFirstCall": 1.0989190000000235
+      },
+      "cpuMicros": {
+        "user": 45358,
+        "system": 0
+      },
+      "maxBlockMs": 11.13688000000002,
+      "process": 0
+    },
+    {
+      "id": "P1.install.lrc",
+      "area": "P1",
+      "class": "OBSERVE",
+      "workload": {
+        "cues": 500
+      },
+      "samples": [
+        0.7173419999999169,
+        0.7236950000005891,
+        0.7726760000005015,
+        0.7193889999998646,
+        0.7471069999992324,
+        0.7162650000000212,
+        0.7161740000001373,
+        14.07407400000011,
+        0.7322540000004665,
+        0.7299419999999373,
+        0.7259429999994609,
+        0.7779719999998633,
+        0.8747329999996509,
+        0.8560830000005808,
+        0.7529660000000149
+      ],
+      "timeMs": {
+        "n": 15,
+        "min": 0.7161740000001373,
+        "median": 0.7322540000004665,
+        "mean": 1.6424410000000231,
+        "p90": 0.8747329999996509,
+        "p95": 14.07407400000011,
+        "max": 14.07407400000011,
+        "mad": 0.01598900000044523,
+        "cvPct": 202.31082706484855,
+        "coldFirstCall": 1.1600909999997384
+      },
+      "cpuMicros": {
+        "user": 50462,
+        "system": 759
+      },
+      "maxBlockMs": 14.07407400000011,
+      "process": 0
+    },
+    {
+      "id": "P1.runtime",
+      "area": "P1",
+      "class": "OBSERVE",
+      "wallMs": 4533.7936070000005,
+      "cpuMicros": {
+        "user": 5932779,
+        "system": 227493
+      },
+      "eventLoopDelayMs": {
+        "max": 4500.488191,
+        "p99": 4500.488191
+      },
+      "heap": {
+        "total_heap_size": 496353280,
+        "total_heap_size_executable": 786432,
+        "total_physical_size": 496353280,
+        "total_available_size": 1826728112,
+        "used_heap_size": 420908976,
+        "heap_size_limit": 2248146944,
+        "malloced_memory": 540736,
+        "peak_malloced_memory": 3121944,
+        "does_zap_garbage": 0,
+        "number_of_native_contexts": 3,
+        "number_of_detached_contexts": 0,
+        "total_global_handles_size": 143432,
+        "used_global_handles_size": 39776,
+        "external_memory": 3918069,
+        "total_allocated_bytes": 2464627000
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.overlapTicks",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "requests": [
+          "captions"
+        ],
+        "messages": []
+      },
+      "target": {
+        "bound": "0 lyrics during captions",
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.steadyNoCaptions",
+      "area": "P4",
+      "class": "OBSERVE",
+      "counts": {
+        "categories": {
+          "captions": 1,
+          "innertube": 1,
+          "watchHtml": 1,
+          "localAI": 1
+        },
+        "messages": {
+          "FETCH_LRCLIB_LYRICS": 1
+        }
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.askSenseiRepeat",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "modelRequests": 1
+      },
+      "target": {
+        "bound": 1,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.staleWrites",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "lastAiData": null
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.navStormPending",
+      "area": "P4",
+      "class": "OBSERVE",
+      "pendingRequests": 50,
+      "renderVersionDelta": 1,
+      "timeline": [
+        {
+          "start": 0,
+          "end": 2,
+          "text": "猫"
+        }
+      ],
+      "process": 0
+    },
+    {
+      "id": "P4.acquisition.perSource",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "categories": {
+          "captions": 1,
+          "innertube": 1,
+          "watchHtml": 1,
+          "localAI": 1
+        }
+      },
+      "target": {
+        "bound": 3,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.captionFailureRetries",
+      "area": "P4",
+      "class": "OBSERVE",
+      "categories": {
+        "captions": 1,
+        "innertube": 1,
+        "watchHtml": 1,
+        "localAI": 1
+      },
+      "signals": [
+        {
+          "category": "captions",
+          "abortSignal": true
+        },
+        {
+          "category": "innertube",
+          "abortSignal": true
+        },
+        {
+          "category": "watchHtml",
+          "abortSignal": true
+        },
+        {
+          "category": "localAI",
+          "abortSignal": true
+        }
+      ],
+      "simulation": "immediate fixture failures, not real timeout latency",
+      "process": 0
+    },
+    {
+      "id": "P4.translationCache",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "repeatRequests": 0,
+        "entries": 200
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.runtime",
+      "area": "P4",
+      "class": "OBSERVE",
+      "wallMs": 110.282577,
+      "cpuMicros": {
+        "user": 130292,
+        "system": 15009
+      },
+      "eventLoopDelayMs": {
+        "max": 19.775487,
+        "p99": 10.428415
+      },
+      "heap": {
+        "total_heap_size": 31031296,
+        "total_heap_size_executable": 786432,
+        "total_physical_size": 31031296,
+        "total_available_size": 2230895096,
+        "used_heap_size": 18245896,
+        "heap_size_limit": 2248146944,
+        "malloced_memory": 540736,
+        "peak_malloced_memory": 2665368,
+        "does_zap_garbage": 0,
+        "number_of_native_contexts": 11,
+        "number_of_detached_contexts": 0,
+        "total_global_handles_size": 12360,
+        "used_global_handles_size": 3808,
+        "external_memory": 2318111,
+        "total_allocated_bytes": 97319320
+      },
+      "process": 0
+    },
+    {
+      "id": "P5.bridge.steady",
+      "area": "P5",
+      "class": "GATE",
+      "counts": {
+        "load": 60,
+        "get": 120,
+        "set": 0
+      },
+      "target": {
+        "bound": "0 setOption",
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P5.bridge.nonWatch",
+      "area": "P5",
+      "class": "OBSERVE",
+      "counts": {
+        "load": 0,
+        "get": 0,
+        "set": 0
+      },
+      "intervals": 2,
+      "windowListeners": 8,
+      "process": 0
+    },
+    {
+      "id": "P5.content.navigations",
+      "area": "P5",
+      "class": "GATE",
+      "counts": {
+        "checkpoints": [
+          {
+            "navigation": 5,
+            "totalVideoListeners": 2,
+            "liveObservers": 2,
+            "intervals": 1
+          },
+          {
+            "navigation": 50,
+            "totalVideoListeners": 2,
+            "liveObservers": 2,
+            "intervals": 1
+          }
+        ]
+      },
+      "target": {
+        "bound": "no listener/observer growth",
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P5.content.leaveWatch",
+      "area": "P5",
+      "class": "GATE",
+      "counts": {
+        "oldVideoListeners": 0,
+        "connectedObservers": 0,
+        "drawerHidden": true,
+        "overlayActive": false,
+        "state": {
+          "currentVideoId": null,
+          "currentSubIndex": -1,
+          "renderedSentence": "",
+          "activeLiveSentence": "",
+          "drawerContextVersion": 52,
+          "subtitleRenderVersion": 103,
+          "lastAiData": null,
+          "drawerContextSentence": "",
+          "timelineLength": 0,
+          "sentenceTranslationCacheSize": 1
+        }
+      },
+      "target": {
+        "bound": "complete cleanup",
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P5.content.nonWatchTicks",
+      "area": "P5",
+      "class": "OBSERVE",
+      "counts": {
+        "create": 0,
+        "append": 0,
+        "remove": 0,
+        "html": 0,
+        "text": 0,
+        "style": 0,
+        "class": 0,
+        "attribute": 0,
+        "queries": 0,
+        "addListener": 0,
+        "removeListener": 0,
+        "observerCallbacks": 0
+      },
+      "process": 0
+    },
+    {
+      "id": "P5.runtime",
+      "area": "P5",
+      "class": "OBSERVE",
+      "wallMs": 76.35191,
+      "cpuMicros": {
+        "user": 85344,
+        "system": 7732
+      },
+      "eventLoopDelayMs": {
+        "max": 23.445503,
+        "p99": 23.445503
+      },
+      "heap": {
+        "total_heap_size": 21073920,
+        "total_heap_size_executable": 786432,
+        "total_physical_size": 21073920,
+        "total_available_size": 2236184320,
+        "used_heap_size": 12470616,
+        "heap_size_limit": 2248146944,
+        "malloced_memory": 950408,
+        "peak_malloced_memory": 2665368,
+        "does_zap_garbage": 0,
+        "number_of_native_contexts": 5,
+        "number_of_detached_contexts": 0,
+        "total_global_handles_size": 12360,
+        "used_global_handles_size": 3168,
+        "external_memory": 2318189,
+        "total_allocated_bytes": 83119864
+      },
+      "process": 0
+    },
+    {
+      "id": "P1.characterisation.golden",
+      "class": "GATE",
+      "target": {
+        "bound": "byte-identical baseline",
+        "verdict": "pass"
+      }
+    }
+  ],
+  "harnessErrors": [],
+  "warnings": [
+    "Pathological repetition counts differ from the design sketch; see per-row metadata.",
+    "Node DOM counts are operation counts; real mutation cost is P8."
+  ]
+}

@@ -1,0 +1,17 @@
+Node v26.8.1; Chromium fixtureMode=fetch-intercept
+GREEN              R-A06-control DEFAULT_QUICK_SAVE
+GREEN              R-A06-route IGNORED_ANKI_ENDPOINT_DECK
+GREEN              R-A06-reading QUICK_SURFACE_AS_READING
+GREEN              R-A06-status-apiError ANKI_FAILURE_FALSE_SUCCESS
+GREEN              R-A06-status-offline ANKI_FAILURE_FALSE_SUCCESS
+GREEN              R-A06-enriched ENRICHED_LOCAL_STORAGE_DISCLOSED
+GREEN              R-A06-envelope-bare ENRICHED_READING_ENVELOPE_LOST
+GREEN              R-A06-envelope-wrapped ENRICHED_READING_ENVELOPE_LOST
+GREEN              R-A02-card-A ANKI_FIELDS_CONTAIN_MARKUP
+GREEN              R-A02-card-B TSV_HTML_UNESCAPED
+GREEN              R-A06-exporters EXPORT_BYTES_DIVERGE
+GREEN              R-A06-enriched-route ENRICHED_CONTRACT
+GREEN              R-A06-enriched-failure ENRICHED_CONTRACT
+GREEN              R-A03-control CURRENT_RESPONSE_APPLIED
+GREEN              R-A02-control CHAT_MARKDOWN_ESCAPES_PAYLOAD
+{"GREEN":15}

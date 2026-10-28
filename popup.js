@@ -61,15 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      let tsv = "#separator:Tab\n#html:true\n#deck:LinguaPlay Japanese Immersion\n";
-      cards.forEach(c => {
-        const sent = (c.sentence || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
-        const word = (c.word || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
-        const reading = (c.reading || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
-        const meaning = (c.meaning || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
-        const boldSent = word && sent.includes(word) ? sent.replace(word, `<b>${word}</b>`) : sent;
-        tsv += `${boldSent}\t${word}\t${reading}\t${meaning}\n`;
-      });
+      const tsv = buildAnkiTsv(cards);
 
       const blob = new Blob([tsv], { type: 'text/tab-separated-values;charset=utf-8;' });
       const url = URL.createObjectURL(blob);

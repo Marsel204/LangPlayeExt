@@ -1,0 +1,320 @@
+{
+  "schema": 1,
+  "mode": "after",
+  "fixtureMode": "fetch-intercept",
+  "node": "v26.8.1",
+  "startedFromUnchangedBaseline": false,
+  "reportable": false,
+  "runs": [
+    {
+      "kind": "node",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 243
+    },
+    {
+      "kind": "browser",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 9216
+    }
+  ],
+  "counts": {
+    "GREEN": 9
+  },
+  "results": [
+    {
+      "id": "R-A07-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "cards": [
+              {
+                "word": "猫",
+                "reading": "猫",
+                "romaji": "ねこ (neko)",
+                "meaning": "<span style=\"opacity:0.6;\">Looking up definition…</span>",
+                "sentence": "猫がいる",
+                "sentence_en": "",
+                "date": "2026-10-28T09:52:54.897Z"
+              }
+            ]
+          },
+          "signature": "ONE_DURABLE_SAVE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-concurrent",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A07-control",
+        "witnessRegex": "^CONCURRENT_WHOLE_ARRAY_LOST_SAVE$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-concurrent",
+          "expected": "red",
+          "control": "R-A07-control",
+          "ok": true,
+          "witness": {
+            "lengths": [
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          "signature": "CONCURRENT_WHOLE_ARRAY_LOST_SAVE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-failure",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A07-control",
+        "witnessRegex": "^FAILED_STORAGE_FALSE_SUCCESS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-failure",
+          "expected": "red",
+          "control": "R-A07-control",
+          "ok": true,
+          "witness": {
+            "label": "✗ Local copy failed: QUOTA_BYTES quota exceeded",
+            "writes": [
+              {
+                "keys": [
+                  "linguaplay_cards"
+                ],
+                "bytes": 228,
+                "failed": true
+              },
+              {
+                "keys": [
+                  "linguaplay_cards"
+                ],
+                "bytes": 228,
+                "failed": true
+              }
+            ]
+          },
+          "signature": "FAILED_STORAGE_FALSE_SUCCESS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-clearRace",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A07-control",
+        "witnessRegex": "^CLEARED_CARD_RESURRECTED$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-clearRace",
+          "expected": "red",
+          "control": "R-A07-control",
+          "ok": true,
+          "witness": {
+            "cards": []
+          },
+          "signature": "CLEARED_CARD_RESURRECTED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-clear-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-clear-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "cards": [],
+            "counter": "0 cards in storage"
+          },
+          "signature": "OPTIONS_CLEAR_DURABLE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-clearError",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A07-clear-control",
+        "witnessRegex": "^CLEAR_FAILURE_ZERO_CARD_SUCCESS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A07-clearError",
+          "expected": "red",
+          "control": "R-A07-clear-control",
+          "ok": true,
+          "witness": {
+            "cards": [
+              {
+                "word": "old"
+              }
+            ],
+            "counter": "Clear failed: QUOTA_BYTES quota exceeded"
+          },
+          "signature": "CLEAR_FAILURE_ZERO_CARD_SUCCESS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-quota",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A07-quota-control",
+        "witnessRegex": "^REAL_QUOTA_FALSE_SUCCESS$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A07-quota",
+          "expected": "red",
+          "control": "R-A07-quota-control",
+          "ok": true,
+          "witness": {
+            "quota": 10485760,
+            "used": 10483712,
+            "persistedCards": 0,
+            "label": "✗ Local copy failed: Invalid card field: meaning"
+          },
+          "signature": "REAL_QUOTA_FALSE_SUCCESS",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-quota-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^REAL_STORAGE_SAVE_CONTROL$",
+        "runtime": "browser"
+      },
+      "runs": [
+        {
+          "id": "R-A07-quota-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "persistedCards": 1
+          },
+          "signature": "REAL_STORAGE_SAVE_CONTROL",
+          "fixtureMode": "fetch-intercept",
+          "process": 0,
+          "kind": "browser",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A07-settingsError",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A07-clear-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-A07-settingsError",
+          "expected": "green",
+          "control": "R-A07-clear-control",
+          "ok": true,
+          "witness": {
+            "text": "❌ Settings write failed: QUOTA_BYTES quota exceeded"
+          },
+          "signature": "SETTINGS_FAILURE_VISIBLE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    }
+  ],
+  "limitations": []
+}

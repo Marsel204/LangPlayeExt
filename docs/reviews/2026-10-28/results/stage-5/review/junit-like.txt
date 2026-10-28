@@ -1,0 +1,7 @@
+Node v26.8.1; Chromium fixtureMode=fetch-intercept
+GREEN              R-A05-control VISIBLE_JAPANESE_RESTORED
+GREEN              R-A05-node HIDDEN_OVERLAY_CC_JA_RESTORED
+GREEN              R-A05-browser-control VISIBLE_POLL_CONTROL
+GREEN              R-A05-browser REAL_HIDDEN_OVERLAY_CC_JA_RESTORED
+GREEN              R-A05-browser-multipoll THREE_HIDDEN_POLLS
+{"GREEN":5}

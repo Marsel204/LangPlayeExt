@@ -1,0 +1,14 @@
+{"id":"P6.translationCache.n100","area":"P6","class":"GATE","counts":{"entries":100,"recent50Refetches":0},"target":{"bound":2000,"verdict":"pass"},"memory":{"heapDeltaBytes":-237680,"usedHeapBytes":8875488}}
+{"id":"P6.translationCache.n1000","area":"P6","class":"GATE","counts":{"entries":500,"recent50Refetches":0},"target":{"bound":2000,"verdict":"pass"},"memory":{"heapDeltaBytes":1800960,"usedHeapBytes":10715576}}
+{"id":"P6.translationCache.n10000","area":"P6","class":"GATE","counts":{"entries":500,"recent50Refetches":0},"target":{"bound":2000,"verdict":"pass"},"memory":{"heapDeltaBytes":15647624,"usedHeapBytes":26364736}}
+{"id":"P6.lyricsCache.bytes8000.videos50","area":"P6","class":"GATE","counts":{"entries":50,"bytes":406940,"failedWrites":0,"cards":200},"target":{"bound":2500000,"verdict":"pass"}}
+{"id":"P6.lyricsCache.bytes8000.videos500","area":"P6","class":"GATE","counts":{"entries":50,"bytes":407000,"failedWrites":0,"cards":200},"target":{"bound":2500000,"verdict":"pass"}}
+{"id":"P6.pressure.cards.bytes8000","area":"P6","class":"GATE","counts":{"cards":200,"settingsPersisted":true,"failedWrites":0},"target":{"bound":"preserve cards and settings","verdict":"pass"}}
+{"id":"P6.lyricsCache.bytes200000.videos50","area":"P6","class":"GATE","counts":{"entries":9,"bytes":1801251,"failedWrites":0,"cards":200},"target":{"bound":2500000,"verdict":"pass"}}
+{"id":"P6.lyricsCache.bytes200000.videos500","area":"P6","class":"GATE","counts":{"entries":9,"bytes":1801260,"failedWrites":0,"cards":200},"target":{"bound":2500000,"verdict":"pass"}}
+{"id":"P6.pressure.cards.bytes200000","area":"P6","class":"GATE","counts":{"cards":200,"settingsPersisted":true,"failedWrites":0},"target":{"bound":"preserve cards and settings","verdict":"pass"}}
+{"id":"P6.cards.n100","area":"P6","class":"OBSERVE","counts":{"lastSaveBytes":15171,"totalWriteBytes":769650,"cards":100}}
+{"id":"P6.cards.n500","area":"P6","class":"OBSERVE","counts":{"lastSaveBytes":75571,"totalWriteBytes":18948250,"cards":500}}
+{"id":"P6.cards.n2000","area":"P6","class":"OBSERVE","counts":{"lastSaveBytes":302071,"totalWriteBytes":302293000,"cards":2000}}
+{"id":"P6.offsetKeys","area":"P6","class":"OBSERVE","count":500}
+{"id":"P6.runtime","area":"P6","class":"OBSERVE","wallMs":64467.862324,"cpuMicros":{"user":62968944,"system":3979986},"eventLoopDelayMs":{"max":145.358847,"p99":115.343359},"heap":{"total_heap_size":463081472,"total_heap_size_executable":1310720,"total_physical_size":463081472,"total_available_size":1834082248,"used_heap_size":412674872,"heap_size_limit":2248146944,"malloced_memory":540736,"peak_malloced_memory":29177400,"does_zap_garbage":0,"number_of_native_contexts":9,"number_of_detached_contexts":0,"total_global_handles_size":12360,"used_global_handles_size":3488,"external_memory":2315644,"total_allocated_bytes":45773126456}}
