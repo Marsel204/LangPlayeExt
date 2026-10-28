@@ -64,6 +64,13 @@
             <p id="9router-help-text" class="help-text">Use your router key here. Provider keys stay in 9Router. Leave blank only if router authentication is disabled.</p>
           </div>
           </div>
+          <div class="field provider-filter">
+            <label for="9router-provider-search">Find your provider</label>
+            <input type="search" id="9router-provider-search" placeholder="Search by name or prefix, e.g. OpenCode or oc" aria-controls="9router-provider" aria-describedby="9router-provider-help" autocomplete="off" disabled>
+            <label for="9router-provider">Provider</label>
+            <select id="9router-provider" aria-controls="9router-models" aria-describedby="9router-provider-help" disabled><option value="">Load models to choose a provider</option></select>
+            <p id="9router-provider-help" class="help-text" role="status" aria-live="polite">Load models, then choose your provider to narrow the list below.</p>
+          </div>
           <div class="field">
             <label for="9router-models">Available Models</label>
             <div class="field-row">
@@ -77,9 +84,9 @@
               <input class="technical" type="text" id="9router-model" placeholder="Choose a model above or enter a combo" aria-describedby="9router-status-text" autocomplete="off">
               <button id="test-9router-btn" class="btn-secondary" type="button">Test 9Router</button>
             </div>
-            <p class="help-text">Select an exact model ID or type a combo from your 9Router dashboard.</p>
+            <p class="help-text">Choosing a provider only filters the list. Select a model to change this value, or enter a model ID or combo manually.</p>
           </div>
-          <p id="9router-status-text" class="connection-status" role="status" aria-live="polite">Models load automatically. You can also enter your model ID or combo name.</p>
+          <p id="9router-status-text" class="connection-status" role="status" aria-live="polite">Models load automatically. Choose a provider to browse its models, or enter your model ID or combo name.</p>
         </div>
       </section>
 
@@ -174,7 +181,7 @@
           </li>
           <li><strong>Connect a provider.</strong> Open the <a href="http://127.0.0.1:20128/dashboard" target="_blank" rel="noopener noreferrer">9Router dashboard</a>, enable a provider, and copy your router API key if router authentication is enabled. Provider credentials belong in 9Router.</li>
           <li><strong>Fill in 9Router AI below.</strong> For this computer, keep <code>http://127.0.0.1:20128/v1</code> as the API Base URL. Paste the router key into <strong>9Router API Key</strong>. Use your hosted router's API URL if it runs elsewhere.</li>
-          <li><strong>Choose, test, and save.</strong> Choose a model from <strong>Available Models</strong>, which loads from your router when this page opens. Click <strong>Load Models</strong> to refresh it or allow access to a hosted router. The selected ID, including its provider prefix, fills <strong>Model or Combo</strong>. You can also type a combo name there. Click <strong>Test 9Router</strong>; after a successful reply, click <strong>Save Settings</strong> at the bottom of this page. Testing sends a real AI request and does not save the form.</li>
+          <li><strong>Choose, test, and save.</strong> Use <strong>Find your provider</strong> to search by name or prefix, then choose it in <strong>Provider</strong>. <strong>Available Models</strong> shows only that provider's models. Router combos appear under <strong>Combos &amp; unprefixed models</strong>. Click <strong>Load Models</strong> to refresh the catalog or allow access to a hosted router. Selecting a model fills <strong>Model or Combo</strong> with its exact ID; you can also enter an ID or combo there manually. Click <strong>Test 9Router</strong>; after a successful reply, click <strong>Save Settings</strong>. Testing sends a real AI request and does not save the form.</li>
         </ol>
         <p>Open or refresh a YouTube video with Japanese captions, click a word, and try <strong>Ask Sensei</strong> or <strong>Sensei Chat</strong>.</p>
 

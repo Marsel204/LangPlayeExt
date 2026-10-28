@@ -26,7 +26,11 @@ const server = http.createServer((req, res) => {
     }
     if (req.url === '/v1/models') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ data: [{ id: 'provider/test-model' }, { id: 'study-combo' }] }));
+      res.end(JSON.stringify({ data: [
+        { id: 'provider/test-model' }, { id: 'study-combo', owned_by: 'combo' },
+        { id: 'oc/free-one' }, { id: 'oc/free-two' },
+        ...Array.from({ length: 40 }, (_, i) => Array.from({ length: 20 }, (_, j) => ({ id: `provider-${i}/model-${j}` }))).flat()
+      ] }));
       return;
     }
     if (req.url === '/v1/chat/completions' && JSON.parse(body).messages.some(message => message.content.includes('word_by_word'))) {
@@ -116,14 +120,39 @@ try {
     throw new Error(`9Router control did not finish: ${id}`);
   }
   await waitForRouterControl('load-9router-models-btn');
-  assert.deepEqual(await evaluate('Array.from(document.getElementById("9router-models").options, option => option.value).filter(Boolean)'), ['provider/test-model', 'study-combo']);
+  assert.equal(await evaluate('document.getElementById("9router-models").disabled'), true, 'A broad catalog must wait for a provider choice');
+  assert.equal(await evaluate('document.getElementById("9router-provider").options.length'), 44);
+  await evaluate(`document.getElementById('9router-provider-search').focus();`);
+  await rpc('Input.insertText', { text: 'OpenCode' }, sessionId);
+  assert.deepEqual(await evaluate('Array.from(document.getElementById("9router-provider").options, option => option.value).filter(Boolean)'), ['provider:oc']);
+  await evaluate(`
+    const provider = document.getElementById('9router-provider');
+    provider.value = 'provider:oc';
+    provider.dispatchEvent(new Event('change', { bubbles: true }));
+  `);
+  assert.deepEqual(await evaluate('Array.from(document.getElementById("9router-models").options, option => option.value).filter(Boolean)'), ['oc/free-one', 'oc/free-two']);
+  assert.equal(await evaluate('document.getElementById("9router-model").value'), '', 'Provider selection only filters the list');
+  await evaluate(`
+    const search = document.getElementById('9router-provider-search');
+    search.value = 'no-such-provider';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+  `);
+  assert.equal(await evaluate('document.getElementById("9router-provider").disabled'), true);
+  assert.equal(await evaluate('document.getElementById("9router-models").disabled'), true);
+  assert.match(await evaluate('document.getElementById("9router-provider-help").textContent'), /No providers match/);
+  await evaluate(`
+    document.getElementById('9router-provider-search').value = '';
+    document.getElementById('9router-provider-search').dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('9router-provider').value = 'combos';
+    document.getElementById('9router-provider').dispatchEvent(new Event('change', { bubbles: true }));
+  `);
   await evaluate(`
     const modelInput = document.getElementById('9router-model');
     modelInput.value = 'custom-manual-combo';
     modelInput.dispatchEvent(new Event('input', { bubbles: true }));
   `);
   assert.equal(await evaluate('document.getElementById("9router-models").value'), '');
-  assert.deepEqual(await evaluate('Array.from(document.getElementById("9router-models").options, option => option.value).filter(Boolean)'), ['provider/test-model', 'study-combo']);
+  assert.deepEqual(await evaluate('Array.from(document.getElementById("9router-models").options, option => option.value).filter(Boolean)'), ['study-combo']);
   await evaluate(`
     const picker = document.getElementById('9router-models');
     picker.value = 'study-combo';
@@ -192,12 +221,29 @@ try {
   `);
   if (process.env.OPTIONS_SCREENSHOT_DIR) {
     await mkdir(process.env.OPTIONS_SCREENSHOT_DIR, { recursive: true });
-    for (const width of [900, 420]) {
-      await rpc('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
-      const { data } = await rpc('Page.captureScreenshot', { format: 'png' }, sessionId);
-      await writeFile(path.join(process.env.OPTIONS_SCREENSHOT_DIR, `9router-options-${width}.png`), Buffer.from(data, 'base64'));
+    await evaluate(`
+      document.getElementById('9router-provider-search').value = 'OpenCode';
+      document.getElementById('9router-provider-search').dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('9router-provider').value = 'provider:oc';
+      document.getElementById('9router-provider').dispatchEvent(new Event('change', { bubbles: true }));
+      document.getElementById('9router-models').value = 'oc/free-one';
+      document.getElementById('9router-models').dispatchEvent(new Event('change', { bubbles: true }));
+      document.getElementById('save-toast').classList.remove('show');
+      history.replaceState(null, '', '#ai-settings');
+    `);
+    for (const theme of ['light', 'dark']) {
+      await rpc('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] }, sessionId);
+      for (const width of [1440, 900, 420]) {
+        await rpc('Emulation.setDeviceMetricsOverride', { width, height: 1100, deviceScaleFactor: 1, mobile: false }, sessionId);
+        await evaluate(`document.getElementById('ai-settings').scrollIntoView({ behavior: 'instant' });`);
+        await evaluate(`new Promise(resolve => setTimeout(resolve, 220))`);
+        assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `Settings overflow at ${width}px in ${theme} mode`);
+        const { data } = await rpc('Page.captureScreenshot', { format: 'png' }, sessionId);
+        await writeFile(path.join(process.env.OPTIONS_SCREENSHOT_DIR, `9router-options-${width}-${theme}.png`), Buffer.from(data, 'base64'));
+      }
     }
     await rpc('Emulation.clearDeviceMetricsOverride', {}, sessionId);
+    await rpc('Emulation.setEmulatedMedia', { features: [] }, sessionId);
   }
   const nativeStartup = await checkNativeStartup({ root, profile, extensionOrigin, evaluate });
   const subtitleVisibility = await checkSubtitleVisibility({ root, evaluate, rpc, sessionId, routerUrl: `http://127.0.0.1:${port}` });
@@ -205,7 +251,7 @@ try {
   assert.ok(analysis, 'A grammar breakdown must reach 9Router');
   assert.equal(JSON.parse(analysis.body).model, 'study-combo');
   const japaneseParsing = process.env.PARSER_SERVER_DIR ? await checkJapaneseParsing({root,evaluate,backend:process.env.PARSER_SERVER_DIR}) : {skipped:'Set PARSER_SERVER_DIR to test a real Sudachi backend'};
-  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, routerModelDiscovery: true, routerSettingsSaved: settingsSaved, routerWorkerRequest: routerAnswer.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility, japaneseParsing }));
+  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, routerModelDiscovery: true, routerProviderSearch: true, routerProviderFiltering: true, routerSettingsSaved: settingsSaved, routerWorkerRequest: routerAnswer.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility, japaneseParsing }));
 } finally {
   ws?.close();
   browser.kill('SIGTERM');
