@@ -6,7 +6,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { checkSenseiChat } from './browser_sensei_chat_checks.mjs';
 
-export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, localAiUrl }) {
+export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, routerUrl }) {
   const [content, css] = await Promise.all([
     readFile(path.join(root, 'content.js'), 'utf8'),
     readFile(path.join(root, 'content.css'), 'utf8'),
@@ -48,10 +48,15 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
     window.translationResolvers = [];
     window.completeTranslation = () => window.translationResolvers.splice(0).forEach(resolve => resolve({ok:true,json:async () => [[['A cat is here']]]}));
     window.chatRequests = [];
-    const nativeFetch = window.fetch.bind(window);
+    const nativeSendMessage = chrome.runtime.sendMessage.bind(chrome.runtime);
+    chrome.runtime.sendMessage = (message, callback) => {
+      if (message.action === 'CALL_9ROUTER_AI' && !message.isJson) {
+        window.chatRequests.push({ body: message, resolve: callback });
+        return;
+      }
+      return nativeSendMessage(message, callback);
+    };
     window.fetch = (url, options) => {
-      if (url.endsWith('/api/ai/chat')) return new Promise(resolve => window.chatRequests.push({body:JSON.parse(options.body),resolve}));
-      if (url.startsWith(${JSON.stringify(localAiUrl || 'http://fixture.invalid')}) && url.endsWith('/api/ai/analyze')) return nativeFetch(url, options);
       if (url.includes('translate.googleapis.com')) {
         return new Promise(resolve => window.translationResolvers.push(resolve));
       }
@@ -126,8 +131,8 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   assert.deepEqual(await evaluate('Array.from(document.getElementById("linguaplay-yt-controls").children, el => el.id)'), ['linguaplay-visibility-toggle', 'linguaplay-sub-status', 'linguaplay-toggle-trigger']);
   await evaluate('document.querySelector(".linguaplay-yt-token").click()');
   assert.notEqual((await state()).drawer, 'none');
-  if (localAiUrl) {
-    await evaluate(`chrome.storage.local.set({linguaplay_ai_provider:'antigravity',linguaplay_server_url:${JSON.stringify(localAiUrl)}})`);
+  if (routerUrl) {
+    await evaluate(`chrome.storage.local.set({linguaplay_9router_url:${JSON.stringify(routerUrl + '/v1')}})`);
     const started = Date.now();
     await click('lp-ai-btn');
     assert.equal(await evaluate('document.getElementById("lp-ai-loading").style.display'), 'block');
@@ -136,9 +141,8 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     assert.ok(Date.now() - started >= 5000);
-    assert.equal(await evaluate('document.getElementById("lp-ai-results").textContent.includes("ANTIGRAVITY CLI BREAKDOWN")'), true, 'A slow local analysis must reach the drawer instead of timing out');
+    assert.equal(await evaluate('document.getElementById("lp-ai-results").textContent.includes("9ROUTER (study-combo) BREAKDOWN")'), true, 'A slow router analysis must reach the drawer instead of timing out');
     assert.equal(await evaluate('document.getElementById("lp-ai-results").textContent.includes("AI Analysis Notice")'), false);
-    await evaluate(`chrome.storage.local.set({linguaplay_server_url:'http://127.0.0.1:8000'})`);
   }
   const senseiChat = await checkSenseiChat({ evaluate });
   assert.equal(await evaluate('document.getElementById("linguaplay-yt-drawer").parentElement.id'), 'secondary', 'The drawer must use the outer sidebar, above the expanded Mix');
@@ -345,5 +349,5 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   await rpc('Page.reload', {}, sessionId);
   await waitFor('document.readyState === "complete" && !document.getElementById("linguaplay-yt-widget")');
   assert.equal(await evaluate('document.documentElement.classList.contains("linguaplay-subtitles-hidden")'), false);
-  return { liveCaptions: true, asyncTranslation: true, slowLocalAnalysis: !!localAiUrl, senseiChat, toolbar: true, keyboard: true, fullscreen: true, navigation: true, refresh: true, nativePlacement: true, autoHide: true, narrowLayout: true, replacement: true, aboveExpandedMix: true, sidebarReplacement: true, sidebarFallback: true, logoToggle: true };
+  return { liveCaptions: true, asyncTranslation: true, slowRouterAnalysis: !!routerUrl, senseiChat, toolbar: true, keyboard: true, fullscreen: true, navigation: true, refresh: true, nativePlacement: true, autoHide: true, narrowLayout: true, replacement: true, aboveExpandedMix: true, sidebarReplacement: true, sidebarFallback: true, logoToggle: true };
 }

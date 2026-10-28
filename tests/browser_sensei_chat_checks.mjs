@@ -16,7 +16,7 @@ export async function checkSenseiChat({ evaluate }) {
     await waitFor(`window.chatRequests.length === ${count}`);
   }
   async function reply(index, text, ok = true) {
-    await evaluate(`window.chatRequests[${index}].resolve({ok:${ok},status:${ok ? 200 : 504},json:async () => (${JSON.stringify(ok ? { status: 'success', reply: text } : { status: 'error', message: text })})})`);
+    await evaluate(`window.chatRequests[${index}].resolve(${JSON.stringify(ok ? { success: true, content: text } : { success: false, error: text })})`);
     await waitFor(`!document.getElementById('lp-chat-send-btn').disabled`);
   }
   const geometry = () => evaluate(`(() => {

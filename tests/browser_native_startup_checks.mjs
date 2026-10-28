@@ -22,7 +22,7 @@ export async function checkNativeStartup({ root, profile, extensionOrigin, evalu
     const reused = await evaluate(`chrome.runtime.sendMessage({action:'ENSURE_LOCAL_SERVER'})`);
     assert.equal(reused.started, false);
     assert.equal(reused.success, true);
-    const health = await fetch(`http://127.0.0.1:${port}/api/ai/status`).then(response => response.json());
+    const health = await fetch(`http://127.0.0.1:${port}/api/parse`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: '猫' }) }).then(response => response.json());
     assert.equal(health.status, 'success');
     await evaluate(`chrome.storage.local.set({linguaplay_auto_start_server:false})`);
     assert.equal((await evaluate(`chrome.runtime.sendMessage({action:'ENSURE_LOCAL_SERVER'})`)).skipped, true);

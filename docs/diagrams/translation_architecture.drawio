@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" agent="Antigravity AI" version="24.0.0">
+<mxfile host="app.diagrams.net" agent="LinguaPlay" version="24.0.0">
   <diagram id="lingua-play-pipeline" name="LinguaPlay Translation Architecture">
     <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
       <root>
@@ -87,7 +87,7 @@
         <mxCell id="nodeL" value="Track A: Instant Offline Gloss&#xa;(JDICT &lt;10ms In-Memory)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#8e24aa;" vertex="1" parent="stage4">
           <mxGeometry x="30" y="40" width="260" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="nodeM" value="Track B: Antigravity / Gemini AI&#xa;(Server.py Contextual Translation)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1bee7;strokeColor=#8e24aa;" vertex="1" parent="stage4">
+        <mxCell id="nodeM" value="Track B: 9Router AI&#xa;(Configured Model or Combo)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1bee7;strokeColor=#8e24aa;" vertex="1" parent="stage4">
           <mxGeometry x="30" y="130" width="260" height="70" as="geometry" />
         </mxCell>
         <mxCell id="nodeN" value="On-Video Ruby Furigana Overlay&#xa;&amp; Native YouTube Sidebar Drawer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#8e24aa;fontStyle=1;" vertex="1" parent="stage4">

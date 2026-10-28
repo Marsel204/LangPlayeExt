@@ -22,82 +22,40 @@
 
     <!-- AI Models Card -->
     <div class="card">
-      <h2><span>🤖</span> AI Breakdown Engine</h2>
+      <h2><span>🤖</span> 9Router AI</h2>
 
-      <div class="form-group">
-        <label for="ai-provider">Default AI Provider</label>
-        <select id="ai-provider">
-          <option value="gemini">Google Gemini API (Direct 2.5 Flash)</option>
-          <option value="deepseek">DeepSeek API (Direct V3 / R1)</option>
-          <option value="openrouter">OpenRouter (DeepSeek / Claude / GPT-4o)</option>
-          <option value="opencode">OpenCode / Custom OpenAI Endpoint (Ollama, LM Studio)</option>
-          <option value="antigravity" selected>Local Antigravity CLI / Server (http://127.0.0.1:8000)</option>
-        </select>
+      <!-- 9Router -->
+      <div class="form-group router-settings" id="group-9router">
+        <label for="9router-url">9Router API Base URL</label>
+        <input type="text" id="9router-url" value="http://127.0.0.1:20128/v1" placeholder="http://127.0.0.1:20128/v1" aria-describedby="9router-help-text">
+        <label for="9router-key">9Router API Key</label>
+        <input type="password" id="9router-key" placeholder="Key from your 9Router dashboard, if required" autocomplete="off">
+        <label for="9router-model">Model or Combo</label>
+        <div class="router-model-row">
+          <input type="text" id="9router-model" list="9router-models" placeholder="Load models or paste an ID from 9Router" aria-describedby="9router-status-text" autocomplete="off">
+          <datalist id="9router-models"></datalist>
+          <button id="load-9router-models-btn" class="btn-secondary" type="button">Load Models</button>
+          <button id="test-9router-btn" class="btn-secondary" type="button">Test 9Router</button>
+        </div>
+        <p id="9router-status-text" class="help-text" role="status" aria-live="polite">Load Models to choose an available model, or enter your combo name.</p>
+        <p id="9router-help-text" class="help-text">Start 9Router and connect your providers in its dashboard. Enter the router's key here; manage provider keys and fallback combos in 9Router. Test 9Router sends a short AI request. Click Save Settings to use it for Sensei.</p>
       </div>
 
-      <!-- Google Gemini -->
-      <div class="form-group" id="group-gemini">
-        <label for="gemini-key">Google Gemini API Key</label>
-        <div style="display: flex; gap: 8px;">
-          <input type="password" id="gemini-key" placeholder="AIzaSy..." style="flex: 1;">
-          <button id="test-gemini-btn" class="btn-secondary" type="button">Test Gemini</button>
-        </div>
-        <p id="gemini-status-text" class="help-text">Obtain a free Gemini API key from Google AI Studio (aistudio.google.com).</p>
-      </div>
+    </div>
 
-      <!-- DeepSeek -->
-      <div class="form-group" id="group-deepseek">
-        <label for="deepseek-key">DeepSeek API Key</label>
-        <div style="display: flex; gap: 8px;">
-          <input type="password" id="deepseek-key" placeholder="sk-..." style="flex: 1;">
-          <button id="test-deepseek-btn" class="btn-secondary" type="button">Test DeepSeek</button>
-        </div>
-        <p id="deepseek-status-text" class="help-text">From platform.deepseek.com for ultra-fast linguistic and grammar analysis.</p>
-      </div>
-
-      <!-- OpenRouter -->
-      <div class="form-group" id="group-openrouter">
-        <label for="openrouter-key">OpenRouter API Key</label>
-        <div style="display: flex; gap: 8px; margin-bottom: 6px;">
-          <input type="password" id="openrouter-key" placeholder="sk-or-..." style="flex: 1;">
-          <button id="test-openrouter-btn" class="btn-secondary" type="button">Test OpenRouter</button>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <label for="openrouter-model" style="font-size: 11px; color: #94a3b8; width: 60px;">Model:</label>
-          <input type="text" id="openrouter-model" placeholder="deepseek/deepseek-chat" value="deepseek/deepseek-chat" style="flex: 1; font-size: 12px; padding: 6px 10px;">
-        </div>
-        <p id="openrouter-status-text" class="help-text">From openrouter.ai/keys (e.g. deepseek/deepseek-chat, google/gemini-2.5-flash).</p>
-      </div>
-
-      <!-- OpenCode / Custom OpenAI Endpoint -->
-      <div class="form-group" id="group-opencode">
-        <label for="opencode-url">OpenCode / Custom OpenAI Endpoint Base URL</label>
-        <div style="display: flex; gap: 8px; margin-bottom: 6px;">
-          <input type="text" id="opencode-url" placeholder="http://127.0.0.1:11434/v1" value="http://127.0.0.1:11434/v1" style="flex: 1;">
-          <button id="test-opencode-btn" class="btn-secondary" type="button">Test Endpoint</button>
-        </div>
-        <div style="display: flex; gap: 8px; margin-bottom: 6px;">
-          <input type="password" id="opencode-key" placeholder="Optional API Key (or leave blank for Ollama / LM Studio)" style="flex: 1;">
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <label for="opencode-model" style="font-size: 11px; color: #94a3b8; width: 60px;">Model:</label>
-          <input type="text" id="opencode-model" placeholder="deepseek-chat" value="deepseek-chat" style="flex: 1; font-size: 12px; padding: 6px 10px;">
-        </div>
-        <p id="opencode-status-text" class="help-text">Compatible with Ollama, LM Studio, LocalAI, vLLM, OpenCode, and any OpenAI API compatible server.</p>
-        <p class="help-text">For Ollama, set <code>OLLAMA_ORIGINS=chrome-extension://*</code> and restart Ollama to allow extension access. Saving a remote endpoint requests access to that host.</p>
-      </div>
-
-      <!-- Local Server.py / Antigravity CLI -->
+    <!-- Optional Japanese parser -->
+    <div class="card">
+      <h2>Japanese Parser (Optional)</h2>
       <div class="form-group" id="group-server">
-        <label for="server-url">Local Server URL (Antigravity CLI)</label>
+        <label for="server-url">Japanese Parser Server URL</label>
         <div style="display: flex; gap: 8px;">
           <input type="text" id="server-url" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000" style="flex: 1;">
-          <button id="test-server-btn" class="btn-secondary" type="button">Test Server</button>
+          <button id="test-server-btn" class="btn-secondary" type="button">Test Parser</button>
         </div>
-        <p id="server-status-text" class="help-text">Used if you run Server.py for local Antigravity CLI execution.</p>
+        <p id="server-status-text" class="help-text">Used only for offline Sudachi readings and dictionary forms. AI requests go to 9Router.</p>
         <label style="display:flex; align-items:center; gap:8px; margin-top:10px;">
           <input type="checkbox" id="auto-start-server" checked>
-          Start local server when a video plays
+          Start parser server when a video plays
         </label>
         <p class="help-text">Requires the local launcher. A running server is reused and stays available after playback stops.</p>
       </div>

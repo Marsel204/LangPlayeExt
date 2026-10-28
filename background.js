@@ -33,9 +33,12 @@ async function ensureLocalServer() {
   if (serverStarts.has(key)) return serverStarts.get(key);
   const pending = (async () => {
     try {
-      const response = await fetch(`${key}/api/ai/status`, { signal: AbortSignal.timeout(1000) });
+      const response = await fetch(`${key}/api/parse`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: '猫' }), signal: AbortSignal.timeout(2500)
+      });
       const data = await response.json();
-      if (response.ok && data.status === 'success' && typeof data.antigravity_available === 'boolean') {
+      if (response.ok && data.status === 'success' && Array.isArray(data.tokens)) {
         serverStartFailures.delete(key);
         return { success: true, started: false };
       }
@@ -100,7 +103,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  if (request.action === 'CALL_CUSTOM_AI') {
+  if (request.action === 'CALL_9ROUTER_AI') {
     (async () => {
       try {
         if (sender.id !== chrome.runtime.id) throw new Error('Untrusted request');
@@ -108,40 +111,41 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             !request.messages.every(message => message && ['system', 'user', 'assistant'].includes(message.role) && typeof message.content === 'string')) {
           throw new Error('Invalid chat messages');
         }
-        const config = await chrome.storage.local.get([
-          'linguaplay_opencode_url', 'linguaplay_opencode_key', 'linguaplay_opencode_model'
-        ]);
-        const endpoint = new URL((config.linguaplay_opencode_url || 'http://127.0.0.1:11434/v1').trim());
+        const config = await chrome.storage.local.get(['linguaplay_9router_url', 'linguaplay_9router_key', 'linguaplay_9router_model']);
+        const endpoint = new URL((config.linguaplay_9router_url || 'http://127.0.0.1:20128/v1').trim());
         if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
-          throw new Error('Custom endpoint must be an HTTP or HTTPS URL without embedded credentials');
+          throw new Error('9Router must be an HTTP or HTTPS URL without embedded credentials');
         }
         const origin = `${endpoint.protocol}//${endpoint.hostname}/*`;
         if (!await chrome.permissions.contains({ origins: [origin] })) {
           throw new Error('Allow access to this endpoint by saving it in Extension Settings');
         }
         endpoint.pathname = endpoint.pathname.replace(/\/+$/, '');
+        if (endpoint.pathname === '/') endpoint.pathname = '/v1';
+        endpoint.search = ''; endpoint.hash = '';
         if (!endpoint.pathname.endsWith('/chat/completions')) endpoint.pathname += '/chat/completions';
+        const model = (config.linguaplay_9router_model || '').trim();
+        if (!model) throw new Error('Choose a 9Router model or combo in Extension Settings. Use Load Models to see available IDs.');
         const headers = { 'Content-Type': 'application/json' };
-        const key = (config.linguaplay_opencode_key || '').trim();
+        const key = (config.linguaplay_9router_key || '').trim();
         if (key) headers.Authorization = `Bearer ${key}`;
         const response = await fetch(endpoint.href, {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            model: (config.linguaplay_opencode_model || 'deepseek-chat').trim(),
+            model,
             messages: request.messages,
+            stream: false,
             response_format: request.isJson ? { type: 'json_object' } : undefined
           }),
           signal: AbortSignal.timeout(30000)
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-          const originHint = response.status === 403 && ['127.0.0.1', 'localhost'].includes(endpoint.hostname)
-            ? ' If using Ollama, set OLLAMA_ORIGINS=chrome-extension://* and restart Ollama to allow the extension.' : '';
-          throw new Error((data.error?.message || `Custom endpoint returned status ${response.status}`) + originHint);
+          throw new Error(data.error?.message || `9Router returned status ${response.status}`);
         }
         const content = data.choices?.[0]?.message?.content;
-        if (typeof content !== 'string' || !content.trim()) throw new Error('Empty response from custom endpoint');
+        if (typeof content !== 'string' || !content.trim()) throw new Error('Empty response from 9Router');
         sendResponse({ success: true, content });
       } catch (error) {
         sendResponse({ success: false, error: error.message });

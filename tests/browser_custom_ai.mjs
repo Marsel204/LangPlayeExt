@@ -1,7 +1,7 @@
 // Run with: node tests/browser_custom_ai.mjs (requires Chromium).
 // Uses a disposable browser profile and a local mock API; never calls a model.
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,11 +18,16 @@ const server = http.createServer((req, res) => {
   let body = '';
   req.on('data', chunk => body += chunk);
   req.on('end', () => {
-    requests.push({ method: req.method, url: req.url, origin: req.headers.origin, body });
-    if (req.url === '/api/ai/analyze') {
+    requests.push({ method: req.method, url: req.url, origin: req.headers.origin, authorization: req.headers.authorization, body });
+    if (req.url === '/v1/models') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ data: [{ id: 'provider/test-model' }, { id: 'study-combo' }] }));
+      return;
+    }
+    if (req.url === '/v1/chat/completions' && JSON.parse(body).messages.some(message => message.content.includes('word_by_word'))) {
       setTimeout(() => {
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ status: 'success', data: { word_by_word: [{ word: '猫', reading: 'ねこ', romaji: 'neko', meaning: 'cat' }] } }));
+        res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ word_by_word: [{ word: '猫', reading: 'ねこ', romaji: 'neko', meaning: 'cat' }] }) } }] }));
       }, 5200);
       return;
     }
@@ -89,21 +94,59 @@ try {
   }
   const permission = await evaluate('chrome.permissions.contains({origins:["http://127.0.0.1/*"]})');
   assert.equal(permission, true, 'Local endpoint permissions must cover arbitrary local model ports');
-  await evaluate(`chrome.storage.local.set({linguaplay_opencode_url:"http://127.0.0.1:${port}/v1",linguaplay_opencode_model:"test-model"})`);
-  const answer = await evaluate('chrome.runtime.sendMessage({action:"CALL_CUSTOM_AI",isJson:true,messages:[{role:"user",content:"Explain 猫"}]})');
-  assert.equal(answer.success, true, JSON.stringify(answer));
-  assert.equal(answer.content, '{"contextual_meaning":"cat"}');
-  assert.equal(requests.length, 1);
-  assert.equal(requests[0].method, 'POST');
-  assert.equal(requests[0].url, '/v1/chat/completions');
-  assert.notEqual(requests[0].origin, 'https://www.youtube.com');
+  assert.equal(await evaluate('document.getElementById("ai-provider")'), null);
+  await evaluate(`
+    document.getElementById('9router-url').value = 'http://127.0.0.1:${port}';
+    document.getElementById('9router-key').value = 'router-test-key';
+    document.getElementById('load-9router-models-btn').click();
+  `);
+  async function waitForRouterControl(id) {
+    for (let i = 0; i < 50; i++) {
+      if (await evaluate(`!document.getElementById(${JSON.stringify(id)}).disabled`)) return;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error(`9Router control did not finish: ${id}`);
+  }
+  await waitForRouterControl('load-9router-models-btn');
+  assert.deepEqual(await evaluate('Array.from(document.getElementById("9router-models").options, option => option.value)'), ['provider/test-model', 'study-combo']);
+  await evaluate(`document.getElementById('9router-model').value = 'study-combo'; document.getElementById('test-9router-btn').click();`);
+  await waitForRouterControl('test-9router-btn');
+  assert.match(await evaluate('document.getElementById("9router-status-text").textContent'), /is working with study-combo/);
+  const settingsSaved = await evaluate(`new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { chrome.storage.onChanged.removeListener(changed); reject(new Error('9Router settings were not saved')); }, 5000);
+    function changed(changes) {
+      if (changes.linguaplay_9router_model?.newValue !== 'study-combo') return;
+      clearTimeout(timer); chrome.storage.onChanged.removeListener(changed); resolve(true);
+    }
+    chrome.storage.onChanged.addListener(changed);
+    document.getElementById('save-settings-btn').click();
+  })`);
+  assert.equal(settingsSaved, true);
+  const routerConfig = await evaluate('chrome.storage.local.get(["linguaplay_9router_url", "linguaplay_9router_model"])');
+  assert.equal(routerConfig.linguaplay_9router_url, `http://127.0.0.1:${port}/v1`);
+  assert.equal(routerConfig.linguaplay_9router_model, 'study-combo');
+  const routerAnswer = await evaluate('chrome.runtime.sendMessage({action:"CALL_9ROUTER_AI",isJson:true,messages:[{role:"user",content:"Explain 猫"}]})');
+  assert.equal(routerAnswer.success, true, JSON.stringify(routerAnswer));
+  const routerRequest = requests.at(-1);
+  assert.equal(routerRequest.authorization, 'Bearer router-test-key');
+  assert.equal(JSON.parse(routerRequest.body).model, 'study-combo');
+  assert.equal(JSON.parse(routerRequest.body).response_format.type, 'json_object');
+  if (process.env.OPTIONS_SCREENSHOT_DIR) {
+    await mkdir(process.env.OPTIONS_SCREENSHOT_DIR, { recursive: true });
+    for (const width of [900, 420]) {
+      await rpc('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
+      const { data } = await rpc('Page.captureScreenshot', { format: 'png' }, sessionId);
+      await writeFile(path.join(process.env.OPTIONS_SCREENSHOT_DIR, `9router-options-${width}.png`), Buffer.from(data, 'base64'));
+    }
+    await rpc('Emulation.clearDeviceMetricsOverride', {}, sessionId);
+  }
   const nativeStartup = await checkNativeStartup({ root, profile, extensionOrigin, evaluate });
-  const subtitleVisibility = await checkSubtitleVisibility({ root, evaluate, rpc, sessionId, localAiUrl: `http://127.0.0.1:${port}` });
-  const localAnalysis = requests.find(request => request.url === '/api/ai/analyze');
-  assert.ok(localAnalysis);
-  assert.ok(Object.hasOwn(JSON.parse(localAnalysis.body), 'romaji'), 'Send the reading using the backend romaji field');
+  const subtitleVisibility = await checkSubtitleVisibility({ root, evaluate, rpc, sessionId, routerUrl: `http://127.0.0.1:${port}` });
+  const analysis = requests.find(request => request.url === '/v1/chat/completions' && JSON.parse(request.body).messages.some(message => message.content.includes('word_by_word')));
+  assert.ok(analysis, 'A grammar breakdown must reach 9Router');
+  assert.equal(JSON.parse(analysis.body).model, 'study-combo');
   const japaneseParsing = process.env.PARSER_SERVER_DIR ? await checkJapaneseParsing({root,evaluate,backend:process.env.PARSER_SERVER_DIR}) : {skipped:'Set PARSER_SERVER_DIR to test a real Sudachi backend'};
-  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, workerRequest: answer.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility, japaneseParsing }));
+  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, routerModelDiscovery: true, routerSettingsSaved: settingsSaved, routerWorkerRequest: routerAnswer.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility, japaneseParsing }));
 } finally {
   ws?.close();
   browser.kill('SIGTERM');

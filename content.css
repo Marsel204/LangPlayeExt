@@ -695,3 +695,29 @@
   justify-content: center;
   backdrop-filter: blur(4px);
 }
+/* 9Router connection errors in the grammar drawer. */
+#linguaplay-yt-drawer .lp-ai-error {
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 8px;
+  padding: 12px;
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+#linguaplay-yt-drawer .lp-ai-error p {
+  margin: 0 0 8px;
+}
+
+#linguaplay-yt-drawer #lp-ai-error-text {
+  color: #f87171;
+}
+
+#linguaplay-yt-drawer .lp-ai-error button {
+  border: 1px solid #a78bfa;
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: #7c3aed;
+  color: white;
+  cursor: pointer;
+}
