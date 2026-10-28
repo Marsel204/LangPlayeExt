@@ -2,7 +2,7 @@
 
 [← Back to the README](../README.md)
 
-The companion [LangPlay backend](https://github.com/Marsel204/LangPlay) supplies local Antigravity AI and offline Sudachi parsing. It is a separate checkout; `Server.py` is not included in this extension repository.
+The companion [LangPlay backend](https://github.com/Marsel204/LangPlay) supplies optional offline Sudachi parsing. AI features use the separate 9Router connection. It is a separate checkout; `Server.py` is not included in this extension repository.
 
 ## Automatic local server startup (Linux)
 
@@ -16,9 +16,9 @@ python3 native/install_host.py \
   --extension-id YOUR_EXTENSION_ID
 ```
 
-Replace the server path and `YOUR_EXTENSION_ID` with your own values. Run this command from the extension repository root. Reload the extension after installing. The launcher uses Chrome native messaging and registers with both Google Chrome and Chromium. Repeat `--extension-id` to authorize another checkout. Use `--port` if your local server uses a port other than 8000, and save the matching **Local Server URL** in Options, then click **Save Settings**.
+Replace the server path and `YOUR_EXTENSION_ID` with your own values. Run this command from the extension repository root. Reload the extension after installing. The launcher uses Chrome native messaging and registers with both Google Chrome and Chromium. Repeat `--extension-id` to authorize another checkout. Use `--port` if your local server uses a port other than 8000, and save the matching **Japanese Parser Server URL** in Options, then click **Save Settings**.
 
-The launcher starts the server on `127.0.0.1`, launches only the installed server path and port, and prevents duplicate starts across tabs and browsers. Remote server URLs do not launch a local process. Disable **Start local server when a video plays** in Options to turn off automatic startup.
+The launcher starts the server on `127.0.0.1`, launches only the installed server path and port, and prevents duplicate starts across tabs and browsers. Remote server URLs do not launch a local process. Disable **Start parser server when a video plays** in Options to turn off automatic startup.
 
 Launcher files are installed in `~/.local/share/linguaplay/native`; server output is recorded in `~/.local/state/linguaplay/server.log`. If you move `Server.py` or reinstall Python, rerun the installer. No login service is created. Other operating systems can continue running the server manually.
 

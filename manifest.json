@@ -68,9 +68,6 @@
     "http://lyrics.kugou.com/*",
     "http://*/*",
     "https://*/*",
-    "https://generativelanguage.googleapis.com/*",
-    "https://openrouter.ai/*",
-    "https://api.deepseek.com/*",
     "https://translate.googleapis.com/*",
     "http://127.0.0.1/*",
     "http://localhost/*"

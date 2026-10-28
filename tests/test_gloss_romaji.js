@@ -53,7 +53,7 @@ const renderFn = new Function('aiJson', 'providerTitle', 'window', `
   ${fnBody}
 `);
 
-const renderedHtml = renderFn(mockAiJson, '⚡ DEEPSEEK SENSEI BREAKDOWN', { wanakana: mockWanakana });
+const renderedHtml = renderFn(mockAiJson, '9ROUTER SENSEI BREAKDOWN', { wanakana: mockWanakana });
 
 // Requirement 1: Text Breakdown card elements (Image 1) MUST be deleted
 assert.strictEqual(
