@@ -1,0 +1,7 @@
+Node v26.8.1; Chromium fixtureMode=fetch-intercept
+GREEN              R-X01-control SHORT_KANA_SAFE
+GREEN              R-X01 LONG_KANA_RANGEERROR
+GREEN              R-X02-equivalence DIFFERENTIAL_EQUIVALENCE
+GREEN              R-X01-equivalence DIFFERENTIAL_EQUIVALENCE
+GREEN              R-A09-control FLAT_TRACK_PARSED
+{"GREEN":5}

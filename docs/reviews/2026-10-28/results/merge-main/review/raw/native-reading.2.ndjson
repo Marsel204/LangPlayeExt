@@ -1,0 +1,1 @@
+{"id":"R-X01-native-browser","fixtureMode":"fetch-intercept","control":{"n":100,"tokenCount":50,"drawerHidden":false,"errors":[]},"observation":{"n":10000,"tokenCount":5000,"drawerHidden":false,"errors":[]},"exceptionEvents":[],"ok":true,"status":"GREEN","witness":"NATIVE_TOKEN_CLICK_STACK_OVERFLOW"}

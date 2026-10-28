@@ -1,0 +1,9 @@
+{"id":"P7.tagStrip.vtt.n160000","command":["/home/marsel/.hermes/node/bin/node","--max-old-space-size=2048","/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/lib/pathological.js","parser","vtt","160000","3"],"code":null,"timedOut":true,"durationMs":90070}
+file:///home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/recover_baseline.mjs:9
+ if(Date.now()>=deadline)throw Error('HARNESS_ERROR 25 minute cap');const args=['--max-old-space-size=2048',path.join(root,'tests/perf/lib/pathological.js'),'parser',format,'160000','3'];const r=await bounded(process.execPath,args,{timeout:Math.min(90000,deadline-Date.now()),stdoutFile:path.join(out,`raw/recovery/${format}.2.ndjson`),stderrFile:path.join(out,`raw/recovery/${format}.2.stderr`)});runs.push({id,command:[process.execPath,...args],code:r.code,timedOut:r.timedOut,durationMs:r.durationMs});console.error(JSON.stringify(runs.at(-1)));if(r.code!==0||r.timedOut)throw Error('HARNESS_ERROR recovery child '+format);const replacement={...JSON.parse(r.stdout.trim()),process:2,recoveryRaw:`raw/recovery/${format}.2.ndjson`};results[results.indexOf(prior)]=replacement;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ^
+
+Error: HARNESS_ERROR recovery child vtt
+    at file:///home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/recover_baseline.mjs:9:581
+
+Node.js v26.8.1

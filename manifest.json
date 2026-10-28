@@ -57,17 +57,12 @@
   "permissions": [
     "storage",
     "nativeMessaging",
-    "activeTab",
-    "scripting",
-    "downloads",
     "tabs"
   ],
   "host_permissions": [
     "https://*.youtube.com/*",
     "https://lrclib.net/*",
     "http://lyrics.kugou.com/*",
-    "http://*/*",
-    "https://*/*",
     "https://translate.googleapis.com/*",
     "http://127.0.0.1/*",
     "http://localhost/*"

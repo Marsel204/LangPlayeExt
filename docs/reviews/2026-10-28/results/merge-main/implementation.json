@@ -1,0 +1,23 @@
+{
+  "implementationCommit": "3ef1b4aeb2856d9c8c0135cd01d4d29ffd0c3636",
+  "generatorIdempotent": true,
+  "syntaxFiles": [
+    "content.js",
+    "background.js",
+    "options.js",
+    "popup.js",
+    "js/japanese-parser.js",
+    "js/youtube-bridge.js",
+    "js/card-export.js"
+  ],
+  "sourceSha256": {
+    "content.js": "4ee98b8b19008e8185c2bc38ef400c1c95ffd68e50df3a636c4c6e2995a1d034",
+    "background.js": "8f7cee98808d2442e5715308717b53c9776fa97338f418ecfb0057c2eec6e6e7",
+    "options.js": "bf4f8c365093e03fa829a5642634b98b982f7be6de0f56e8e0a480c1cf65d8c0",
+    "popup.js": "8cd3d6d1efef0771055477609edcf908bd3d5e61116a6ece390171b41925da93",
+    "js/japanese-parser.js": "31ed57eec0d7dc3e6eb3dc2f18cb8582859309cc0b001eb2c5ff8fc60b068adb",
+    "js/youtube-bridge.js": "f37f979c31b649948fbde8693749699fa15ca1335d9b3835ac9da7d78e7b46d8",
+    "js/card-export.js": "b1dbffce69e97763ecb4910362fd6ff849f492530dd84f0676afb43d017c2654"
+  },
+  "mainParent": "d9a2f76e89a14a993dbcc3df16194e7e97bfeab1"
+}

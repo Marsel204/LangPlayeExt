@@ -52,14 +52,28 @@ document.addEventListener('DOMContentLoaded', () => {
     savedCardCounter.textContent = `${cards.length} card${cards.length === 1 ? '' : 's'} in storage`;
   });
 
-  async function allowEndpoint(endpoint) {
-    if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
-      throw new Error('Use an HTTP or HTTPS endpoint URL without embedded credentials');
+  async function allowEndpointAccess(urls) {
+    const origins = new Set();
+    for (const value of urls) {
+      const endpoint = new URL(value);
+      if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
+        throw new Error('Use an HTTP or HTTPS endpoint URL without embedded credentials');
+      }
+      // HTTP loopback access is declared in the manifest, on every port.
+      if (endpoint.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(endpoint.hostname)) continue;
+      origins.add(`${endpoint.protocol}//${endpoint.hostname}/*`);
     }
-    const permissions = { origins: [`${endpoint.protocol}//${endpoint.hostname}/*`] };
-    if (!await chrome.permissions.contains(permissions) && !await chrome.permissions.request(permissions)) {
+    const missing = [];
+    for (const origin of origins) {
+      if (!await chrome.permissions.contains({origins: [origin]})) missing.push(origin);
+    }
+    if (missing.length && !await chrome.permissions.request({origins: missing})) {
       throw new Error('Endpoint access was not allowed. Settings were not saved.');
     }
+  }
+
+  async function allowEndpoint(endpoint) {
+    return allowEndpointAccess([endpoint.href]);
   }
 
   function getRouterEndpoint() {
@@ -77,11 +91,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let normalizedRouterUrl;
     try {
       const endpoint = getRouterEndpoint();
-      await allowEndpoint(endpoint);
+      await allowEndpointAccess([endpoint.href, serverUrl.value.trim() || 'http://127.0.0.1:8000', ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765']);
       normalizedRouterUrl = endpoint.href;
     } catch (error) {
       routerStatusText.textContent = error.message;
       routerStatusText.style.color = '#f87171';
+      saveToast.textContent = `❌ ${error.message}`;
+      saveToast.classList.add('show');
       return;
     }
     chrome.storage.local.set({
@@ -94,6 +110,8 @@ document.addEventListener('DOMContentLoaded', () => {
       linguaplay_ankiconnect_url: ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765',
       linguaplay_reading_mode: readingMode.value
     }, () => {
+      const error = chrome.runtime?.lastError;
+      saveToast.textContent = error ? `❌ Settings write failed: ${error.message}` : '✓ Settings saved successfully!';
       saveToast.classList.add('show');
       setTimeout(() => saveToast.classList.remove('show'), 2500);
     });
@@ -157,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     serverStatusText.style.color = '#a78bfa';
     const url = serverUrl.value.trim() || 'http://127.0.0.1:8000';
     try {
+      await allowEndpointAccess([url]);
       const res = await fetch(`${url.replace(/\/+$/, '')}/api/parse`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: '猫' }), signal: AbortSignal.timeout(5000)
@@ -171,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
         serverStatusText.style.color = '#f87171';
       }
     } catch (e) {
-      serverStatusText.textContent = `❌ Cannot reach server at ${url}. Ensure the Sudachi parser backend is running.`;
+      serverStatusText.textContent = `❌ ${e.message}. Check the Sudachi parser at ${url}.`;
       serverStatusText.style.color = '#f87171';
     }
   });
@@ -182,6 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ankiStatusText.style.color = '#a78bfa';
     const url = ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765';
     try {
+      await allowEndpointAccess([url]);
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -197,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ankiStatusText.style.color = '#f87171';
       }
     } catch (e) {
-      ankiStatusText.textContent = '❌ AnkiConnect not reachable. Make sure Anki is open with AnkiConnect add-on installed.';
+      ankiStatusText.textContent = `❌ ${e.message}. Check that Anki and AnkiConnect are running.`;
       ankiStatusText.style.color = '#f87171';
     }
   });
@@ -211,17 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      let tsv = "#separator:Tab\n#html:true\n#deck:LinguaPlay Japanese Immersion\n";
-      cards.forEach(c => {
-        const sent = (c.sentence || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
-        const sentEn = (c.sentence_en || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
-        const word = (c.word || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
-        const reading = (c.reading || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
-        const meaning = (c.meaning || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
-        const boldSent = word && sent.includes(word) ? sent.split(word).join(`<b>${word}</b>`) : sent;
-        const fullMeaning = sentEn ? `${meaning}<br><small style="color:#94a3b8">${sentEn}</small>` : meaning;
-        tsv += `${boldSent}\t${word}\t${reading}\t${fullMeaning}\n`;
-      });
+      const tsv = buildAnkiTsv(cards);
 
       const blob = new Blob([tsv], { type: 'text/tab-separated-values;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -236,8 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // 10. Clear cards
   clearCardsBtn.addEventListener('click', () => {
     if (confirm('Are you sure you want to clear all locally saved cards in extension storage?')) {
-      chrome.storage.local.set({ linguaplay_cards: [] }, () => {
-        savedCardCounter.textContent = '0 cards in storage';
+      const timeout = setTimeout(() => { savedCardCounter.textContent = 'Could not confirm clear; please retry'; }, 8000);
+      chrome.runtime.sendMessage({action:'CLEAR_CARDS'}, result => {
+        clearTimeout(timeout);
+        const error = chrome.runtime?.lastError;
+        savedCardCounter.textContent = !error && result?.success ? '0 cards in storage' : `Clear failed: ${error?.message || result?.error || 'No acknowledgement'}`;
       });
     }
   });

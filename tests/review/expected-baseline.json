@@ -1,0 +1,444 @@
+{
+  "schema": 1,
+  "cases": {
+    "R-A03-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A03-stale": {
+      "expected": "red",
+      "control": "R-A03-control",
+      "witnessRegex": "^CAT_FROM_OLD_REQUEST$",
+      "runtime": "node"
+    },
+    "R-A03-dup": {
+      "expected": "red",
+      "control": "R-A03-control",
+      "witnessRegex": "^DUPLICATE_MODEL_REQUESTS$",
+      "runtime": "node"
+    },
+    "R-A03-error-late": {
+      "expected": "red",
+      "control": "R-A03-control",
+      "witnessRegex": "^LATE_ERROR_REPLACES_CONTEXT$",
+      "runtime": "node"
+    },
+    "R-A04-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A04-overlap": {
+      "expected": "red",
+      "control": "R-A04-control",
+      "witnessRegex": "^LYRICS_WHILE_CAPTIONS_PENDING$",
+      "runtime": "node"
+    },
+    "R-A04-priority": {
+      "expected": "red",
+      "control": "R-A04-control",
+      "witnessRegex": "^LATE_LYRICS_OVERWRITE_PRIORITY$",
+      "runtime": "node"
+    },
+    "R-A04-manual": {
+      "expected": "red",
+      "control": "R-A04-control",
+      "witnessRegex": "^LATE_LYRICS_OVERWRITE_MANUAL$",
+      "runtime": "node"
+    },
+    "R-A04-sameIndex": {
+      "expected": "red",
+      "control": "R-A04-control",
+      "witnessRegex": "^TIMELINE_REPLACEMENT_STALE_INDEX$",
+      "runtime": "node"
+    },
+    "R-A05-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A05-node": {
+      "expected": "red",
+      "control": "R-A05-control",
+      "witnessRegex": "^HIDDEN_OVERLAY_CC_JA_RESTORED$",
+      "runtime": "node"
+    },
+    "R-A06-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A06-route": {
+      "expected": "red",
+      "control": "R-A06-control",
+      "witnessRegex": "^IGNORED_ANKI_ENDPOINT_DECK$",
+      "runtime": "node"
+    },
+    "R-A06-reading": {
+      "expected": "red",
+      "control": "R-A06-control",
+      "witnessRegex": "^QUICK_SURFACE_AS_READING$",
+      "runtime": "node"
+    },
+    "R-A06-status-apiError": {
+      "expected": "red",
+      "control": "R-A06-control",
+      "witnessRegex": "^ANKI_FAILURE_FALSE_SUCCESS$",
+      "runtime": "node"
+    },
+    "R-A06-status-offline": {
+      "expected": "red",
+      "control": "R-A06-control",
+      "witnessRegex": "^ANKI_FAILURE_FALSE_SUCCESS$",
+      "runtime": "node"
+    },
+    "R-A06-enriched": {
+      "expected": "green",
+      "control": "R-A03-control",
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A06-envelope-bare": {
+      "expected": "red",
+      "control": "R-A03-control",
+      "witnessRegex": "^ENRICHED_READING_ENVELOPE_LOST$",
+      "runtime": "node"
+    },
+    "R-A06-envelope-wrapped": {
+      "expected": "red",
+      "control": "R-A03-control",
+      "witnessRegex": "^ENRICHED_READING_ENVELOPE_LOST$",
+      "runtime": "node"
+    },
+    "R-A07-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A07-concurrent": {
+      "expected": "red",
+      "control": "R-A07-control",
+      "witnessRegex": "^CONCURRENT_WHOLE_ARRAY_LOST_SAVE$",
+      "runtime": "node"
+    },
+    "R-A07-failure": {
+      "expected": "red",
+      "control": "R-A07-control",
+      "witnessRegex": "^FAILED_STORAGE_FALSE_SUCCESS$",
+      "runtime": "node"
+    },
+    "R-A07-clearRace": {
+      "expected": "red",
+      "control": "R-A07-control",
+      "witnessRegex": "^CLEARED_CARD_RESURRECTED$",
+      "runtime": "node"
+    },
+    "R-A08-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^NAVIGATION_STALE_DOM_control$",
+      "runtime": "node"
+    },
+    "R-A08-newVideo": {
+      "expected": "red",
+      "control": "R-A08-control",
+      "witnessRegex": "^NAVIGATION_STALE_DOM_newVideo$",
+      "runtime": "node"
+    },
+    "R-A08-leaveWatch": {
+      "expected": "red",
+      "control": "R-A08-control",
+      "witnessRegex": "^NAVIGATION_STALE_DOM_leaveWatch$",
+      "runtime": "node"
+    },
+    "R-A08-backForward": {
+      "expected": "red",
+      "control": "R-A08-control",
+      "witnessRegex": "^NAVIGATION_STALE_DOM_backForward$",
+      "runtime": "node"
+    },
+    "R-A09-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A09-runs": {
+      "expected": "red",
+      "control": "R-A09-control",
+      "witnessRegex": "^NESTED_TRACK_EXTRACTION_NULL$",
+      "runtime": "node"
+    },
+    "R-A09-strings": {
+      "expected": "red",
+      "control": "R-A09-control",
+      "witnessRegex": "^NESTED_TRACK_EXTRACTION_NULL$",
+      "runtime": "node"
+    },
+    "R-A10-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A10-id": {
+      "expected": "red",
+      "control": "R-A10-control",
+      "witnessRegex": "^UNSELECTED_GEMINI_REQUEST$",
+      "runtime": "node"
+    },
+    "R-A10-analysis": {
+      "expected": "red",
+      "control": "R-A10-control",
+      "witnessRegex": "^UNSELECTED_GEMINI_REQUEST$",
+      "runtime": "node"
+    },
+    "R-A11-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A11-manifest": {
+      "expected": "red",
+      "control": "R-A11-control",
+      "witnessRegex": "^OPTIONAL_REQUIRED_WILDCARD_DUPLICATION$",
+      "runtime": "node"
+    },
+    "R-A11-deadHandlers": {
+      "expected": "red",
+      "control": "R-A11-control",
+      "witnessRegex": "^UNUSED_PRIVILEGED_FETCH_HANDLERS$",
+      "runtime": "node"
+    },
+    "R-A12-generated": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A12-corpus": {
+      "expected": "red",
+      "control": "R-A12-generated",
+      "witnessRegex": "^LEGACY_TESTS_EVALUATE_DUPLICATE_ENGINE$",
+      "runtime": "node"
+    },
+    "R-A12-bridge": {
+      "expected": "green",
+      "control": "R-A05-control",
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-X01-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-X01": {
+      "expected": "red",
+      "control": "R-X01-control",
+      "witnessRegex": "^LONG_KANA_RANGEERROR$",
+      "runtime": "node"
+    },
+    "R-R04-prompt": {
+      "expected": "red",
+      "control": "R-A10-control",
+      "witnessRegex": "^PROMPT_QUOTE_ROUNDTRIP_FAILED$",
+      "runtime": "node"
+    },
+    "R-R03-routing": {
+      "expected": "red",
+      "control": "R-A08-control",
+      "witnessRegex": "^HARDCODED_CAPTION_BACKEND$",
+      "runtime": "node"
+    },
+    "R-A07-clear-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A07-clearError": {
+      "expected": "red",
+      "control": "R-A07-clear-control",
+      "witnessRegex": "^CLEAR_FAILURE_ZERO_CARD_SUCCESS$",
+      "runtime": "node"
+    },
+    "R-A09-fetchedHtml": {
+      "expected": "red",
+      "control": "R-A09-control",
+      "witnessRegex": "^FETCHED_HTML_NESTED_TRACK_LOST$",
+      "runtime": "node"
+    },
+    "R-A11-worker-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^.*$",
+      "runtime": "node"
+    },
+    "R-A11-deadHandlers-runtime": {
+      "expected": "red",
+      "control": "R-A11-worker-control",
+      "witnessRegex": "^UNRESTRICTED_UNUSED_FETCH_REQUEST$",
+      "runtime": "node"
+    },
+    "R-A01-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^SETTINGS_AFFORDANCE_PRESENT$",
+      "runtime": "browser"
+    },
+    "R-A01-1": {
+      "expected": "red",
+      "control": "R-A01-control",
+      "witnessRegex": "^HOST_PAGE_READS_DUMMY_CREDENTIAL$",
+      "runtime": "browser"
+    },
+    "R-A02-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^CHAT_MARKDOWN_ESCAPES_PAYLOAD$",
+      "runtime": "browser"
+    },
+    "R-A02-highlight-0": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+      "runtime": "browser"
+    },
+    "R-A02-highlight-1": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+      "runtime": "browser"
+    },
+    "R-A02-highlight-2": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+      "runtime": "browser"
+    },
+    "R-A02-highlight-3": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+      "runtime": "browser"
+    },
+    "R-A02-highlight-4": {
+      "expected": "green",
+      "control": "R-A02-control",
+      "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+      "runtime": "browser"
+    },
+    "R-A02-highlight-5": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^HIGHLIGHT_MARKUP_OR_TEXT_CHANGED$",
+      "runtime": "browser"
+    },
+    "R-A02-gloss": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^GLOSS_ELEMENT_ATTRIBUTE_INJECTION$",
+      "runtime": "browser"
+    },
+    "R-A02-error": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^ERROR_BANNER_INJECTION$",
+      "runtime": "browser"
+    },
+    "R-A02-card-A": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^ANKI_FIELDS_CONTAIN_MARKUP$",
+      "runtime": "browser"
+    },
+    "R-A02-card-B": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^TSV_HTML_UNESCAPED$",
+      "runtime": "browser"
+    },
+    "R-A06-exporters": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^EXPORT_BYTES_DIVERGE$",
+      "runtime": "browser"
+    },
+    "R-A05-browser-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^VISIBLE_POLL_CONTROL$",
+      "runtime": "browser"
+    },
+    "R-A05-browser": {
+      "expected": "red",
+      "control": "R-A05-browser-control",
+      "witnessRegex": "^REAL_HIDDEN_OVERLAY_CC_JA_RESTORED$",
+      "runtime": "browser"
+    },
+    "R-A11-browser-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^REAL_LOOPBACK_PERMISSION$",
+      "runtime": "browser"
+    },
+    "R-A11-guard": {
+      "expected": "red",
+      "control": "R-A11-browser-control",
+      "witnessRegex": "^UNREQUESTED_ORIGIN_ALREADY_GRANTED$",
+      "runtime": "browser"
+    },
+    "R-A07-quota": {
+      "expected": "red",
+      "control": "R-A07-quota-control",
+      "witnessRegex": "^REAL_QUOTA_FALSE_SUCCESS$",
+      "runtime": "browser"
+    },
+    "R-A08-browser-newVideo": {
+      "expected": "red",
+      "control": "R-A05-browser-control",
+      "witnessRegex": "^REAL_NAVIGATION_STALE_DOM$",
+      "runtime": "browser"
+    },
+    "R-A08-browser-leaveWatch": {
+      "expected": "red",
+      "control": "R-A05-browser-control",
+      "witnessRegex": "^REAL_NAVIGATION_STALE_DOM$",
+      "runtime": "browser"
+    },
+    "R-A02-romaji": {
+      "expected": "green",
+      "control": "R-A02-control",
+      "witnessRegex": "^FALLBACK_ROMAJI_NO_MARKUP_ON_CORPUS$",
+      "runtime": "browser"
+    },
+    "R-A02-lyrics": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^LYRICS_METADATA_INJECTION$",
+      "runtime": "browser"
+    },
+    "R-A02-identified": {
+      "expected": "red",
+      "control": "R-A02-control",
+      "witnessRegex": "^IDENTIFIED_METADATA_INJECTION$",
+      "runtime": "browser"
+    },
+    "R-A07-quota-control": {
+      "expected": "green",
+      "control": null,
+      "witnessRegex": "^REAL_STORAGE_SAVE_CONTROL$",
+      "runtime": "browser"
+    }
+  },
+  "limitations": []
+}

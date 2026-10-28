@@ -1,0 +1,8 @@
+/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/lib/fakes.js:15
+ function schedule(fn,cb,isWrite=false){pending++;return new Promise((resolve,reject)=>defer(()=>{try{const v=fn();if(cb)cb(v);if(runtime.lastError&&!cb&&isWrite){reject(new Error(runtime.lastError.message));}else resolve(v);}catch(e){reject(e);}finally{delete runtime.lastError;pending--;}}));}
+                                                                                                                                                                          ^
+
+Error: QUOTA_BYTES quota exceeded
+    at /home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/lib/fakes.js:15:171
+
+Node.js v26.8.1

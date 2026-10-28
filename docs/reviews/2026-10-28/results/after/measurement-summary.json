@@ -1,0 +1,15 @@
+{
+  "startedAt": "2026-10-28T10:10:03.669000+00:00",
+  "finishedAt": "2026-10-28T10:31:30.040085+00:00",
+  "elapsedSeconds": 1286.371,
+  "capSeconds": 1500,
+  "withinCap": true,
+  "includes": [
+    "preserved failed complete performance attempt",
+    "P7 three-process metadata recheck",
+    "successful complete three-process performance run",
+    "native P8 browser run",
+    "three-process/browser regression matrix",
+    "three native-reading browser runs"
+  ]
+}

@@ -1,0 +1,11 @@
+Node v26.8.1; Chromium fixtureMode=fetch-intercept
+GREEN              R-A07-control ONE_DURABLE_SAVE
+UNEXPECTED_RED     R-A07-concurrent CONCURRENT_WHOLE_ARRAY_LOST_SAVE
+GREEN              R-A07-failure FAILED_STORAGE_FALSE_SUCCESS
+GREEN              R-A07-clearRace CLEARED_CARD_RESURRECTED
+GREEN              R-A07-clear-control OPTIONS_CLEAR_DURABLE
+GREEN              R-A07-clearError CLEAR_FAILURE_ZERO_CARD_SUCCESS
+GREEN              R-A07-quota REAL_QUOTA_FALSE_SUCCESS
+GREEN              R-A07-quota-control REAL_STORAGE_SAVE_CONTROL
+GREEN              R-A07-settingsError SETTINGS_FAILURE_VISIBLE
+{"GREEN":8,"UNEXPECTED_RED":1}

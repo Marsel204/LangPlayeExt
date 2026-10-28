@@ -1,0 +1,120 @@
+{
+  "startedAt": "2026-10-28T06:51:00.966Z",
+  "deadline": "2026-10-28T07:16:00.966Z",
+  "elapsedMs": 908968,
+  "runs": [
+    {
+      "id": "node-existing",
+      "command": [
+        "/home/marsel/.hermes/node/bin/node",
+        "--test",
+        "tests/test_background_crash.js",
+        "tests/test_chat_markdown_tables.js",
+        "tests/test_drawer_context_sentence.js",
+        "tests/test_drawer_tabs.js",
+        "tests/test_extension_separation.js",
+        "tests/test_gloss_romaji.js",
+        "tests/test_header_definition.js",
+        "tests/test_japanese_parser.js",
+        "tests/test_logo_toggle.js",
+        "tests/test_lyrics_fetch.js",
+        "tests/test_review_regressions.js",
+        "tests/test_server_startup.js",
+        "tests/test_yomitan_deinflector.js",
+        "tests/test_youtube_bridge_toggle.js"
+      ],
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 399
+    },
+    {
+      "id": "legacy",
+      "command": [
+        "/home/marsel/.hermes/node/bin/node",
+        "run_tests.js"
+      ],
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 81
+    },
+    {
+      "id": "native-python",
+      "command": [
+        "python3",
+        "-I",
+        "tests/test_native_host.py"
+      ],
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 2077
+    },
+    {
+      "id": "chromium-existing",
+      "command": [
+        "/home/marsel/.hermes/node/bin/node",
+        "tests/browser_custom_ai.mjs"
+      ],
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 6511
+    },
+    {
+      "id": "self-check",
+      "command": [
+        "/home/marsel/.hermes/node/bin/node",
+        "tests/perf/run_perf.mjs",
+        "--self-check"
+      ],
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 406
+    },
+    {
+      "id": "perf",
+      "command": [
+        "/home/marsel/.hermes/node/bin/node",
+        "--expose-gc",
+        "tests/perf/run_perf.mjs",
+        "--profile",
+        "baseline",
+        "--repeat-processes",
+        "3",
+        "--out",
+        "docs/reviews/2026-10-28/results/baseline/perf"
+      ],
+      "code": 2,
+      "timedOut": false,
+      "durationMs": 831673
+    },
+    {
+      "id": "p8",
+      "command": [
+        "/home/marsel/.hermes/node/bin/node",
+        "tests/perf/perf_p8_browser.mjs",
+        "--out",
+        "docs/reviews/2026-10-28/results/baseline/perf"
+      ],
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 27786
+    },
+    {
+      "id": "review",
+      "command": [
+        "/home/marsel/.hermes/node/bin/node",
+        "tests/review/run_review_matrix.mjs",
+        "--mode",
+        "baseline",
+        "--repeat-processes",
+        "3",
+        "--repeat-browser",
+        "3",
+        "--out",
+        "docs/reviews/2026-10-28/results/baseline/review"
+      ],
+      "code": 2,
+      "timedOut": false,
+      "durationMs": 39936
+    }
+  ]
+}

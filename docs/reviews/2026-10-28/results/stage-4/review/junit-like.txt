@@ -1,0 +1,10 @@
+Node v26.8.1; Chromium fixtureMode=fetch-intercept
+GREEN              R-A03-control CURRENT_RESPONSE_APPLIED
+GREEN              R-A03-stale CAT_FROM_OLD_REQUEST
+GREEN              R-A03-dup DUPLICATE_MODEL_REQUESTS
+GREEN              R-A03-error-late LATE_ERROR_REPLACES_CONTEXT
+GREEN              R-A10-control SELECTED_GEMINI_USED
+GREEN              R-A10-id UNSELECTED_GEMINI_REQUEST
+GREEN              R-A10-analysis UNSELECTED_GEMINI_REQUEST
+GREEN              R-R04-prompt PROMPT_QUOTE_ROUNDTRIP_FAILED
+{"GREEN":8}

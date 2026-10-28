@@ -1,0 +1,12 @@
+Node v26.8.1; Chromium fixtureMode=fetch-intercept
+GREEN              R-A11-control LOOPBACK_PERMISSION_PRESENT
+GREEN              R-A11-manifest OPTIONAL_REQUIRED_WILDCARD_DUPLICATION
+GREEN              R-A11-deadHandlers UNUSED_PRIVILEGED_FETCH_HANDLERS
+GREEN              R-A11-worker-control WORKER_REFUSES_UNGRANTED_ORIGIN
+GREEN              R-A11-deadHandlers-runtime UNRESTRICTED_UNUSED_FETCH_REQUEST
+GREEN              R-A11-browser-control REAL_LOOPBACK_PERMISSION
+GREEN              R-A11-guard UNREQUESTED_ORIGIN_ALREADY_GRANTED
+GREEN              R-A07-settingsError SETTINGS_FAILURE_VISIBLE
+GREEN              R-A11-optionsPermission ENDPOINT_PERMISSION_DENIAL_NO_SAVE
+GREEN              R-A07-clear-control OPTIONS_CLEAR_DURABLE
+{"GREEN":10}

@@ -1,0 +1,7 @@
+Node v26.8.1; Chromium fixtureMode=fetch-intercept
+HARNESS_ERROR      R-A12-generated MISSING_REPETITIONS expected 1, got 0
+HARNESS_ERROR      R-A12-corpus MISSING_REPETITIONS expected 1, got 0
+HARNESS_ERROR      R-A12-bridge MISSING_REPETITIONS expected 1, got 0
+GREEN              R-A05-control VISIBLE_JAPANESE_RESTORED
+HARNESS_ERROR      node.PROCESS_ERROR UNREGISTERED_CASE
+{"HARNESS_ERROR":4,"GREEN":1}

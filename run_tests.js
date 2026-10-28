@@ -11,18 +11,9 @@ console.log('🧪 Running LinguaPlay Exhaustive Test Suite...\n');
 
 const path = require('path');
 
-// ── Test Suite 1: Load and Test Kanji Engine from kanji-dict.js and content.js ──
-const wanakanaPath = path.join(__dirname, 'lib', 'wanakana.min.js');
-const realWanakana = require(wanakanaPath);
-
-const dictPath = path.join(__dirname, 'data', 'kanji-dict.js');
-const kanjiDictCode = fs.readFileSync(dictPath, 'utf8')
-  .replace(/export const /g, 'const ')
-  .replace(/export function /g, 'function ');
-
-eval(kanjiDictCode);
-
-
+// ── Test Suite 1: Execute the shipped reading engine ──
+const realWanakana = require('./lib/wanakana.min.js');
+const {getWordReading,generateSentenceRomaji,resolveToHiragana} = require('./tests/shipped_engine')();
 
 // ── 100+ Comprehensive Test Sentences and Words ──
 const TEST_PHRASES = [
@@ -615,13 +606,7 @@ assert.ok(
   'FAIL: content.js must integrate Yomitan deinflection engine!'
 );
 
-const sandboxCode = contentJsCode.replace('(function () {', 'global.testContentCode = function() {').replace(/\}\)\(\);?\s*$/, '}; global.testContentCode();');
-global.window = { wanakana: realWanakana, addEventListener: () => {}, location: { search: '', href: '' } };
-global.document = { addEventListener: () => {}, querySelector: () => null, getElementById: () => null };
-global.chrome = { storage: { local: { get: () => {} } } };
-
-eval(sandboxCode.replace('function generateSentenceRomaji', 'global.genSentRomaji = function generateSentenceRomaji'));
-const genRomaji = global.genSentRomaji;
+const genRomaji = generateSentenceRomaji;
 
 const r1 = genRomaji('世界はとても綺麗だったな', '世界');
 assert.strictEqual(r1.includes('da ttana'), false, 'FAIL: だったな must not produce "da ttana"');
@@ -737,10 +722,12 @@ console.log('✅ Test 14e: content.js contains streamlined Lyrics Manager modal 
 // 5. Verify background.js handlers and manifest permissions
 const bgCode = fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8');
 assert.ok(bgCode.includes('FETCH_LRCLIB_LYRICS'), 'background.js must implement FETCH_LRCLIB_LYRICS');
-assert.ok(bgCode.includes('FETCH_LYRICS_URL'), 'background.js must implement FETCH_LYRICS_URL');
+// Unused fetch-anything handlers no longer belong in the privileged worker.
+assert.ok(!bgCode.includes('FETCH_LYRICS_URL'), 'background.js must not retain the unused lyrics URL proxy');
+assert.ok(!bgCode.includes('FETCH_YOUTUBE_CAPTIONS'), 'background.js must not retain the unused caption proxy');
 const manifestJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'manifest.json'), 'utf8'));
 assert.ok(manifestJson.host_permissions.includes('https://lrclib.net/*'), 'manifest must include lrclib.net permission');
-console.log('✅ Test 14f: background.js and manifest.json support lyrics API and arbitrary URL link fetching');
+console.log('✅ Test 14f: worker supports the lyrics API without unused privileged fetch proxies');
 
 console.log('\n🎛️ Running Test Suite 15: Logo Click & App Turn-Off Feature...');
 require('./tests/test_logo_toggle.js');

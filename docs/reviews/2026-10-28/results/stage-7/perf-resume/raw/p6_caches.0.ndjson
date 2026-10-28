@@ -1,0 +1,7 @@
+{"id":"P6.translationCache.n100","area":"P6","class":"GATE","counts":{"entries":100,"recent50Refetches":0},"target":{"bound":2000,"verdict":"pass"},"memory":{"heapDeltaBytes":238856,"usedHeapBytes":8872816}}
+{"id":"P6.translationCache.n1000","area":"P6","class":"GATE","counts":{"entries":500,"recent50Refetches":0},"target":{"bound":2000,"verdict":"pass"},"memory":{"heapDeltaBytes":1800608,"usedHeapBytes":10712584}}
+{"id":"P6.translationCache.n10000","area":"P6","class":"GATE","counts":{"entries":500,"recent50Refetches":0},"target":{"bound":2000,"verdict":"pass"},"memory":{"heapDeltaBytes":15647272,"usedHeapBytes":26361392}}
+{"id":"P6.lyricsCache.bytes8000.videos50","area":"P6","class":"GATE","counts":{"entries":50,"bytes":406940,"failedWrites":0,"cards":200},"target":{"bound":2500000,"verdict":"pass"}}
+{"id":"P6.lyricsCache.bytes8000.videos500","area":"P6","class":"GATE","counts":{"entries":50,"bytes":407000,"failedWrites":0,"cards":200},"target":{"bound":2500000,"verdict":"pass"}}
+{"id":"P6.pressure.cards.bytes8000","area":"P6","class":"GATE","counts":{"cards":200,"settingsPersisted":true,"failedWrites":0},"target":{"bound":"preserve cards and settings","verdict":"pass"}}
+{"id":"P6.lyricsCache.bytes200000.videos50","area":"P6","class":"GATE","counts":{"entries":9,"bytes":1801251,"failedWrites":0,"cards":200},"target":{"bound":2500000,"verdict":"pass"}}

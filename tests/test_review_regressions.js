@@ -658,6 +658,8 @@ test('9Router saves and restores normalized settings with host access', async ()
 test('9Router does not save settings when endpoint access is denied', async () => {
   for (const model of ['', 'my-combo']) {
     const h = createOptionsHarness({}, { allowed: false, granted: false });
+    // Required loopback origins need no optional grant; exercise denial on a remote host.
+    h.elements.get('9router-url').value = 'https://router.example/v1';
     h.elements.get('9router-model').value = model;
     await h.elements.get('save-settings-btn').listeners.click();
     assert.equal(h.saved.length, 0);

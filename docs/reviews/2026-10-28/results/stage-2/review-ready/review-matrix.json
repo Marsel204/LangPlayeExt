@@ -1,0 +1,172 @@
+{
+  "schema": 1,
+  "mode": "after",
+  "fixtureMode": "fetch-intercept",
+  "node": "v26.8.1",
+  "startedFromUnchangedBaseline": false,
+  "reportable": false,
+  "runs": [
+    {
+      "kind": "node",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 94620
+    }
+  ],
+  "counts": {
+    "GREEN": 5
+  },
+  "results": [
+    {
+      "id": "R-X01-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-X01-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "length": 100
+          },
+          "signature": "SHORT_KANA_SAFE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-X01",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-X01-control",
+        "witnessRegex": "^LONG_KANA_RANGEERROR$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-X01",
+          "expected": "red",
+          "control": "R-X01-control",
+          "ok": true,
+          "witness": {
+            "exceptions": []
+          },
+          "signature": "LONG_KANA_RANGEERROR",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-X02-equivalence",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-A09-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-X02-equivalence",
+          "expected": "green",
+          "control": "R-A09-control",
+          "ok": true,
+          "witness": {
+            "cases": 100000,
+            "productionFunction": "stripMarkupTags",
+            "oracle": "original regex"
+          },
+          "signature": "DIFFERENTIAL_EQUIVALENCE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-X01-equivalence",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": "R-X01-control",
+        "witnessRegex": "^.*$",
+        "runtime": "node",
+        "afterOnly": true
+      },
+      "runs": [
+        {
+          "id": "R-X01-equivalence",
+          "expected": "green",
+          "control": "R-X01-control",
+          "ok": true,
+          "witness": {
+            "cases": 3158,
+            "productionFunction": "toRomajiSafe",
+            "oracle": "unmodified WanaKana, independent enlarged-stack worker"
+          },
+          "signature": "DIFFERENTIAL_EQUIVALENCE",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A09-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A09-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "tracks": [
+              {
+                "baseUrl": "https://fixture.invalid/c",
+                "languageCode": "ja",
+                "name": {
+                  "simpleText": "Japanese"
+                }
+              }
+            ]
+          },
+          "signature": "FLAT_TRACK_PARSED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    }
+  ],
+  "limitations": []
+}

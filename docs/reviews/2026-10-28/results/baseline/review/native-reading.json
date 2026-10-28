@@ -1,0 +1,129 @@
+{
+  "id": "R-X01-native-browser",
+  "status": "EXPECTED_RED",
+  "deterministic": true,
+  "runs": [
+    {
+      "id": "R-X01-native-browser",
+      "fixtureMode": "fetch-intercept",
+      "control": {
+        "n": 100,
+        "tokenCount": 50,
+        "drawerHidden": false,
+        "errors": []
+      },
+      "observation": {
+        "n": 10000,
+        "tokenCount": 5000,
+        "drawerHidden": true,
+        "errors": [
+          {
+            "message": "Uncaught RangeError: Maximum call stack size exceeded",
+            "name": "RangeError"
+          }
+        ]
+      },
+      "exceptionEvents": [
+        {
+          "description": "RangeError: Maximum call stack size exceeded\n    at Object.assign (<anonymous>)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3359)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)",
+          "text": "Uncaught"
+        }
+      ],
+      "ok": false,
+      "status": "EXPECTED_RED",
+      "witness": "NATIVE_TOKEN_CLICK_STACK_OVERFLOW",
+      "process": 0
+    },
+    {
+      "id": "R-X01-native-browser",
+      "fixtureMode": "fetch-intercept",
+      "control": {
+        "n": 100,
+        "tokenCount": 50,
+        "drawerHidden": false,
+        "errors": []
+      },
+      "observation": {
+        "n": 10000,
+        "tokenCount": 5000,
+        "drawerHidden": true,
+        "errors": [
+          {
+            "message": "Uncaught RangeError: Maximum call stack size exceeded",
+            "name": "RangeError"
+          }
+        ]
+      },
+      "exceptionEvents": [
+        {
+          "description": "RangeError: Maximum call stack size exceeded\n    at Object.assign (<anonymous>)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3359)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)",
+          "text": "Uncaught"
+        }
+      ],
+      "ok": false,
+      "status": "EXPECTED_RED",
+      "witness": "NATIVE_TOKEN_CLICK_STACK_OVERFLOW",
+      "process": 1
+    },
+    {
+      "id": "R-X01-native-browser",
+      "fixtureMode": "fetch-intercept",
+      "control": {
+        "n": 100,
+        "tokenCount": 50,
+        "drawerHidden": false,
+        "errors": []
+      },
+      "observation": {
+        "n": 10000,
+        "tokenCount": 5000,
+        "drawerHidden": true,
+        "errors": [
+          {
+            "message": "Uncaught RangeError: Maximum call stack size exceeded",
+            "name": "RangeError"
+          }
+        ]
+      },
+      "exceptionEvents": [
+        {
+          "description": "RangeError: Maximum call stack size exceeded\n    at Object.assign (<anonymous>)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3359)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)\n    at i (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3551)\n    at o (chrome-extension://hpkfpmhpdnpdlldfafogcdhmgkngadga/lib/wanakana.min.js:1:3350)",
+          "text": "Uncaught"
+        }
+      ],
+      "ok": false,
+      "status": "EXPECTED_RED",
+      "witness": "NATIVE_TOKEN_CLICK_STACK_OVERFLOW",
+      "process": 2
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "/home/marsel/.hermes/node/bin/node",
+        "/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/review/browser_reading.review.mjs"
+      ],
+      "code": 0,
+      "durationMs": 6471,
+      "timedOut": false
+    },
+    {
+      "command": [
+        "/home/marsel/.hermes/node/bin/node",
+        "/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/review/browser_reading.review.mjs"
+      ],
+      "code": 0,
+      "durationMs": 6081,
+      "timedOut": false
+    },
+    {
+      "command": [
+        "/home/marsel/.hermes/node/bin/node",
+        "/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/review/browser_reading.review.mjs"
+      ],
+      "code": 0,
+      "durationMs": 12394,
+      "timedOut": false
+    }
+  ]
+}

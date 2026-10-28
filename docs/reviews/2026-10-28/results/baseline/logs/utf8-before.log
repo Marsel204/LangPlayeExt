@@ -1,0 +1,19 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: UTF-8 split across subprocess chunks must remain byte-exact
+
+'���' !== '猫'
+
+    at file:///home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/process-selfcheck.mjs:3:98
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '���',
+  expected: '猫',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.8.1

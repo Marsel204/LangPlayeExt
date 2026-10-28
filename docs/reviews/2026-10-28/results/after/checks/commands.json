@@ -1,0 +1,86 @@
+[
+  {
+    "name": "node-tests",
+    "command": [
+      "node",
+      "--test",
+      "tests/test_background_crash.js",
+      "tests/test_card_contracts.js",
+      "tests/test_chat_markdown_tables.js",
+      "tests/test_drawer_context_sentence.js",
+      "tests/test_drawer_tabs.js",
+      "tests/test_extension_separation.js",
+      "tests/test_gloss_romaji.js",
+      "tests/test_header_definition.js",
+      "tests/test_japanese_parser.js",
+      "tests/test_logo_toggle.js",
+      "tests/test_lyrics_fetch.js",
+      "tests/test_reading_robustness.js",
+      "tests/test_review_regressions.js",
+      "tests/test_server_startup.js",
+      "tests/test_storage_ownership.js",
+      "tests/test_watch_ownership.js",
+      "tests/test_yomitan_deinflector.js",
+      "tests/test_youtube_bridge_toggle.js"
+    ],
+    "code": 0,
+    "seconds": 0.566
+  },
+  {
+    "name": "legacy",
+    "command": [
+      "node",
+      "run_tests.js"
+    ],
+    "code": 0,
+    "seconds": 0.114
+  },
+  {
+    "name": "native-host",
+    "command": [
+      "python3",
+      "-I",
+      "tests/test_native_host.py"
+    ],
+    "code": 0,
+    "seconds": 2.269
+  },
+  {
+    "name": "chromium",
+    "command": [
+      "node",
+      "tests/browser_custom_ai.mjs"
+    ],
+    "code": 0,
+    "seconds": 6.681
+  },
+  {
+    "name": "harness-selfcheck",
+    "command": [
+      "node",
+      "tests/perf/run_perf.mjs",
+      "--self-check"
+    ],
+    "code": 0,
+    "seconds": 0.465
+  },
+  {
+    "name": "process-selfcheck",
+    "command": [
+      "node",
+      "tests/perf/process-selfcheck.mjs"
+    ],
+    "code": 0,
+    "seconds": 0.114
+  },
+  {
+    "name": "diff",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "code": 0,
+    "seconds": 0.016
+  }
+]

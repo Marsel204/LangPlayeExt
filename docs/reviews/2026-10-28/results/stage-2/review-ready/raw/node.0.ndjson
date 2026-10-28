@@ -1,0 +1,5 @@
+{"id":"R-A09-control","expected":"green","control":null,"ok":true,"witness":{"tracks":[{"baseUrl":"https://fixture.invalid/c","languageCode":"ja","name":{"simpleText":"Japanese"}}]},"signature":"FLAT_TRACK_PARSED","fixtureMode":"node-fake"}
+{"id":"R-X01-control","expected":"green","control":null,"ok":true,"witness":{"length":100},"signature":"SHORT_KANA_SAFE","fixtureMode":"node-fake"}
+{"id":"R-X01","expected":"red","control":"R-X01-control","ok":true,"witness":{"exceptions":[]},"signature":"LONG_KANA_RANGEERROR","fixtureMode":"node-fake"}
+{"id":"R-X02-equivalence","expected":"green","control":"R-A09-control","ok":true,"witness":{"cases":100000,"productionFunction":"stripMarkupTags","oracle":"original regex"},"signature":"DIFFERENTIAL_EQUIVALENCE","fixtureMode":"node-fake"}
+{"id":"R-X01-equivalence","expected":"green","control":"R-X01-control","ok":true,"witness":{"cases":3158,"productionFunction":"toRomajiSafe","oracle":"unmodified WanaKana, independent enlarged-stack worker"},"signature":"DIFFERENTIAL_EQUIVALENCE","fixtureMode":"node-fake"}

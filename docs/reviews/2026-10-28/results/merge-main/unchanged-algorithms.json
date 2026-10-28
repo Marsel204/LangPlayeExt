@@ -1,0 +1,22 @@
+[
+  {
+    "component": "reading",
+    "byteIdentical": true,
+    "sha256": "bd5bd2dda0176ef2406d7f7c0e6dc27d76e99b00507c448f75d4a540686fc37d"
+  },
+  {
+    "component": "timeline",
+    "byteIdentical": true,
+    "sha256": "2bb0d62fe3f18628c33460ee7693b256c2b0f707e4054db67e5cb9b57049dd49"
+  },
+  {
+    "component": "segmenter-and-subtitle-parsers",
+    "byteIdentical": true,
+    "sha256": "0a59edfa4ee465f3d79554ca8336592634ef6130b0bcc9a46357afe9df33ee90"
+  },
+  {
+    "component": "sentence-segmentation-and-romaji",
+    "byteIdentical": true,
+    "sha256": "8f88a6f846e53e53a6654ed3085c6e63de3fb0c54135c266fb59095975f3176f"
+  }
+]

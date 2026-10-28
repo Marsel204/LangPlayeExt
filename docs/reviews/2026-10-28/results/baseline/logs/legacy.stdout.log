@@ -1,0 +1,96 @@
+🧪 Running LinguaPlay Exhaustive Test Suite...
+
+🔍 Testing 210 Japanese phrases for Strict Zero-Kanji Guarantee...
+✅ Test 1: Zero-Kanji Guarantee PASSED (210/210 phrases 100% pure kana/romaji)
+✅ Test 2: "自己" -> { furigana: 'じこ', romaji: 'jiko' }
+✅ Test 3: "嫌悪" -> { furigana: 'けんお', romaji: "ken'o" }
+✅ Test 3b: "自己嫌悪" -> { furigana: 'じこけんお', romaji: "jikoken'o" }
+✅ Test 3c: "眼鏡" (Jukujikun) -> { furigana: 'めがね', romaji: 'megane' }
+✅ Test 4: "落ち" -> { furigana: 'おち', romaji: 'ochi' }
+✅ Test 5: "落ちてく" -> { furigana: 'おちてく', romaji: 'ochiteku' }
+✅ Test 5e: Verb Onbin "書いて" -> { furigana: 'かいて', romaji: 'kaite' }
+✅ Test 5f: Verb Sokuonbin "行った" -> { furigana: 'いった', romaji: 'itta' }
+✅ Test 5g: Verb Sokuonbin "言った" -> { furigana: 'いった', romaji: 'itta' }
+✅ Test 5h: Verb Hatsuonbin "飲んで" -> { furigana: 'のんで', romaji: 'nonde' }
+✅ Test 5i: Compound Suffix "見せてくれた" -> { furigana: 'みせてくれた', romaji: 'misetekureta' }
+✅ Test 5j: Topic Particle "は" -> { furigana: 'は', romaji: 'wa' }
+✅ Test 5k: Directional Particle "へ" -> { furigana: 'へ', romaji: 'e' }
+✅ Test 5l: Object Particle "を" -> { furigana: 'を', romaji: 'o' }
+✅ Test 5m: Greeting "こんにちは" -> { furigana: 'こんにちは', romaji: 'konnichiwa' }
+✅ Test 5b: Standalone "見" -> { furigana: 'み', romaji: 'mi' }
+✅ Test 5c: Compound "見学" -> { furigana: 'けんがく', romaji: 'kengaku' }
+✅ Test 5d: Compound "意見" -> { furigana: 'いけん', romaji: 'iken' }
+✅ Test 5n: Standalone "恋" -> { furigana: 'こい', romaji: 'koi' }
+✅ Test 5o: Compound "恋人" -> { furigana: 'こいびと', romaji: 'koibito' }
+✅ Test 5p: Compound "恋心" -> { furigana: 'こいごころ', romaji: 'koigokoro' }
+✅ Test 5q: Compound "初恋" -> { furigana: 'はつこい', romaji: 'hatsukoi' }
+✅ Test 5r: Compound "失恋" -> { furigana: 'しつれん', romaji: 'shitsuren' }
+✅ Test 5s: Sentence "また君に恋を知る" -> またきみにこいをしる
+✅ Test 6: CSS Native Sidebar, Gloss Cards & Dormant Mode Scoping: PASSED
+✅ Test 6b: Japanese Language Detection (Dormant Filter): PASSED
+✅ Test 6c: Multi-Track Discovery (Auto-picks Japanese over English default): PASSED
+✅ Test 6d: ASR Track Fallback Discovery: PASSED
+✅ Test 6e: Human-Curated Japanese Priority: PASSED
+✅ Test 6f: Non-Japanese Dormant Rejection: PASSED
+✅ Test 6g: Real-World Benchmark Video 1 (nmeccuUXs4Q) Auto-Discovery: PASSED
+✅ Test 6h: Real-World Benchmark Video 2 (1dxlWm7HeRY) Auto-Discovery: PASSED
+✅ Test 7: Subtitle Parsing & Sync: PASSED
+✅ Test 8: Manifest V3 Configuration & Options UI: PASSED
+
+🎵 Running Test Suite 9: tuki. - 愛の賞味期限 (Love Expiration Date) Lyric Accuracy...
+✅ Test 9: All 38 tuki. lyric test cases PASSED matching Genius Romanizations!
+
+⚡ Running Test Suite 10: Instant Sentence Translation & Enriched Anki Serialization...
+✅ Test 10a: Multi-segment NMT response parser: PASSED
+✅ Test 10b: Sentence target word highlighting: PASSED
+✅ Test 10c: Enriched Anki Payload with Sentence & Translation: PASSED
+
+🌟 Running Test Suite 11: Sentence Romaji, Multi-Provider LLM & Sensei Chat Engine...
+✅ Test 11a: Context Spaced Sentence Romaji ("君が僕に見せてくれた"): <span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">kimi</span> ga boku ni misetekureta
+✅ Test 11b: Context Spaced Sentence Romaji ("僕を走らせる魔法だ"): boku o hashiraseru <span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">mahou</span> da
+✅ Test 11c: Context Spaced Sentence Romaji ("自己嫌悪に落ちてく"): <span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">jikoken'o</span> ni ochiteku
+✅ Test 11d: Context Spaced Sentence Romaji ("また君に恋を知る"): mata kimi ni <span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">koi</span> o shiru
+✅ Test 11c: DeepSeek LLM Payload Builder: PASSED
+✅ Test 11d: OpenRouter LLM Payload Builder: PASSED
+✅ Test 11e: OpenCode / Custom OpenAI Payload Builder: PASSED
+✅ Test 11f: Sensei System Prompt Assembly: PASSED
+
+🗾 Running Test Suite 12: Yomitan Deinflection Engine & Romaji Splitting Prevention...
+✅ Test 12a: Deinflect "届かぬ" -> 届く: PASSED
+✅ Test 12b: Deinflect "行かなかった" -> 行く: PASSED
+✅ Test 12c: Deinflect "美味しかった" -> 美味しい: PASSED
+✅ Test 12d: Deinflect "だった" -> だ: PASSED
+✅ Test 12e: Sentence Romaji ("世界はとても綺麗だったな") -> <span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">sekai</span> wa totemo kirei datta na
+✅ Test 12f: Sentence Romaji ("僕には届かぬ存在で") -> <span style="color:#fda4af; font-weight:bold; background:rgba(253,164,175,0.18); padding:0 3px; border-radius:3px;">boku</span> ni wa todokanu sonzai de
+✅ Test 12g: Sentence Romaji ("美味しかった") -> oishikatta
+
+🔒 Running Test Suite 13: Drawer Context Sentence Isolation & Decoupling...
+✅ Test 12h: Sentence Romaji ("行かなかった") -> ikanakatta
+✅ Test 13a: Dedicated drawerContextSentence declaration verified
+✅ Test 13b: handleTokenClick pins context sentence into drawer state
+✅ Test 13c: Live video captions decoupled from drawer context state
+✅ Test 13d: Runtime word click -> subtitle advance -> prompt isolation verified
+
+🎵 Running Test Suite 14: Synced Lyrics (LRCLIB), External Link Fetching & Modal UI...
+✅ Test 14a: cleanSongTitle strips sumitsuki brackets and YouTube suffix for user video
+✅ Test 14b: cleanSongTitle extracts Japanese quotes and channel
+✅ Test 14c: parseLRC calculates start/end cues accurately
+✅ Test 14d: parseSubtitleFile routes .lrc format correctly
+✅ Test 14e: content.js contains streamlined Lyrics Manager modal UI and Audio Timing sync
+✅ Test 14f: background.js and manifest.json support lyrics API and arbitrary URL link fetching
+
+🎛️ Running Test Suite 15: Logo Click & App Turn-Off Feature...
+🧪 Testing LinguaPlay Logo Click & App Turn-Off Feature...
+✅ Test 14a: isAppEnabled state declaration verified
+✅ Test 14b: Interactive #linguaplay-bar-logo verified
+✅ Test 14c: setAppEnabled function implementation verified
+✅ Test 14d: LINGUAPLAY_SET_APP_STATE event contract verified
+✅ Test 14e: youtube-bridge.js app-disable guard verified
+✅ Test 14f: CSS styling for clickable logo and disabled state verified
+✅ Test 14g: Runtime state transition simulation verified
+
+🎉 ALL LOGO TOGGLE TESTS PASSED CLEANLY!
+
+
+🎉 ALL 15 TEST SUITES PASSED CLEANLY WITH ZERO REGRESSIONS!
+

@@ -44,7 +44,9 @@ async function popup(activeUrl) {
       storage: { local: { get(_keys, callback) { callback({ linguaplay_cards: [{ word: '猫', sentence: '猫がいる', reading: 'neko', meaning: 'cat' }] }); } } },
     },
   };
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'popup.js'), 'utf8'), sandbox);
+  for (const [, script] of fs.readFileSync(path.join(root, 'popup.html'), 'utf8').matchAll(/<script[^>]+src="([^"]+)"/g)) {
+    vm.runInNewContext(fs.readFileSync(path.join(root, script), 'utf8'), sandbox, {filename: script});
+  }
   await ready();
   return { elements, tabs, downloads, click: id => elements.get(id).listeners.click() };
 }

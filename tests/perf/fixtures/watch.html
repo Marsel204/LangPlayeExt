@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><title>Fixture Song - Fixture Artist - YouTube</title>
+<style>body{margin:0;background:#222;color:white}#movie_player{position:relative;width:900px;height:510px}.ytp-chrome-bottom{position:absolute;bottom:8px;left:12px;right:12px;height:40px}.ytp-right-controls{float:right}.ytp-button{width:40px;height:40px}#secondary{position:absolute;left:920px;top:0;width:350px}</style>
+<div id="movie_player" class="html5-video-player"><video></video><div class="ytp-caption-window-container"><span class="ytp-caption-segment">猫がいる</span></div><div class="ytp-chrome-bottom"><div class="ytp-right-controls"><button class="ytp-button ytp-subtitles-button" aria-pressed="true">CC</button><button class="ytp-button ytp-settings-button">⚙</button></div></div><div id="progress"></div></div><h1 class="ytd-watch-metadata"><yt-formatted-string>Fixture Song</yt-formatted-string></h1><div id="owner"><ytd-channel-name>Fixture Artist</ytd-channel-name></div><aside id="secondary"><div id="secondary-inner"></div></aside>
+<script>
+window.fixture={selected:{languageCode:'ja',vssId:'.ja'},loads:0,gets:0,sets:0,cc:0};
+const player=document.getElementById('movie_player');
+player.loadModule=()=>fixture.loads++;
+player.getOption=(_,key)=>{fixture.gets++;return key==='tracklist'?[{languageCode:'en',vssId:'.en'},{languageCode:'ja',vssId:'.ja'}]:fixture.selected;};
+player.setOption=(_,key,value)=>{fixture.sets++;fixture.selected=value;};
+document.querySelector('.ytp-subtitles-button').onclick=e=>{fixture.cc++;e.target.setAttribute('aria-pressed',e.target.getAttribute('aria-pressed')==='true'?'false':'true');};
+</script>

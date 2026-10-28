@@ -1,0 +1,9 @@
+options.js:359
+        clearTimeout(timeout);
+        ^
+
+ReferenceError: clearTimeout is not defined
+    at options.js:359:9
+    at promise.then.s.runtime.lastError.message (/home/marsel/.t3/worktrees/LangPlayext/t3-1a9e7cd4/tests/perf/lib/worker-fixture.js:11:304)
+
+Node.js v26.8.1

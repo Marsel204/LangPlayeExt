@@ -59,8 +59,101 @@ async function ensureLocalServer() {
   try { return await pending; } finally { serverStarts.delete(key); }
 }
 
+// Cards and expendable lyric caches have one mutation owner across all tabs.
+let storageMutations = Promise.resolve();
+function enqueueStorage(task) {
+  const next = storageMutations.then(task);
+  storageMutations = next.catch(() => {});
+  return next;
+}
+function localStorageCall(method, value) {
+  return new Promise((resolve, reject) => {
+    try { chrome.storage.local[method](value, result => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(new Error(error.message)); else resolve(result);
+    }); } catch (error) { reject(error); }
+  });
+}
+const lyricsCachePrefix = 'lp_lyrics_cache_';
+const lyricsCacheIndexKey = 'lp_lyrics_cache_index';
+function isLyricsCacheKey(key) { return key.startsWith(lyricsCachePrefix) && key !== lyricsCacheIndexKey; }
+async function evictLyricsCaches() {
+  const all = await localStorageCall('get', null);
+  await localStorageCall('remove', Object.keys(all).filter(key => isLyricsCacheKey(key) || key === lyricsCacheIndexKey));
+}
+function validatedCard(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid card');
+  const allowed = new Set(['word','reading','romaji','meaning','sentence','sentence_en','date']);
+  if (typeof value.word !== 'string' || !value.word.trim()) throw new Error('Card word is required');
+  const card = {};
+  for (const [key, text] of Object.entries(value)) {
+    if (!allowed.has(key) || typeof text !== 'string' || text.length > 4000) throw new Error('Invalid card field: ' + key);
+    card[key] = text;
+  }
+  return card;
+}
+async function saveOwnedCard(card) {
+  const result = await localStorageCall('get', ['linguaplay_cards']);
+  if (result.linguaplay_cards !== undefined && !Array.isArray(result.linguaplay_cards)) throw new Error('Stored card collection is invalid; it was left unchanged');
+  const cards = [...(result.linguaplay_cards || []), card];
+  try { await localStorageCall('set', {linguaplay_cards: cards}); }
+  catch {
+    await evictLyricsCaches();
+    await localStorageCall('set', {linguaplay_cards: cards});
+  }
+  return {success: true, count: cards.length};
+}
+function validateCacheId(vid) {
+  if (typeof vid !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(vid)) throw new Error('Invalid video cache id');
+}
+async function cacheOwnedLyrics(vid, payload) {
+  validateCacheId(vid);
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload) || typeof payload.syncedLyrics !== 'string') throw new Error('Invalid lyrics cache');
+  const key = lyricsCachePrefix + vid;
+  const bytes = new TextEncoder().encode(key + JSON.stringify(payload)).length;
+  if (bytes > 512000) return {success: false, skipped: true, error: 'Lyrics exceed the cache entry limit'};
+  // Reconcile actual keys on every mutation, including caches written by older
+  // extension versions before an index existed. The index is never an authority
+  // for which storage keys may evade eviction.
+  const all = await localStorageCall('get', null);
+  const previous = Array.isArray(all[lyricsCacheIndexKey]) ? all[lyricsCacheIndexKey] : [];
+  const times = new Map(previous.filter(e => e && typeof e.id === 'string' && Number.isFinite(e.t)).map(e => [e.id,e.t]));
+  const entries = Object.keys(all).filter(isLyricsCacheKey).filter(k => k !== key).map(k => ({
+    id: k.slice(lyricsCachePrefix.length), bytes: new TextEncoder().encode(k + JSON.stringify(all[k])).length,
+    t: times.get(k.slice(lyricsCachePrefix.length)) || Number(all[k]?.cachedAt) || 0
+  })).sort((a,b) => a.t - b.t);
+  const newestTime = Math.max(Date.now(), ...entries.map(e => Number.isFinite(e.t) ? e.t : 0));
+  entries.push({id:vid, bytes, t:newestTime + 1});
+  let total = entries.reduce((n,e) => n + e.bytes, 0);
+  const evicted = [];
+  while (entries.length > 50 || total > 2000000) {
+    const entry = entries.shift(); total -= entry.bytes; evicted.push(lyricsCachePrefix + entry.id);
+  }
+  if (evicted.length) await localStorageCall('remove', evicted);
+  await localStorageCall('set', {[key]: payload, [lyricsCacheIndexKey]: entries});
+  return {success:true, entries:entries.length, bytes:total};
+}
+async function removeOwnedLyrics(vid) {
+  validateCacheId(vid);
+  await localStorageCall('remove', [lyricsCachePrefix + vid]);
+  const stored = await localStorageCall('get', [lyricsCacheIndexKey]);
+  const entries = Array.isArray(stored[lyricsCacheIndexKey]) ? stored[lyricsCacheIndexKey].filter(e => e.id !== vid) : [];
+  await localStorageCall('set', {[lyricsCacheIndexKey]: entries});
+  return {success:true};
+}
+
 // Innertube Android VR Caption Extraction Bridge in Background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (['SAVE_CARD','CLEAR_CARDS','CACHE_LYRICS','REMOVE_LYRICS_CACHE'].includes(request.action)) {
+    if (sender.id !== chrome.runtime.id) { sendResponse({success:false, error:'Untrusted storage request'}); return false; }
+    enqueueStorage(async () => {
+      if (request.action === 'SAVE_CARD') return saveOwnedCard(validatedCard(request.card));
+      if (request.action === 'CLEAR_CARDS') { await localStorageCall('set', {linguaplay_cards: []}); return {success:true, count:0}; }
+      if (request.action === 'CACHE_LYRICS') return cacheOwnedLyrics(request.vid, request.payload);
+      return removeOwnedLyrics(request.vid);
+    }).then(sendResponse, error => sendResponse({success:false, error:error.message}));
+    return true;
+  }
   if (request.action === 'PARSE_JAPANESE') {
     (async () => {
       try {
@@ -152,64 +245,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     })();
     return true;
-  }
-
-  if (request.action === 'FETCH_YOUTUBE_CAPTIONS' && request.videoId) {
-    (async () => {
-      try {
-        const headers = {
-          'Content-Type': 'application/json',
-          'User-Agent': 'com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip',
-          'X-YouTube-Client-Name': '28',
-          'X-YouTube-Client-Version': '1.65.10',
-          'Origin': 'https://www.youtube.com'
-        };
-        if (request.visitorData) headers['X-Goog-Visitor-Id'] = request.visitorData;
-
-        const payload = {
-          context: {
-            client: {
-              clientName: 'ANDROID_VR',
-              clientVersion: '1.65.10',
-              deviceMake: 'Oculus',
-              deviceModel: 'Quest 3',
-              androidSdkVersion: 32,
-              osName: 'Android',
-              osVersion: '12L',
-              hl: 'en',
-              timeZone: 'UTC',
-              utcOffsetMinutes: 0
-            }
-          },
-          videoId: request.videoId,
-          playbackContext: {
-            contentPlaybackContext: {
-              html5Preference: 'HTML5_PREF_WANTS',
-              signatureTimestamp: 20717
-            }
-          },
-          contentCheckOk: true,
-          racyCheckOk: true
-        };
-
-        const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify(payload)
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
-          sendResponse({ success: true, tracks: tracks });
-          return;
-        }
-        sendResponse({ success: false, error: `Status ${res.status}` });
-      } catch (err) {
-        sendResponse({ success: false, error: err.message });
-      }
-    })();
-    return true; // async sendResponse
   }
 
 function decodeKugouLrc(base64Content) {
@@ -420,32 +455,6 @@ async function fetchKugouLyrics(keyword, duration = 0) {
       }
     })();
     return true; // async sendResponse
-  }
-
-  if (request.action === 'FETCH_LYRICS_URL' && request.url) {
-    (async () => {
-      try {
-        const targetUrl = new URL(request.url.trim());
-        if (!['http:', 'https:'].includes(targetUrl.protocol)) {
-          throw new Error('Invalid URL protocol. Must be HTTP or HTTPS.');
-        }
-        const response = await fetch(targetUrl.href, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/plain, text/html, */*'
-          },
-          signal: AbortSignal.timeout(10000)
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch lyrics link (HTTP ${response.status})`);
-        }
-        const content = await response.text();
-        sendResponse({ success: true, content });
-      } catch (err) {
-        sendResponse({ success: false, error: err.message });
-      }
-    })();
-    return true;
   }
 
   if (request.action === 'OPEN_OPTIONS_PAGE') {

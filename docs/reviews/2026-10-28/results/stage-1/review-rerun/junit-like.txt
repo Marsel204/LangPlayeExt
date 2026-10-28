@@ -1,0 +1,6 @@
+Node v26.8.1; Chromium fixtureMode=fetch-intercept
+GREEN              R-A12-generated GENERATOR_BYTE_IDENTICAL
+GREEN              R-A12-corpus LEGACY_TESTS_EVALUATE_DUPLICATE_ENGINE
+GREEN              R-A12-bridge BRIDGE_CONTENT_PREDICATE_AGREEMENT
+GREEN              R-A05-control VISIBLE_JAPANESE_RESTORED
+{"GREEN":4}

@@ -1,0 +1,267 @@
+{
+  "schema": 1,
+  "mode": "after",
+  "fixtureMode": "fetch-intercept",
+  "node": "v26.8.1",
+  "startedFromUnchangedBaseline": false,
+  "reportable": false,
+  "runs": [
+    {
+      "kind": "node",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 116
+    }
+  ],
+  "counts": {
+    "GREEN": 8
+  },
+  "results": [
+    {
+      "id": "R-A03-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A03-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "currentVideoId": null,
+            "currentSubIndex": -1,
+            "renderedSentence": "",
+            "activeLiveSentence": "",
+            "drawerContextVersion": 1,
+            "subtitleRenderVersion": 0,
+            "lastAiData": {
+              "contextual_meaning": "CURRENT_ANSWER",
+              "contextVersion": 1
+            },
+            "drawerContextSentence": "猫がいる",
+            "timelineLength": 0,
+            "sentenceTranslationCacheSize": 1
+          },
+          "signature": "CURRENT_RESPONSE_APPLIED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A03-stale",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A03-control",
+        "witnessRegex": "^CAT_FROM_OLD_REQUEST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A03-stale",
+          "expected": "red",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "state": {
+              "currentVideoId": null,
+              "currentSubIndex": -1,
+              "renderedSentence": "",
+              "activeLiveSentence": "",
+              "drawerContextVersion": 2,
+              "subtitleRenderVersion": 0,
+              "lastAiData": null,
+              "drawerContextSentence": "犬がいる",
+              "timelineLength": 0,
+              "sentenceTranslationCacheSize": 2
+            }
+          },
+          "signature": "CAT_FROM_OLD_REQUEST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A03-dup",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A03-control",
+        "witnessRegex": "^DUPLICATE_MODEL_REQUESTS$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A03-dup",
+          "expected": "red",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "modelRequests": 1
+          },
+          "signature": "DUPLICATE_MODEL_REQUESTS",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A03-error-late",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A03-control",
+        "witnessRegex": "^LATE_ERROR_REPLACES_CONTEXT$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A03-error-late",
+          "expected": "red",
+          "control": "R-A03-control",
+          "ok": true,
+          "witness": {
+            "errorVisible": false,
+            "word": "犬"
+          },
+          "signature": "LATE_ERROR_REPLACES_CONTEXT",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A10-control",
+      "status": "GREEN",
+      "target": {
+        "expected": "green",
+        "control": null,
+        "witnessRegex": "^.*$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A10-control",
+          "expected": "green",
+          "control": null,
+          "ok": true,
+          "witness": {
+            "destinations": [
+              "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=dummy-key"
+            ]
+          },
+          "signature": "SELECTED_GEMINI_USED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A10-id",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A10-control",
+        "witnessRegex": "^UNSELECTED_GEMINI_REQUEST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A10-id",
+          "expected": "red",
+          "control": "R-A10-control",
+          "ok": true,
+          "witness": {
+            "unselectedProviderRequests": []
+          },
+          "signature": "UNSELECTED_GEMINI_REQUEST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-A10-analysis",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A10-control",
+        "witnessRegex": "^UNSELECTED_GEMINI_REQUEST$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-A10-analysis",
+          "expected": "red",
+          "control": "R-A10-control",
+          "ok": true,
+          "witness": {
+            "unselectedProviderRequests": []
+          },
+          "signature": "UNSELECTED_GEMINI_REQUEST",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    },
+    {
+      "id": "R-R04-prompt",
+      "status": "GREEN",
+      "target": {
+        "expected": "red",
+        "control": "R-A10-control",
+        "witnessRegex": "^PROMPT_QUOTE_ROUNDTRIP_FAILED$",
+        "runtime": "node"
+      },
+      "runs": [
+        {
+          "id": "R-R04-prompt",
+          "expected": "red",
+          "control": "R-A10-control",
+          "ok": true,
+          "witness": {
+            "title": "a \"quote\" \\ path",
+            "field": "\"a \\\"quote\\\" \\\\ path\"",
+            "decoded": "a \"quote\" \\ path"
+          },
+          "signature": "PROMPT_QUOTE_ROUNDTRIP_FAILED",
+          "fixtureMode": "node-fake",
+          "process": 0,
+          "kind": "node",
+          "status": "GREEN"
+        }
+      ],
+      "deterministic": true
+    }
+  ],
+  "limitations": []
+}
