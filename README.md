@@ -14,6 +14,7 @@
   <a href="#install-the-extension">Install</a> ·
   <a href="#how-it-works-on-youtube">How it works</a> ·
   <a href="#connect-your-ai-tutor">AI setup</a> ·
+  <a href="docs/settings.md">Settings tutorial</a> ·
   <a href="docs/local-backend.md">Local backend</a>
 </p>
 
@@ -63,7 +64,7 @@ Click **Quick Add to Anki** to save the selected word with its reading, meaning,
 
 Both buttons use your configured AnkiConnect URL and deck and keep a local copy. Create that deck in Anki first. The result states what completed: **Added to Anki · stored locally**, **Kept locally — Anki: …**, or a local-storage failure. An existing duplicate is reported as **Already in Anki**. Kana readings and romaji are stored separately.
 
-Open the extension popup or Options and choose **Export TSV** to export the collection later. Both exports contain identical sentence, word, kana reading, and meaning columns, including the sentence translation when available. The TSV retains the historical `LinguaPlay Japanese Immersion` deck header.
+Click the extension's toolbar icon to open Settings and choose **Export TSV File** to export the collection later. The export contains sentence, word, kana reading, and meaning columns, including the sentence translation when available. The TSV retains the historical `LinguaPlay Japanese Immersion` deck header.
 
 ## Install the extension
 
@@ -78,14 +79,16 @@ No build step is needed.
 2. Open `chrome://extensions` in Chrome or Chromium.
 3. Enable **Developer mode**, click **Load unpacked**, and select the repository root — the folder containing `manifest.json`.
 4. Pin **LinguaPlay** to your toolbar.
-5. Open **Options / Keys**, configure 9Router, and click **Save Settings**.
+5. Click the extension's toolbar icon to open Settings. Expand **Settings setup guide**, or follow the [settings tutorial](docs/settings.md). Configure 9Router and click **Save Settings**.
 6. Open a YouTube watch page. Refresh an already-open page so the extension can load.
 
 Japanese subtitle interaction, reading modes, and the offline card collection work without an AI API key. AI breakdowns and chat require a configured 9Router connection. More accurate contextual readings use the optional Sudachi backend.
 
 ## Connect your AI tutor
 
-LinguaPlay uses **9Router** for Sensei Chat, grammar breakdowns, and AI song identification. Open **Options / Keys** to configure its URL, router key, and model or combo.
+LinguaPlay uses **9Router** for Sensei Chat, grammar breakdowns, and AI song identification. Click the extension's toolbar icon to open Settings and configure its URL, router key, and model or combo.
+
+New to the settings? Follow the [settings setup guide](docs/settings.md) for a complete walkthrough, field reference, and troubleshooting. For login startup, see [Start 9Router automatically](docs/9router-autostart.md).
 
 [9Router](https://github.com/decolua/9router) manages your AI providers, credentials, and fallback combos behind one OpenAI-compatible API. Run it separately from the extension:
 
@@ -95,12 +98,12 @@ npm install -g 9router
 ```
 
 1. Open the 9Router dashboard at `http://localhost:20128`, connect your providers, and copy the router API key if authentication is enabled.
-2. Open LinguaPlay **Options / Keys** to find the 9Router settings.
+2. Click the LinguaPlay toolbar icon to open the 9Router settings.
 3. Keep `http://127.0.0.1:20128/v1` for a router on the same computer, or enter your hosted router's API base URL. Enter the **router** key here; upstream provider keys stay in 9Router.
-4. Click **Load Models**, then choose an ID in **Model or Combo**, or type a combo name from your dashboard. This preserves provider prefixes and custom combo names without guessing a model.
+4. Choose an ID from **Available Models**; the full list loads automatically when the configured router is reachable and browser access is already allowed. **Load Models** refreshes the list or requests access to a hosted router. Selecting a model fills **Model or Combo**, including its provider prefix. You can also type a combo name from your dashboard there.
 5. Click **Test 9Router** to send a short AI request, then **Save Settings**.
 
-Sensei Chat, grammar breakdowns, and AI song identification use only the configured 9Router model or combo. Enter the router key in extension Options; upstream credentials stay in 9Router. Keep 9Router running while using these features. The extension does not start 9Router automatically.
+Sensei Chat, grammar breakdowns, and AI song identification use only the configured 9Router model or combo. Enter the router key in extension Options; upstream credentials stay in 9Router. Keep 9Router running while using these features. The extension does not start 9Router automatically; configure [automatic startup](docs/9router-autostart.md) once on each computer.
 
 For optional offline **Sudachi** parsing and automatic parser startup on Linux, see the [local backend setup guide](docs/local-backend.md). The parser improves contextual readings and dictionary forms; subtitle fallback readings work without it.
 
@@ -128,14 +131,14 @@ You can also start with the offline collection and export your cards later.
 
 ## Extension and standalone app
 
-This repository contains the **YouTube extension**. Its popup opens YouTube and searches YouTube directly; all learning tools run on the watch page.
+This repository contains the **YouTube extension**. Its toolbar icon opens Settings directly; all learning tools run on the YouTube watch page.
 
 The standalone video player and companion Python backend live in the separate [LangPlay app repository](https://github.com/Marsel204/LangPlay). Use that project for local video playback. The extension connects to its optional backend over HTTP for offline Sudachi parsing; it does not bundle or launch the standalone player.
 
 <details>
 <summary><strong>Contributor notes and checks</strong></summary>
 
-The extension uses plain JavaScript, HTML, and CSS. `content.js` and `content.css` implement the YouTube interface; `background.js` handles extension requests; `popup.*` and `options.*` provide the popup and settings. `js/` contains the YouTube bridge and parser client, `lib/` contains reading libraries, and `native/` contains the optional Linux backend launcher.
+The extension uses plain JavaScript, HTML, and CSS. `content.js` and `content.css` implement the YouTube interface; `background.js` handles extension requests and toolbar clicks; `options.*` provide Settings. `js/` contains the YouTube bridge and parser client, `lib/` contains reading libraries, and `native/` contains the optional Linux backend launcher.
 
 `build_content_js.py` generates `content.js` using the extension's reading data in `data/kanji-dict.js`. When changing the YouTube interface, update the generator and regenerate the bundle:
 

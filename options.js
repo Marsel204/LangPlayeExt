@@ -26,6 +26,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const clearCardsBtn = document.getElementById('clear-cards-btn');
   const saveSettingsBtn = document.getElementById('save-settings-btn');
   const saveToast = document.getElementById('save-toast');
+  const saveState = document.getElementById('settings-save-state');
+  let savedFormState = null;
+  let isSaving = false;
+  let saveError = null;
+  let routerModelIds = new Set();
+  let activeRouterCheck = null;
 
   // 1. Load saved settings
   chrome.storage.local.get([
@@ -50,7 +56,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cards = res.linguaplay_cards || [];
     savedCardCounter.textContent = `${cards.length} card${cards.length === 1 ? '' : 's'} in storage`;
+    savedFormState = formState();
+    updateSaveState();
+    updateReadingPreview();
+    // Discovery is read-only and never opens a host-permission prompt on page load.
+    void checkRouter(true, false);
   });
+
+  function formState() {
+    return JSON.stringify([routerUrl.value.trim(), routerKey.value.trim(), routerModel.value.trim(),
+      serverUrl.value.trim(), autoStartServer.checked, ankiDeck.value.trim(), ankiConnectUrl.value.trim(), readingMode.value]);
+  }
+
+  function updateSaveState() {
+    const dirty = savedFormState !== null && formState() !== savedFormState;
+    const text = isSaving ? 'Saving settings…' : saveError ? 'Could not save changes' : dirty ? 'Unsaved changes' : 'No pending changes';
+    if (saveState.textContent !== text) saveState.textContent = text;
+    saveState.style.color = saveError ? 'var(--status-error)' : dirty ? 'var(--status-busy)' : 'var(--muted)';
+    saveSettingsBtn.disabled = isSaving;
+  }
+
+  function formChanged() {
+    saveError = null;
+    updateSaveState();
+  }
+
+  function updateReadingPreview() {
+    const mode = ['furigana', 'romaji', 'hidden'].includes(readingMode.value) ? readingMode.value : 'furigana';
+    for (const name of ['furigana', 'romaji', 'hidden']) {
+      document.getElementById(`preview-${name}`).hidden = name !== mode;
+      document.getElementById(`reading-example-${name}`).hidden = name !== mode;
+    }
+    document.getElementById('reading-preview-label').textContent = { furigana: 'Furigana', romaji: 'Romaji', hidden: 'Japanese only' }[mode];
+  }
+
+  readingMode.addEventListener('change', () => { updateReadingPreview(); formChanged(); });
+  autoStartServer.addEventListener('change', formChanged);
+  for (const field of [serverUrl, ankiDeck, ankiConnectUrl]) field.addEventListener('input', formChanged);
+  for (const id of ['open-setup-guide', 'nav-setup-guide']) {
+    document.getElementById(id).addEventListener('click', () => { document.getElementById('setup-guide').open = true; });
+  }
 
   async function allowEndpointAccess(urls) {
     const origins = new Set();
@@ -88,45 +133,131 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 2. Save settings
   saveSettingsBtn.addEventListener('click', async () => {
-    let normalizedRouterUrl;
+    if (isSaving) return;
+    isSaving = true;
+    saveError = null;
+    updateSaveState();
+    const submittedFormState = formState();
+    let submittedValues;
     try {
       const endpoint = getRouterEndpoint();
-      await allowEndpointAccess([endpoint.href, serverUrl.value.trim() || 'http://127.0.0.1:8000', ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765']);
-      normalizedRouterUrl = endpoint.href;
+      submittedValues = {
+        linguaplay_9router_url: endpoint.href,
+        linguaplay_9router_key: routerKey.value.trim(),
+        linguaplay_9router_model: routerModel.value.trim(),
+        linguaplay_server_url: serverUrl.value.trim() || 'http://127.0.0.1:8000',
+        linguaplay_auto_start_server: autoStartServer.checked,
+        linguaplay_anki_deck: ankiDeck.value.trim() || 'LinguaPlay',
+        linguaplay_ankiconnect_url: ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765',
+        linguaplay_reading_mode: readingMode.value
+      };
+      await allowEndpointAccess([endpoint.href, submittedValues.linguaplay_server_url, submittedValues.linguaplay_ankiconnect_url]);
     } catch (error) {
       routerStatusText.textContent = error.message;
-      routerStatusText.style.color = '#f87171';
-      saveToast.textContent = `❌ ${error.message}`;
+      routerStatusText.style.color = 'var(--status-error)';
+      saveToast.textContent = `${error.message}`;
       saveToast.classList.add('show');
+      isSaving = false;
+      saveError = error.message;
+      updateSaveState();
       return;
     }
-    chrome.storage.local.set({
-      linguaplay_9router_url: normalizedRouterUrl,
-      linguaplay_9router_key: routerKey.value.trim(),
-      linguaplay_9router_model: routerModel.value.trim(),
-      linguaplay_server_url: serverUrl.value.trim() || 'http://127.0.0.1:8000',
-      linguaplay_auto_start_server: autoStartServer.checked,
-      linguaplay_anki_deck: ankiDeck.value.trim() || 'LinguaPlay',
-      linguaplay_ankiconnect_url: ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765',
-      linguaplay_reading_mode: readingMode.value
-    }, () => {
+    chrome.storage.local.set(submittedValues, () => {
       const error = chrome.runtime?.lastError;
-      saveToast.textContent = error ? `❌ Settings write failed: ${error.message}` : '✓ Settings saved successfully!';
+      isSaving = false;
+      saveError = error ? error.message : null;
+      if (!error) savedFormState = submittedFormState;
+      updateSaveState();
+      saveToast.textContent = error ? `Settings write failed: ${error.message}` : 'Settings saved successfully.';
       saveToast.classList.add('show');
       setTimeout(() => saveToast.classList.remove('show'), 2500);
     });
   });
 
-  async function checkRouter(loadModels) {
+  function cancelRouterCheck() {
+    const previous = activeRouterCheck;
+    activeRouterCheck = null;
+    previous?.controller.abort();
+    loadRouterModelsBtn.disabled = false;
+    testRouterBtn.disabled = false;
+  }
+
+  function syncModelPicker() {
+    const model = routerModel.value.trim();
+    routerModels.value = routerModelIds.has(model) ? model : '';
+  }
+
+  function renderModelPicker(ids, placeholderText) {
+    routerModelIds = new Set(ids);
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = placeholderText;
+    placeholder.disabled = true;
+    routerModels.replaceChildren(placeholder);
+    for (const id of ids) {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = id;
+      routerModels.appendChild(option);
+    }
+    routerModels.disabled = ids.length === 0;
+    syncModelPicker();
+  }
+
+  function modelChanged() {
+    syncModelPicker();
+    formChanged();
+    if (activeRouterCheck && !activeRouterCheck.loadModels) cancelRouterCheck();
+    if (!activeRouterCheck) {
+      routerStatusText.textContent = routerModel.value.trim()
+        ? 'Model selected. Test 9Router, then click Save Settings.'
+        : 'Choose an available model or enter your combo name.';
+      routerStatusText.style.color = 'var(--muted)';
+    }
+  }
+
+  routerModels.addEventListener('change', () => {
+    if (!routerModels.value) return;
+    routerModel.value = routerModels.value;
+    modelChanged();
+  });
+  routerModel.addEventListener('input', modelChanged);
+  for (const field of [routerUrl, routerKey]) {
+    field.addEventListener('input', () => {
+      cancelRouterCheck();
+      renderModelPicker([], 'Click Load Models to refresh');
+      routerStatusText.textContent = 'Connection settings changed. Click Load Models to refresh the list.';
+      routerStatusText.style.color = 'var(--muted)';
+      formChanged();
+    });
+  }
+
+  async function checkRouter(loadModels, interactive = true) {
+    cancelRouterCheck();
+    const request = { controller: new AbortController(), loadModels };
+    activeRouterCheck = request;
     loadRouterModelsBtn.disabled = true;
     testRouterBtn.disabled = true;
+    if (loadModels) renderModelPicker([], 'Loading models…');
     routerStatusText.textContent = loadModels ? 'Loading models from 9Router…' : 'Testing 9Router…';
-    routerStatusText.style.color = '#a78bfa';
+    routerStatusText.style.color = 'var(--status-info)';
     try {
       const endpoint = getRouterEndpoint();
       const model = routerModel.value.trim();
       if (!loadModels && !model) throw new Error('Choose a model or enter your combo name first. Click Load Models to see available IDs.');
-      await allowEndpoint(endpoint);
+      if (interactive) {
+        await allowEndpoint(endpoint);
+      } else if (!(endpoint.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(endpoint.hostname))) {
+        const origin = `${endpoint.protocol}//${endpoint.hostname}/*`;
+        if (!await chrome.permissions.contains({ origins: [origin] })) {
+          if (activeRouterCheck !== request) return;
+          renderModelPicker([], 'Click Load Models to connect');
+          routerStatusText.textContent = 'Click Load Models to allow access to this router and discover its models.';
+          routerStatusText.style.color = 'var(--muted)';
+          return;
+        }
+      }
+      if (activeRouterCheck !== request) return;
       const headers = { 'Content-Type': 'application/json' };
       const key = routerKey.value.trim();
       if (key) headers.Authorization = `Bearer ${key}`;
@@ -135,34 +266,35 @@ document.addEventListener('DOMContentLoaded', () => {
         method: loadModels ? 'GET' : 'POST',
         headers,
         ...(loadModels ? {} : { body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Respond with the word OK' }], stream: false }) }),
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.any([request.controller.signal, AbortSignal.timeout(30000)])
       });
       const data = await response.json().catch(() => ({}));
+      if (activeRouterCheck !== request) return;
       if (!response.ok) throw new Error(data.error?.message || `9Router returned HTTP ${response.status}. Check the router key and provider configuration.`);
       if (loadModels) {
         if (!Array.isArray(data.data)) throw new Error('9Router did not return a model list. Check that the base URL points to its /v1 API.');
         const ids = [...new Set(data.data.filter(item => !item?.kind || item.kind === 'llm').map(item => item?.id).filter(id => typeof id === 'string' && id.trim()))].sort();
-        routerModels.replaceChildren();
-        for (const id of ids) {
-          const option = document.createElement('option');
-          option.value = id;
-          routerModels.appendChild(option);
-        }
+        renderModelPicker(ids, ids.length ? `Choose from ${ids.length} available models` : 'No models available');
         routerStatusText.textContent = ids.length
-          ? `Loaded ${ids.length} model${ids.length === 1 ? '' : 's'}. Choose one in Model or Combo, or type your combo name, then save.`
+          ? `Loaded ${ids.length} model${ids.length === 1 ? '' : 's'}. Choose from Available Models, or type a combo below. Test 9Router, then save.`
           : 'No models available. Connect a provider in the 9Router dashboard, then load models again, or enter your combo name.';
       } else {
         const content = data.choices?.[0]?.message?.content;
         if (typeof content !== 'string' || !content.trim()) throw new Error('9Router returned an empty reply. Check the model or combo in its dashboard.');
         routerStatusText.textContent = `9Router is working with ${model}. Click Save Settings to use it for Sensei.`;
       }
-      routerStatusText.style.color = '#34d399';
+      routerStatusText.style.color = 'var(--status-success)';
     } catch (error) {
+      if (activeRouterCheck !== request) return;
+      if (loadModels) renderModelPicker([], 'Could not load models. Click Load Models to retry.');
       routerStatusText.textContent = `${error.message} Ensure 9Router is running and the URL is reachable.`;
-      routerStatusText.style.color = '#f87171';
+      routerStatusText.style.color = 'var(--status-error)';
     } finally {
-      loadRouterModelsBtn.disabled = false;
-      testRouterBtn.disabled = false;
+      if (activeRouterCheck === request) {
+        activeRouterCheck = null;
+        loadRouterModelsBtn.disabled = false;
+        testRouterBtn.disabled = false;
+      }
     }
   }
 
@@ -172,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Test the optional Sudachi parser
   testServerBtn.addEventListener('click', async () => {
     serverStatusText.textContent = 'Testing connection…';
-    serverStatusText.style.color = '#a78bfa';
+    serverStatusText.style.color = 'var(--status-info)';
     const url = serverUrl.value.trim() || 'http://127.0.0.1:8000';
     try {
       await allowEndpointAccess([url]);
@@ -184,21 +316,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         if (data.status !== 'success' || !Array.isArray(data.tokens)) throw new Error('Invalid parser response');
         serverStatusText.textContent = 'Sudachi parser is online.';
-        serverStatusText.style.color = '#34d399';
+        serverStatusText.style.color = 'var(--status-success)';
       } else {
         serverStatusText.textContent = `Server replied with HTTP ${res.status}`;
-        serverStatusText.style.color = '#f87171';
+        serverStatusText.style.color = 'var(--status-error)';
       }
     } catch (e) {
-      serverStatusText.textContent = `❌ ${e.message}. Check the Sudachi parser at ${url}.`;
-      serverStatusText.style.color = '#f87171';
+      serverStatusText.textContent = `${e.message}. Check the Sudachi parser at ${url}.`;
+      serverStatusText.style.color = 'var(--status-error)';
     }
   });
 
   // 8. Test AnkiConnect
   testAnkiBtn.addEventListener('click', async () => {
     ankiStatusText.textContent = 'Testing AnkiConnect…';
-    ankiStatusText.style.color = '#a78bfa';
+    ankiStatusText.style.color = 'var(--status-info)';
     const url = ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765';
     try {
       await allowEndpointAccess([url]);
@@ -209,16 +341,20 @@ document.addEventListener('DOMContentLoaded', () => {
         signal: AbortSignal.timeout(2000)
       });
       if (res.ok) {
-        const data = await res.json();
-        ankiStatusText.textContent = `✓ AnkiConnect is active (API version ${data.result})!`;
-        ankiStatusText.style.color = '#34d399';
+        const data = await res.json().catch(() => null);
+        if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : 'AnkiConnect returned an API error');
+        if (!Number.isInteger(data?.result) || data.result < 6) {
+          throw new Error('Invalid AnkiConnect response: expected API version 6 or newer');
+        }
+        ankiStatusText.textContent = `AnkiConnect is active (API version ${data.result}).`;
+        ankiStatusText.style.color = 'var(--status-success)';
       } else {
         ankiStatusText.textContent = `HTTP error ${res.status}`;
-        ankiStatusText.style.color = '#f87171';
+        ankiStatusText.style.color = 'var(--status-error)';
       }
     } catch (e) {
-      ankiStatusText.textContent = `❌ ${e.message}. Check that Anki and AnkiConnect are running.`;
-      ankiStatusText.style.color = '#f87171';
+      ankiStatusText.textContent = `${e.message}. Check the URL and that Anki is open with AnkiConnect.`;
+      ankiStatusText.style.color = 'var(--status-error)';
     }
   });
 

@@ -12,3 +12,8 @@ Thumbs.db
 # Logs & Environment
 *.log
 .env
+
+# Local design captures and decision state
+.impeccable/review/
+.impeccable/questions/
+.impeccable/mocks/

@@ -64,17 +64,14 @@ export async function boundaryCases(b){
  await select('猫 '+payload);await c(`document.getElementById('lp-active-def').textContent=${JSON.stringify(payload)};document.getElementById('lp-quick-anki-btn').click()`);await delay(20);
  const card=await c(`(()=>{const r=__network.filter(x=>x.url.includes('8765')).at(-1);if(!r)return null;const note=JSON.parse(r.body).params.note;return {note,injected:Object.values(note.fields).map(html=>{const t=document.createElement('template');t.innerHTML=html;return t.content.querySelectorAll('[data-injected]').length;})};})()`);pre(card,'card request recorded');
  record('R-A02-card-A','red','R-A02-control',card.injected.every(n=>n===0),card,'ANKI_FIELDS_CONTAIN_MARKUP');
- // Full production exporters on their actual extension pages, Blob captured at download boundary.
+ // Production Settings export, Blob captured at the download boundary.
  const exported={};const seed={word:'猫',reading:'ねこ',romaji:'neko',meaning:payload+'\tmeaning\nnext',sentence:'猫 猫 '+payload,sentence_en:'a cat'};
  await o(`chrome.storage.local.set({linguaplay_cards:[${JSON.stringify(seed)}]})`);
- for(const pageName of ['options','popup']){
-  let session=b.options;
-  if(pageName==='popup'){const t=await b.rpc('Target.createTarget',{url:b.origin+'/popup.html'});session=(await b.rpc('Target.attachToTarget',{targetId:t.targetId,flatten:true})).sessionId;await b.wait(async()=>{const r=await b.rpc('Runtime.evaluate',{expression:'document.readyState==="complete" && !!document.getElementById("export-tsv-btn")',returnByValue:true},session);return r.result.value;},'popup ready');}
   const expr=`(async()=>{window.__blob=null;URL.createObjectURL=b=>{__blob=b;return 'blob:fixture';};URL.revokeObjectURL=()=>{};HTMLAnchorElement.prototype.click=function(){};document.getElementById('export-tsv-btn').click();await new Promise(r=>setTimeout(r,30));if(!__blob)throw Error('no export Blob');const text=await __blob.text();const rows=text.split('\\n').filter(x=>x&&!x.startsWith('#'));const t=document.createElement('template');t.innerHTML=rows.join('');return {text,columns:rows.map(x=>x.split('\\t').length),injected:t.content.querySelectorAll('[data-injected]').length};})()`;
-  const rr=await b.rpc('Runtime.evaluate',{expression:expr,awaitPromise:true,returnByValue:true},session);pre(!rr.exceptionDetails,'export Blob '+JSON.stringify(rr.exceptionDetails));exported[pageName]=rr.result.value;
- }
+  const rr=await b.rpc('Runtime.evaluate',{expression:expr,awaitPromise:true,returnByValue:true},b.options);pre(!rr.exceptionDetails,'export Blob '+JSON.stringify(rr.exceptionDetails));exported.options=rr.result.value;
  const colOkay=Object.values(exported).every(x=>x.columns.every(n=>n===4));record('R-A02-card-B','red','R-A02-control',Object.values(exported).every(x=>x.injected===0)&&colOkay,exported,'TSV_HTML_UNESCAPED');
- record('R-A06-exporters','red','R-A02-control',exported.options.text===exported.popup.text,exported,'EXPORT_BYTES_DIVERGE');
+ const fields=(exported.options.text.split('\n').filter(x=>x&&!x.startsWith('#'))[0]||'').split('\t');
+ record('R-A06-exporters','red','R-A02-control',colOkay&&fields[1]===seed.word&&fields[2]===seed.reading&&fields[3].includes(seed.sentence_en),exported,'OPTIONS_EXPORT_CONTRACT');
  // Shared MAIN bridge + isolated real eye handler.
  await m(`window.dispatchEvent(new CustomEvent('LINGUAPLAY_SET_APP_STATE',{detail:{enabled:true}}));fixture.selected={languageCode:'en'};fixture.loads=0;document.querySelector('.ytp-subtitles-button').setAttribute('aria-pressed','false')`);await b.wait(()=>m('fixture.loads>0'),'visible bridge poll actually ran');
  const visible=await m(`({selected:fixture.selected.languageCode,cc:document.querySelector('.ytp-subtitles-button').getAttribute('aria-pressed')})`);

@@ -122,6 +122,7 @@ test('background.js registers and dispatches FETCH_LRCLIB_LYRICS correctly', asy
 
   let messageListener = null;
   const mockChrome = {
+    action: { onClicked: { addListener() {} } },
     runtime: {
       onInstalled: { addListener: () => {} },
       onMessage: { addListener: (cb) => { messageListener = cb; } },
@@ -172,6 +173,7 @@ test('worker ignores removed unrestricted fetch handlers without issuing request
   let listener;
   let requests = 0;
   const chrome = {
+    action: { onClicked: { addListener() {} } },
     runtime: {onInstalled: {addListener() {}}, onMessage: {addListener(fn) {listener = fn;}}}
   };
   new Function('chrome', 'fetch', bgCode)(chrome, () => {requests++; throw Error('Unexpected privileged fetch');});
@@ -190,6 +192,7 @@ test('background.js falls back to querying without duration if duration query fa
 
   let messageListener = null;
   const mockChrome = {
+    action: { onClicked: { addListener() {} } },
     runtime: {
       onInstalled: { addListener: () => {} },
       onMessage: { addListener: (cb) => { messageListener = cb; } },
@@ -258,6 +261,7 @@ test('background.js falls back to Kugou Music when LRCLIB has no synced lyrics',
 
   let messageListener = null;
   const mockChrome = {
+    action: { onClicked: { addListener() {} } },
     runtime: {
       onInstalled: { addListener: () => {} },
       onMessage: { addListener: (cb) => { messageListener = cb; } },
@@ -348,6 +352,7 @@ test('background.js cascades to track-only search if composite query yields 0 re
 
   let messageListener = null;
   const mockChrome = {
+    action: { onClicked: { addListener() {} } },
     runtime: {
       onInstalled: { addListener: () => {} },
       onMessage: { addListener: (cb) => { messageListener = cb; } },

@@ -13,6 +13,7 @@ function worker(config = {}) {
     fetch: async () => { throw new Error('Offline'); },
     chrome: {
       storage: { local: { get: async () => config } },
+      action: { onClicked: { addListener() {} } },
       runtime: {
         id: 'abcdefghijklmnopabcdefghijklmnop',
         onInstalled: { addListener() {} },

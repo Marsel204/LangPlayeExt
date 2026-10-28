@@ -18,6 +18,7 @@ const bgPath = fs.existsSync(path.join(__dirname, '..', 'extension', 'background
 const bgCode = fs.readFileSync(bgPath, 'utf8');
 
 const mockChrome = {
+  action: { onClicked: { addListener() {} } },
   runtime: {
     onInstalled: { addListener: () => {} },
     onMessage: { addListener: (cb) => { mockChrome._onMessage = cb; } },

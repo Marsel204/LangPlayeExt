@@ -6,6 +6,10 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('🚀 LinguaPlay Extension installed.');
 });
 
+chrome.action.onClicked.addListener(() => {
+  chrome.runtime.openOptionsPage();
+});
+
 const serverStarts = new Map();
 const serverStartFailures = new Map();
 const parserRequests = new Map();

@@ -19,6 +19,11 @@ const server = http.createServer((req, res) => {
   req.on('data', chunk => body += chunk);
   req.on('end', () => {
     requests.push({ method: req.method, url: req.url, origin: req.headers.origin, authorization: req.headers.authorization, body });
+    if (req.url.startsWith('/anki-')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(req.url === '/anki-valid' ? { result: 6, error: null } : { result: null, error: 'Invalid AnkiConnect API key' }));
+      return;
+    }
     if (req.url === '/v1/models') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ data: [{ id: 'provider/test-model' }, { id: 'study-combo' }] }));
@@ -92,12 +97,15 @@ try {
     if (await evaluate('typeof chrome.storage !== "undefined" && document.readyState === "complete"')) break;
     await new Promise(resolve => setTimeout(resolve, 100));
   }
+  assert.equal(await evaluate('chrome.action.getPopup({})'), '', 'The toolbar icon must not open a popup');
   const permission = await evaluate('chrome.permissions.contains({origins:["http://127.0.0.1/*"]})');
   assert.equal(permission, true, 'Local endpoint permissions must cover arbitrary local model ports');
   assert.equal(await evaluate('document.getElementById("ai-provider")'), null);
   await evaluate(`
     document.getElementById('9router-url').value = 'http://127.0.0.1:${port}';
     document.getElementById('9router-key').value = 'router-test-key';
+    document.getElementById('9router-url').dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('9router-key').dispatchEvent(new Event('input', { bubbles: true }));
     document.getElementById('load-9router-models-btn').click();
   `);
   async function waitForRouterControl(id) {
@@ -108,8 +116,21 @@ try {
     throw new Error(`9Router control did not finish: ${id}`);
   }
   await waitForRouterControl('load-9router-models-btn');
-  assert.deepEqual(await evaluate('Array.from(document.getElementById("9router-models").options, option => option.value)'), ['provider/test-model', 'study-combo']);
-  await evaluate(`document.getElementById('9router-model').value = 'study-combo'; document.getElementById('test-9router-btn').click();`);
+  assert.deepEqual(await evaluate('Array.from(document.getElementById("9router-models").options, option => option.value).filter(Boolean)'), ['provider/test-model', 'study-combo']);
+  await evaluate(`
+    const modelInput = document.getElementById('9router-model');
+    modelInput.value = 'custom-manual-combo';
+    modelInput.dispatchEvent(new Event('input', { bubbles: true }));
+  `);
+  assert.equal(await evaluate('document.getElementById("9router-models").value'), '');
+  assert.deepEqual(await evaluate('Array.from(document.getElementById("9router-models").options, option => option.value).filter(Boolean)'), ['provider/test-model', 'study-combo']);
+  await evaluate(`
+    const picker = document.getElementById('9router-models');
+    picker.value = 'study-combo';
+    picker.dispatchEvent(new Event('change', { bubbles: true }));
+  `);
+  assert.equal(await evaluate('document.getElementById("9router-model").value'), 'study-combo');
+  await evaluate(`document.getElementById('test-9router-btn').click();`);
   await waitForRouterControl('test-9router-btn');
   assert.match(await evaluate('document.getElementById("9router-status-text").textContent'), /is working with study-combo/);
   const settingsSaved = await evaluate(`new Promise((resolve, reject) => {
@@ -125,12 +146,50 @@ try {
   const routerConfig = await evaluate('chrome.storage.local.get(["linguaplay_9router_url", "linguaplay_9router_model"])');
   assert.equal(routerConfig.linguaplay_9router_url, `http://127.0.0.1:${port}/v1`);
   assert.equal(routerConfig.linguaplay_9router_model, 'study-combo');
+  await evaluate(`
+    document.getElementById('reading-mode').value = 'romaji';
+    document.getElementById('reading-mode').dispatchEvent(new Event('change', { bubbles: true }));
+  `);
+  assert.equal(await evaluate('document.getElementById("reading-example-romaji").hidden'), false);
+  assert.equal(await evaluate('document.getElementById("settings-save-state").textContent'), 'Unsaved changes');
+  await evaluate(`
+    document.getElementById('reading-mode').value = 'furigana';
+    document.getElementById('reading-mode').dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('open-setup-guide').click();
+  `);
+  assert.equal(await evaluate('document.getElementById("setup-guide").open'), true);
+  assert.equal(await evaluate('document.getElementById("settings-save-state").textContent'), 'No pending changes');
+  await evaluate(`
+    document.getElementById('setup-guide').open = false;
+    history.replaceState(null, '', location.pathname);
+    document.documentElement.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 0);
+  `);
   const routerAnswer = await evaluate('chrome.runtime.sendMessage({action:"CALL_9ROUTER_AI",isJson:true,messages:[{role:"user",content:"Explain 猫"}]})');
   assert.equal(routerAnswer.success, true, JSON.stringify(routerAnswer));
   const routerRequest = requests.at(-1);
   assert.equal(routerRequest.authorization, 'Bearer router-test-key');
   assert.equal(JSON.parse(routerRequest.body).model, 'study-combo');
   assert.equal(JSON.parse(routerRequest.body).response_format.type, 'json_object');
+  for (const [route, expected] of [['anki-valid', 'AnkiConnect is active'], ['anki-invalid', 'Invalid AnkiConnect API key']]) {
+    await evaluate(`
+      document.getElementById('ankiconnect-url').value = 'http://127.0.0.1:${port}/${route}';
+      document.getElementById('test-anki-btn').click();
+    `);
+    let status = '';
+    for (let i = 0; i < 50; i++) {
+      status = await evaluate('document.getElementById("anki-status-text").textContent');
+      if (status.includes(expected)) break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.ok(status.includes(expected), status);
+    if (route === 'anki-invalid') assert.ok(!status.includes('is active'), status);
+  }
+  await evaluate(`
+    document.getElementById('ankiconnect-url').value = 'http://127.0.0.1:8765';
+    document.getElementById('anki-status-text').textContent = 'Keep Anki open with AnkiConnect installed. Add-on code: 2055492159.';
+    document.getElementById('anki-status-text').style.color = '';
+  `);
   if (process.env.OPTIONS_SCREENSHOT_DIR) {
     await mkdir(process.env.OPTIONS_SCREENSHOT_DIR, { recursive: true });
     for (const width of [900, 420]) {
@@ -150,7 +209,7 @@ try {
 } finally {
   ws?.close();
   browser.kill('SIGTERM');
-  await new Promise(resolve => { if (browser.exitCode !== null || !browser.pid) resolve(); else browser.once('exit', resolve); });
+  await new Promise(resolve => { if (browser.exitCode !== null || browser.signalCode !== null || !browser.pid) resolve(); else browser.once('exit', resolve); });
   await new Promise(resolve => server.close(resolve));
   await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }

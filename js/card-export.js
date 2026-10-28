@@ -1,4 +1,4 @@
-// One HTML-safe four-column Anki TSV contract for the popup and Options page.
+// HTML-safe four-column Anki TSV export for Settings.
 (function () {
   'use strict';
   const clean = value => String(value ?? '').replace(/[\t\r\n]/g, ' ');
