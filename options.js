@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let savedFormState = null;
   let isSaving = false;
   let saveError = null;
+  // No real setup connects this many providers; 9Router's full catalogue lists ~85.
+  const CATALOGUE_PROVIDER_THRESHOLD = 25;
   let routerModelIds = new Set();
   let activeRouterCheck = null;
 
@@ -241,6 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loadModels) renderModelPicker([], 'Loading models…');
     routerStatusText.textContent = loadModels ? 'Loading models from 9Router…' : 'Testing 9Router…';
     routerStatusText.style.color = 'var(--status-info)';
+    let statusColor = 'var(--status-success)';
     try {
       const endpoint = getRouterEndpoint();
       const model = routerModel.value.trim();
@@ -275,15 +278,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!Array.isArray(data.data)) throw new Error('9Router did not return a model list. Check that the base URL points to its /v1 API.');
         const ids = [...new Set(data.data.filter(item => !item?.kind || item.kind === 'llm').map(item => item?.id).filter(id => typeof id === 'string' && id.trim()))].sort();
         renderModelPicker(ids, ids.length ? `Choose from ${ids.length} available models` : 'No models available');
-        routerStatusText.textContent = ids.length
-          ? `Loaded ${ids.length} model${ids.length === 1 ? '' : 's'}. Choose from Available Models, or type a combo below. Test 9Router, then save.`
-          : 'No models available. Connect a provider in the 9Router dashboard, then load models again, or enter your combo name.';
+        // 9Router lists its whole built-in catalogue when no provider connection is
+        // saved, and gives no marker for connected providers. Surface that case.
+        const providers = new Set(ids.filter(id => id.includes('/')).map(id => id.slice(0, id.indexOf('/'))));
+        const catalogueFallback = providers.size >= CATALOGUE_PROVIDER_THRESHOLD;
+        routerStatusText.textContent = !ids.length
+          ? 'No models available. Connect a provider in the 9Router dashboard, then load models again, or enter your combo name.'
+          : catalogueFallback
+            ? `9Router listed ${ids.length} models from ${providers.size} providers. That is its full catalogue, which it returns when no provider is saved as connected, so many of these will not work. Connect a provider in the 9Router dashboard and click Load Models again, or choose a model you know works and click Test 9Router.`
+            : `Loaded ${ids.length} model${ids.length === 1 ? '' : 's'}. Choose from Available Models, or type a combo below. Test 9Router, then save.`;
+        statusColor = catalogueFallback ? 'var(--status-busy)' : 'var(--status-success)';
       } else {
         const content = data.choices?.[0]?.message?.content;
         if (typeof content !== 'string' || !content.trim()) throw new Error('9Router returned an empty reply. Check the model or combo in its dashboard.');
         routerStatusText.textContent = `9Router is working with ${model}. Click Save Settings to use it for Sensei.`;
       }
-      routerStatusText.style.color = 'var(--status-success)';
+      routerStatusText.style.color = statusColor;
     } catch (error) {
       if (activeRouterCheck !== request) return;
       if (loadModels) renderModelPicker([], 'Could not load models. Click Load Models to retry.');

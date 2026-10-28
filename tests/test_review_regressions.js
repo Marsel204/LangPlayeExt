@@ -695,6 +695,23 @@ test('9Router discovers prefixed models and combos without overwriting a manuall
   assert.equal(h.elements.get('load-9router-models-btn').disabled, false);
 });
 
+test('9Router warns when it returns its full catalogue instead of connected providers', async () => {
+  const h = createOptionsHarness();
+  const respond = data => { h.sandbox.fetch = async () => ({ ok: true, json: async () => ({ data }) }); };
+  const status = () => h.elements.get('9router-status-text');
+
+  respond([{ id: 'oc/model' }, { id: 'cx/model' }, { id: 'study-combo' }]);
+  await h.elements.get('load-9router-models-btn').listeners.click();
+  assert.match(status().textContent, /^Loaded 3 models/);
+  assert.equal(status().style.color, 'var(--status-success)');
+
+  respond(Array.from({ length: 40 }, (_, i) => ({ id: `provider${i}/model` })));
+  await h.elements.get('load-9router-models-btn').listeners.click();
+  assert.match(status().textContent, /40 models from 40 providers.*full catalogue.*no provider is saved as connected/);
+  assert.equal(status().style.color, 'var(--status-busy)');
+  assert.equal(h.elements.get('9router-models').options.length, 41, 'The list stays usable; only the status warns');
+});
+
 async function waitForOptionsRouter(h) {
   for (let i = 0; i < 20; i++) {
     await new Promise(resolve => setImmediate(resolve));
