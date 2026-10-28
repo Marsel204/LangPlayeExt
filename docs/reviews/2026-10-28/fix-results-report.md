@@ -1,5 +1,7 @@
 # Fix results — 2026-10-28
 
+> Integration update: main now uses 9Router only. [Current merge validation](merge-main-report.md) preserves that backend. The results below describe the earlier reviewed-fix snapshot.
+
 The Sonnet and GPT 6.1 Sol Ultra reviews, aggregated findings, Sonnet performance proposal, Sol High baseline run, and Sonnet results review are complete. GPT 6.1 Sol Max implemented S0–S11; the interrupted implementation was resumed on the current account. All 18 accepted finding groups below are addressed in the measured scope.
 
 **Final result:** 103/103 Node tests, 15 legacy suites, 7 native-host Python tests, the existing Chromium integration suite, **84 GREEN review cases**, and **246 passing Node performance GATE rows** (86 distinct IDs). Native P8 idle/navigation gates pass. No final HARNESS_ERROR, UNEXPECTED_RED, missing control, or changed golden remains. Same-text rendering remains an explicitly deferred SOFT miss.

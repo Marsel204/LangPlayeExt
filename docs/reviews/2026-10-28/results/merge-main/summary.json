@@ -1,0 +1,216 @@
+{
+  "implementation": {
+    "implementationCommit": "3ef1b4aeb2856d9c8c0135cd01d4d29ffd0c3636",
+    "generatorIdempotent": true,
+    "syntaxFiles": [
+      "content.js",
+      "background.js",
+      "options.js",
+      "popup.js",
+      "js/japanese-parser.js",
+      "js/youtube-bridge.js",
+      "js/card-export.js"
+    ],
+    "sourceSha256": {
+      "content.js": "4ee98b8b19008e8185c2bc38ef400c1c95ffd68e50df3a636c4c6e2995a1d034",
+      "background.js": "8f7cee98808d2442e5715308717b53c9776fa97338f418ecfb0057c2eec6e6e7",
+      "options.js": "bf4f8c365093e03fa829a5642634b98b982f7be6de0f56e8e0a480c1cf65d8c0",
+      "popup.js": "8cd3d6d1efef0771055477609edcf908bd3d5e61116a6ece390171b41925da93",
+      "js/japanese-parser.js": "31ed57eec0d7dc3e6eb3dc2f18cb8582859309cc0b001eb2c5ff8fc60b068adb",
+      "js/youtube-bridge.js": "f37f979c31b649948fbde8693749699fa15ca1335d9b3835ac9da7d78e7b46d8",
+      "js/card-export.js": "b1dbffce69e97763ecb4910362fd6ff849f492530dd84f0676afb43d017c2654"
+    },
+    "mainParent": "d9a2f76e89a14a993dbcc3df16194e7e97bfeab1"
+  },
+  "nodeTests": 101,
+  "legacySuites": 15,
+  "pythonTests": 7,
+  "reviewCounts": {
+    "GREEN": 84
+  },
+  "performanceGateRows": 86,
+  "performanceRepetitions": 1,
+  "requestStressRepetitions": 3,
+  "nativeReadingRepetitions": 3,
+  "nativeIdleMutations": 0,
+  "harnessErrors": [],
+  "baselineFilesChecked": 120,
+  "baselineChanged": [],
+  "unchangedAlgorithms": [
+    {
+      "component": "reading",
+      "byteIdentical": true,
+      "sha256": "bd5bd2dda0176ef2406d7f7c0e6dc27d76e99b00507c448f75d4a540686fc37d"
+    },
+    {
+      "component": "timeline",
+      "byteIdentical": true,
+      "sha256": "2bb0d62fe3f18628c33460ee7693b256c2b0f707e4054db67e5cb9b57049dd49"
+    },
+    {
+      "component": "segmenter-and-subtitle-parsers",
+      "byteIdentical": true,
+      "sha256": "0a59edfa4ee465f3d79554ca8336592634ef6130b0bcc9a46357afe9df33ee90"
+    },
+    {
+      "component": "sentence-segmentation-and-romaji",
+      "byteIdentical": true,
+      "sha256": "8f88a6f846e53e53a6654ed3085c6e63de3fb0c54135c266fb59095975f3176f"
+    }
+  ],
+  "selfReview": true,
+  "checks": [
+    {
+      "name": "node",
+      "command": [
+        "node",
+        "--test",
+        "tests/test_background_crash.js",
+        "tests/test_card_contracts.js",
+        "tests/test_chat_markdown_tables.js",
+        "tests/test_drawer_context_sentence.js",
+        "tests/test_drawer_tabs.js",
+        "tests/test_extension_separation.js",
+        "tests/test_gloss_romaji.js",
+        "tests/test_header_definition.js",
+        "tests/test_japanese_parser.js",
+        "tests/test_logo_toggle.js",
+        "tests/test_lyrics_fetch.js",
+        "tests/test_reading_robustness.js",
+        "tests/test_review_regressions.js",
+        "tests/test_server_startup.js",
+        "tests/test_storage_ownership.js",
+        "tests/test_watch_ownership.js",
+        "tests/test_yomitan_deinflector.js",
+        "tests/test_youtube_bridge_toggle.js"
+      ],
+      "code": 0,
+      "seconds": 0.566
+    },
+    {
+      "name": "legacy",
+      "command": [
+        "node",
+        "run_tests.js"
+      ],
+      "code": 0,
+      "seconds": 0.115
+    },
+    {
+      "name": "native",
+      "command": [
+        "python3",
+        "-I",
+        "tests/test_native_host.py"
+      ],
+      "code": 0,
+      "seconds": 4.224
+    },
+    {
+      "name": "chromium",
+      "command": [
+        "node",
+        "tests/browser_custom_ai.mjs"
+      ],
+      "code": 0,
+      "seconds": 6.885
+    },
+    {
+      "name": "harness",
+      "command": [
+        "node",
+        "tests/perf/run_perf.mjs",
+        "--self-check"
+      ],
+      "code": 0,
+      "seconds": 0.467
+    },
+    {
+      "name": "process",
+      "command": [
+        "node",
+        "tests/perf/process-selfcheck.mjs"
+      ],
+      "code": 0,
+      "seconds": 0.115
+    },
+    {
+      "name": "diff",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "code": 0,
+      "seconds": 0.008
+    },
+    {
+      "name": "requests",
+      "command": [
+        "node",
+        "--expose-gc",
+        "tests/perf/run_perf.mjs",
+        "--profile",
+        "after",
+        "--area",
+        "p4",
+        "--repeat-processes",
+        "3",
+        "--out",
+        "docs/reviews/2026-10-28/results/merge-main/request-repeats"
+      ],
+      "code": 0,
+      "seconds": 0.816
+    },
+    {
+      "name": "p8",
+      "command": [
+        "node",
+        "tests/perf/perf_p8_browser.mjs",
+        "--out",
+        "docs/reviews/2026-10-28/results/merge-main/perf"
+      ],
+      "code": 0,
+      "seconds": 26.409,
+      "failedGates": []
+    },
+    {
+      "name": "review",
+      "command": [
+        "node",
+        "tests/review/run_review_matrix.mjs",
+        "--mode",
+        "after",
+        "--repeat-processes",
+        "1",
+        "--repeat-browser",
+        "1",
+        "--perf",
+        "docs/reviews/2026-10-28/results/merge-main/perf/perf.json",
+        "--out",
+        "docs/reviews/2026-10-28/results/merge-main/review"
+      ],
+      "code": 0,
+      "seconds": 91.502,
+      "counts": {
+        "GREEN": 83
+      }
+    },
+    {
+      "name": "native-reading",
+      "command": [
+        "node",
+        "tests/review/run_native_reading.mjs",
+        "--mode",
+        "after",
+        "--out",
+        "docs/reviews/2026-10-28/results/merge-main/review"
+      ],
+      "code": 0,
+      "seconds": 12.153,
+      "counts": {
+        "GREEN": 84
+      }
+    }
+  ]
+}

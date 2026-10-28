@@ -1,0 +1,524 @@
+{
+  "schema": 1,
+  "phase": "after",
+  "env": "env-before.json",
+  "runs": [
+    {
+      "area": "p4_requests",
+      "proc": 0,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 150
+    },
+    {
+      "area": "p4_requests",
+      "proc": 1,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 153
+    },
+    {
+      "area": "p4_requests",
+      "proc": 2,
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 155
+    }
+  ],
+  "results": [
+    {
+      "id": "P4.overlapTicks",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "requests": [
+          "captions"
+        ],
+        "messages": []
+      },
+      "target": {
+        "bound": "0 lyrics during captions",
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.steadyNoCaptions",
+      "area": "P4",
+      "class": "OBSERVE",
+      "counts": {
+        "categories": {
+          "captions": 1,
+          "innertube": 1,
+          "watchHtml": 1
+        },
+        "messages": {
+          "FETCH_LRCLIB_LYRICS": 1,
+          "CALL_9ROUTER_AI": 1
+        }
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.askSenseiRepeat",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "modelRequests": 1
+      },
+      "target": {
+        "bound": 1,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.staleWrites",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "lastAiData": null
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.navStormPending",
+      "area": "P4",
+      "class": "OBSERVE",
+      "pendingRequests": 50,
+      "renderVersionDelta": 1,
+      "timeline": [
+        {
+          "start": 0,
+          "end": 2,
+          "text": "猫"
+        }
+      ],
+      "process": 0
+    },
+    {
+      "id": "P4.acquisition.perSource",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "categories": {
+          "captions": 1,
+          "innertube": 1,
+          "watchHtml": 1
+        }
+      },
+      "target": {
+        "bound": 3,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.captionFailureRetries",
+      "area": "P4",
+      "class": "OBSERVE",
+      "categories": {
+        "captions": 1,
+        "innertube": 1,
+        "watchHtml": 1
+      },
+      "signals": [
+        {
+          "category": "captions",
+          "abortSignal": true
+        },
+        {
+          "category": "innertube",
+          "abortSignal": true
+        },
+        {
+          "category": "watchHtml",
+          "abortSignal": true
+        }
+      ],
+      "simulation": "immediate fixture failures, not real timeout latency",
+      "process": 0
+    },
+    {
+      "id": "P4.translationCache",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "repeatRequests": 0,
+        "entries": 200
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.runtime",
+      "area": "P4",
+      "class": "OBSERVE",
+      "wallMs": 96.422817,
+      "cpuMicros": {
+        "user": 119128,
+        "system": 15912
+      },
+      "eventLoopDelayMs": {
+        "max": 17.596415,
+        "p99": 17.596415
+      },
+      "heap": {
+        "total_heap_size": 30740480,
+        "total_heap_size_executable": 786432,
+        "total_physical_size": 30740480,
+        "total_available_size": 2229711800,
+        "used_heap_size": 19707152,
+        "heap_size_limit": 2248146944,
+        "malloced_memory": 540736,
+        "peak_malloced_memory": 2665368,
+        "does_zap_garbage": 0,
+        "number_of_native_contexts": 11,
+        "number_of_detached_contexts": 0,
+        "total_global_handles_size": 12360,
+        "used_global_handles_size": 3808,
+        "external_memory": 2318111,
+        "total_allocated_bytes": 102938440
+      },
+      "process": 0
+    },
+    {
+      "id": "P4.overlapTicks",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "requests": [
+          "captions"
+        ],
+        "messages": []
+      },
+      "target": {
+        "bound": "0 lyrics during captions",
+        "verdict": "pass"
+      },
+      "process": 1
+    },
+    {
+      "id": "P4.steadyNoCaptions",
+      "area": "P4",
+      "class": "OBSERVE",
+      "counts": {
+        "categories": {
+          "captions": 1,
+          "innertube": 1,
+          "watchHtml": 1
+        },
+        "messages": {
+          "FETCH_LRCLIB_LYRICS": 1,
+          "CALL_9ROUTER_AI": 1
+        }
+      },
+      "process": 1
+    },
+    {
+      "id": "P4.askSenseiRepeat",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "modelRequests": 1
+      },
+      "target": {
+        "bound": 1,
+        "verdict": "pass"
+      },
+      "process": 1
+    },
+    {
+      "id": "P4.staleWrites",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "lastAiData": null
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 1
+    },
+    {
+      "id": "P4.navStormPending",
+      "area": "P4",
+      "class": "OBSERVE",
+      "pendingRequests": 50,
+      "renderVersionDelta": 1,
+      "timeline": [
+        {
+          "start": 0,
+          "end": 2,
+          "text": "猫"
+        }
+      ],
+      "process": 1
+    },
+    {
+      "id": "P4.acquisition.perSource",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "categories": {
+          "captions": 1,
+          "innertube": 1,
+          "watchHtml": 1
+        }
+      },
+      "target": {
+        "bound": 3,
+        "verdict": "pass"
+      },
+      "process": 1
+    },
+    {
+      "id": "P4.captionFailureRetries",
+      "area": "P4",
+      "class": "OBSERVE",
+      "categories": {
+        "captions": 1,
+        "innertube": 1,
+        "watchHtml": 1
+      },
+      "signals": [
+        {
+          "category": "captions",
+          "abortSignal": true
+        },
+        {
+          "category": "innertube",
+          "abortSignal": true
+        },
+        {
+          "category": "watchHtml",
+          "abortSignal": true
+        }
+      ],
+      "simulation": "immediate fixture failures, not real timeout latency",
+      "process": 1
+    },
+    {
+      "id": "P4.translationCache",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "repeatRequests": 0,
+        "entries": 200
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 1
+    },
+    {
+      "id": "P4.runtime",
+      "area": "P4",
+      "class": "OBSERVE",
+      "wallMs": 98.60839,
+      "cpuMicros": {
+        "user": 122354,
+        "system": 15081
+      },
+      "eventLoopDelayMs": {
+        "max": 19.136511,
+        "p99": 19.136511
+      },
+      "heap": {
+        "total_heap_size": 30478336,
+        "total_heap_size_executable": 786432,
+        "total_physical_size": 30478336,
+        "total_available_size": 2231876528,
+        "used_heap_size": 17539136,
+        "heap_size_limit": 2248146944,
+        "malloced_memory": 540736,
+        "peak_malloced_memory": 2665368,
+        "does_zap_garbage": 0,
+        "number_of_native_contexts": 11,
+        "number_of_detached_contexts": 0,
+        "total_global_handles_size": 12360,
+        "used_global_handles_size": 3680,
+        "external_memory": 2318111,
+        "total_allocated_bytes": 103274712
+      },
+      "process": 1
+    },
+    {
+      "id": "P4.overlapTicks",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "requests": [
+          "captions"
+        ],
+        "messages": []
+      },
+      "target": {
+        "bound": "0 lyrics during captions",
+        "verdict": "pass"
+      },
+      "process": 2
+    },
+    {
+      "id": "P4.steadyNoCaptions",
+      "area": "P4",
+      "class": "OBSERVE",
+      "counts": {
+        "categories": {
+          "captions": 1,
+          "innertube": 1,
+          "watchHtml": 1
+        },
+        "messages": {
+          "FETCH_LRCLIB_LYRICS": 1,
+          "CALL_9ROUTER_AI": 1
+        }
+      },
+      "process": 2
+    },
+    {
+      "id": "P4.askSenseiRepeat",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "modelRequests": 1
+      },
+      "target": {
+        "bound": 1,
+        "verdict": "pass"
+      },
+      "process": 2
+    },
+    {
+      "id": "P4.staleWrites",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "lastAiData": null
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 2
+    },
+    {
+      "id": "P4.navStormPending",
+      "area": "P4",
+      "class": "OBSERVE",
+      "pendingRequests": 50,
+      "renderVersionDelta": 1,
+      "timeline": [
+        {
+          "start": 0,
+          "end": 2,
+          "text": "猫"
+        }
+      ],
+      "process": 2
+    },
+    {
+      "id": "P4.acquisition.perSource",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "categories": {
+          "captions": 1,
+          "innertube": 1,
+          "watchHtml": 1
+        }
+      },
+      "target": {
+        "bound": 3,
+        "verdict": "pass"
+      },
+      "process": 2
+    },
+    {
+      "id": "P4.captionFailureRetries",
+      "area": "P4",
+      "class": "OBSERVE",
+      "categories": {
+        "captions": 1,
+        "innertube": 1,
+        "watchHtml": 1
+      },
+      "signals": [
+        {
+          "category": "captions",
+          "abortSignal": true
+        },
+        {
+          "category": "innertube",
+          "abortSignal": true
+        },
+        {
+          "category": "watchHtml",
+          "abortSignal": true
+        }
+      ],
+      "simulation": "immediate fixture failures, not real timeout latency",
+      "process": 2
+    },
+    {
+      "id": "P4.translationCache",
+      "area": "P4",
+      "class": "GATE",
+      "counts": {
+        "repeatRequests": 0,
+        "entries": 200
+      },
+      "target": {
+        "bound": 0,
+        "verdict": "pass"
+      },
+      "process": 2
+    },
+    {
+      "id": "P4.runtime",
+      "area": "P4",
+      "class": "OBSERVE",
+      "wallMs": 98.25583600000002,
+      "cpuMicros": {
+        "user": 127560,
+        "system": 10772
+      },
+      "eventLoopDelayMs": {
+        "max": 18.448383,
+        "p99": 10.231807
+      },
+      "heap": {
+        "total_heap_size": 30568448,
+        "total_heap_size_executable": 786432,
+        "total_physical_size": 30568448,
+        "total_available_size": 2233785208,
+        "used_heap_size": 16686552,
+        "heap_size_limit": 2248146944,
+        "malloced_memory": 540736,
+        "peak_malloced_memory": 2665368,
+        "does_zap_garbage": 0,
+        "number_of_native_contexts": 11,
+        "number_of_detached_contexts": 0,
+        "total_global_handles_size": 12360,
+        "used_global_handles_size": 3680,
+        "external_memory": 2318111,
+        "total_allocated_bytes": 103063880
+      },
+      "process": 2
+    }
+  ],
+  "harnessErrors": [],
+  "warnings": [
+    "Pathological repetition counts differ from the design sketch; see per-row metadata.",
+    "Node DOM counts are operation counts; real mutation cost is P8."
+  ]
+}

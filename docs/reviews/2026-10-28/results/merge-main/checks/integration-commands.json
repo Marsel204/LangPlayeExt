@@ -1,0 +1,70 @@
+[
+  {
+    "name": "requests",
+    "command": [
+      "node",
+      "--expose-gc",
+      "tests/perf/run_perf.mjs",
+      "--profile",
+      "after",
+      "--area",
+      "p4",
+      "--repeat-processes",
+      "3",
+      "--out",
+      "docs/reviews/2026-10-28/results/merge-main/request-repeats"
+    ],
+    "code": 0,
+    "seconds": 0.816
+  },
+  {
+    "name": "p8",
+    "command": [
+      "node",
+      "tests/perf/perf_p8_browser.mjs",
+      "--out",
+      "docs/reviews/2026-10-28/results/merge-main/perf"
+    ],
+    "code": 0,
+    "seconds": 26.409,
+    "failedGates": []
+  },
+  {
+    "name": "review",
+    "command": [
+      "node",
+      "tests/review/run_review_matrix.mjs",
+      "--mode",
+      "after",
+      "--repeat-processes",
+      "1",
+      "--repeat-browser",
+      "1",
+      "--perf",
+      "docs/reviews/2026-10-28/results/merge-main/perf/perf.json",
+      "--out",
+      "docs/reviews/2026-10-28/results/merge-main/review"
+    ],
+    "code": 0,
+    "seconds": 91.502,
+    "counts": {
+      "GREEN": 83
+    }
+  },
+  {
+    "name": "native-reading",
+    "command": [
+      "node",
+      "tests/review/run_native_reading.mjs",
+      "--mode",
+      "after",
+      "--out",
+      "docs/reviews/2026-10-28/results/merge-main/review"
+    ],
+    "code": 0,
+    "seconds": 12.153,
+    "counts": {
+      "GREEN": 84
+    }
+  }
+]
