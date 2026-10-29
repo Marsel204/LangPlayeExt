@@ -14,7 +14,7 @@ const serverStarts = new Map();
 const serverStartFailures = new Map();
 const parserRequests = new Map();
 
-function canRequestServerStart(sender) {
+function isTrustedExtensionSender(sender) {
   if (sender.id !== chrome.runtime.id) return false;
   try {
     const url = new URL(sender.url || sender.origin);
@@ -161,7 +161,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'PARSE_JAPANESE') {
     (async () => {
       try {
-        if (!canRequestServerStart(sender)) throw new Error('Untrusted parser request');
+        if (!isTrustedExtensionSender(sender)) throw new Error('Untrusted parser request');
         if (typeof request.text !== 'string' || !request.text.trim() || request.text.length > 4096) throw new Error('Invalid parser text');
         const config = await chrome.storage.local.get(['linguaplay_server_url']);
         const endpoint = new URL(config.linguaplay_server_url || 'http://127.0.0.1:8000');
@@ -191,12 +191,76 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     })();
     return true;
   }
+  if (request.action === 'FETCH_BACKEND_CAPTIONS') {
+    (async () => {
+      try {
+        if (!isTrustedExtensionSender(sender)) throw new Error('Untrusted caption request');
+        if (typeof request.videoId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(request.videoId)) throw new Error('Invalid video id');
+        const config = await chrome.storage.local.get(['linguaplay_server_url']);
+        let endpoint;
+        try { endpoint = new URL(config.linguaplay_server_url || 'http://127.0.0.1:8000'); }
+        catch { throw new Error('Invalid server URL'); }
+        if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) throw new Error('Invalid server URL');
+        const origin = `${endpoint.protocol}//${endpoint.hostname}/*`;
+        if (!await chrome.permissions.contains({origins: [origin]})) throw new Error('Server endpoint permission is missing');
+        endpoint.pathname = endpoint.pathname.replace(/\/+$/, '') + '/api/captions';
+        endpoint.search = ''; endpoint.hash = ''; endpoint.searchParams.set('v', request.videoId);
+        const response = await fetch(endpoint.href, {signal: AbortSignal.timeout(1500)});
+        if (!response.ok) throw new Error(`Captions unavailable (HTTP ${response.status})`);
+        const vtt = await response.text();
+        if (!vtt.trim()) throw new Error('Empty caption response');
+        if (new TextEncoder().encode(vtt).length > 4 * 1024 * 1024) throw new Error('Caption response exceeds the 4 MB limit');
+        sendResponse({success: true, vtt});
+      } catch (error) { sendResponse({success: false, error: error.message}); }
+    })();
+    return true;
+  }
   if (request.action === 'ENSURE_LOCAL_SERVER') {
-    if (!canRequestServerStart(sender)) {
+    if (!isTrustedExtensionSender(sender)) {
       sendResponse({ success: false, error: 'Untrusted server startup request' });
       return false;
     }
     ensureLocalServer().then(sendResponse, error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'ADD_ANKI_NOTE') {
+    (async () => {
+      try {
+        if (!isTrustedExtensionSender(sender)) throw new Error('Untrusted Anki request');
+        const fields = request.fields;
+        if (!fields || typeof fields !== 'object' || Array.isArray(fields) || Object.keys(fields).length !== 2 ||
+            !['Front', 'Back'].every(key => typeof fields[key] === 'string' && fields[key].trim() && fields[key].length <= 64000)) {
+          throw new Error('Invalid Anki note fields');
+        }
+        const config = await chrome.storage.local.get(['linguaplay_ankiconnect_url', 'linguaplay_anki_deck']);
+        let endpoint;
+        try { endpoint = new URL(config.linguaplay_ankiconnect_url || 'http://127.0.0.1:8765'); }
+        catch { throw new Error('Invalid AnkiConnect URL'); }
+        if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) throw new Error('Invalid AnkiConnect URL');
+        const origin = `${endpoint.protocol}//${endpoint.hostname}/*`;
+        if (!await chrome.permissions.contains({origins: [origin]})) {
+          throw new Error('Allow access to this endpoint by saving it in Extension Settings');
+        }
+        const response = await fetch(endpoint.href, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({action: 'addNote', version: 6, params: {note: {
+            deckName: config.linguaplay_anki_deck || 'LinguaPlay', modelName: 'Basic',
+            fields: {Front: fields.Front, Back: fields.Back}, tags: ['linguaplay', 'youtube']
+          }}}),
+          signal: AbortSignal.timeout(5000)
+        });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        if (data.error) {
+          if (/duplicate/i.test(String(data.error))) { sendResponse({success: true, duplicate: true}); return; }
+          const error = String(data.error);
+          throw new Error(/deck.*not found/i.test(error) ? error + '; create the configured deck in Anki, then retry' : error);
+        }
+        if (data.result == null) throw new Error('AnkiConnect did not confirm a note');
+        sendResponse({success: true});
+      } catch (error) { sendResponse({success: false, error: error.message}); }
+    })();
     return true;
   }
 

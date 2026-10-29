@@ -1,16 +1,16 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');const {create,flush,response}=require('./perf/lib/shipped'),{subtitles}=require('./perf/fixtures');
 test('a later manual file selection owns the timeline even if the earlier read finishes last',async()=>{
- const h=await create();h.navigate('A');h.checkAndInitVideo();await flush();const input=h.elements.get('linguaplay-manual-sub-input');let first,second;
+ const h=await create();h.navigate('A');h.checkAndInitVideo();await h.waitForFetch('captions');await flush();const input=h.elements.get('linguaplay-manual-sub-input');let first,second;
  const upload=(name,set)=>{input.files=[{name:name+'.vtt',text:()=>new Promise(set)}];input.emit('change',{target:input});};upload('first',r=>first=r);upload('second',r=>second=r);
  second(subtitles(1,'vtt','新しい手動字幕'));await flush();first(subtitles(1,'vtt','古い手動字幕'));await flush();assert.equal(h.timeline()[0]?.text,'新しい手動字幕');h.resolve('captions',{},subtitles(1,'vtt','自動字幕'));await flush();assert.equal(h.timeline()[0]?.text,'新しい手動字幕');
 });
 test('overlapping manual lyric searches keep the later choice and its cache',async()=>{
- const pending=[];const h=await create({}, {message:req=>req.action==='FETCH_LRCLIB_LYRICS'?new Promise(resolve=>pending.push({req,resolve})):undefined});h.navigate('A');h.checkAndInitVideo();await flush();for(const track of ['first','second']){h.elements.get('lp-search-track-input').value=track;await h.click('lp-search-submit-btn');}assert.equal(pending.length,2);
+ const pending=[];const h=await create({}, {message:req=>req.action==='FETCH_LRCLIB_LYRICS'?new Promise(resolve=>pending.push({req,resolve})):undefined});h.navigate('A');h.checkAndInitVideo();await h.waitForFetch('captions');await flush();for(const track of ['first','second']){h.elements.get('lp-search-track-input').value=track;await h.click('lp-search-submit-btn');}assert.equal(pending.length,2);
  pending[1].resolve({success:true,trackName:'second',syncedLyrics:'[00:00.00]新しい歌詞'});await flush();pending[0].resolve({success:true,trackName:'first',syncedLyrics:'[00:00.00]古い歌詞'});await flush();assert.equal(h.timeline()[0]?.text,'新しい歌詞');h.resolve('captions',{},subtitles(1,'vtt','自動字幕'));await flush();assert.equal(h.timeline()[0]?.text,'新しい歌詞');assert.equal(h.storage.state.lp_lyrics_cache_A?.trackName,'second');
 });
 test('navigation A to B to A rejects the first A acquisition',async()=>{
- const h=await create();for(const vid of ['A','B','A']){h.navigate(vid);h.checkAndInitVideo();await flush();}const pending=h.pending.filter(p=>p.call.category==='captions');assert.equal(pending.length,3);pending[0].resolve(response({},subtitles(1,'vtt','古い動画')));await flush();assert.equal(h.timeline().length,0);pending[2].resolve(response({},subtitles(1,'vtt','現在の動画')));await flush();assert.equal(h.timeline()[0]?.text,'現在の動画');
+ const h=await create();for(const vid of ['A','B','A']){h.navigate(vid);h.checkAndInitVideo();await flush();}await h.waitForFetch('captions',3);const pending=h.pending.filter(p=>p.call.category==='captions');assert.equal(pending.length,3);pending[0].resolve(response({},subtitles(1,'vtt','古い動画')));await flush();assert.equal(h.timeline().length,0);pending[2].resolve(response({},subtitles(1,'vtt','現在の動画')));await flush();assert.equal(h.timeline()[0]?.text,'現在の動画');
 });
 test('embedded caption data filters other videos and preserves nested strings and arrays',async()=>{
  const h=await create();const tracks=[{baseUrl:'https://fixture.invalid/c?v=A',languageCode:'ja',name:{runs:[{text:'old ] " name'}]}},{baseUrl:'https://fixture.invalid/c?v=B',languageCode:'ja',name:{runs:[{text:'new \\ ] name'}]}}];h.document.scripts=[{textContent:'var p={"captionTracks":'+JSON.stringify(tracks)+'};'}];assert.equal(JSON.stringify(h.getOnPageCaptionTracks('B')),JSON.stringify([tracks[1]]));

@@ -50,6 +50,11 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
     window.chatRequests = [];
     const nativeSendMessage = chrome.runtime.sendMessage.bind(chrome.runtime);
     chrome.runtime.sendMessage = (message, callback) => {
+      if (message.action === 'FETCH_BACKEND_CAPTIONS') {
+        const result = {success:true,vtt:'WEBVTT\\n\\n00:00:00.000 --> 00:00:02.000\\n犬がいる\\n'};
+        if (callback) { callback(result); return; }
+        return Promise.resolve(result);
+      }
       if (message.action === 'CALL_9ROUTER_AI' && !message.isJson) {
         window.chatRequests.push({ body: message, resolve: callback });
         return;
@@ -59,9 +64,6 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
     window.fetch = (url, options) => {
       if (url.includes('translate.googleapis.com')) {
         return new Promise(resolve => window.translationResolvers.push(resolve));
-      }
-      if (url.includes('/api/captions')) {
-        return Promise.resolve({ok:true,text:async () => 'WEBVTT\\n\\n00:00:00.000 --> 00:00:02.000\\n犬がいる\\n'});
       }
       return Promise.resolve({ok:false,json:async () => ({}),text:async () => ''});
     };

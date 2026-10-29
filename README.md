@@ -155,9 +155,12 @@ node --test tests/test_*.js
 node run_tests.js
 python3 tests/test_native_host.py
 node tests/browser_custom_ai.mjs
+node tests/browser_anki_youtube.mjs
+node tests/browser_captions_youtube.mjs
+LP_REVIEW_MODE=after node tests/review/lib/worker.js
 ```
 
-The browser check requires Chromium and uses a disposable profile and local test API. It does not invoke an AI model. Set `CHROMIUM_PATH` if your executable has another name. See the [backend guide](docs/local-backend.md) for real Sudachi integration checks.
+The browser checks require Chromium and use disposable profiles and local test APIs. They do not invoke an AI model. The Anki check verifies YouTube Quick Add through the service worker against AnkiConnect's default CORS policy. The captions check verifies backend transport and rendered cues on YouTube with default browser security, with and without backend CORS headers. Set `CHROMIUM_PATH` if your executable has another name. See the [backend guide](docs/local-backend.md) for real Sudachi integration checks.
 
 The code-review regressions and performance harness are in `tests/review` and `tests/perf`. Their baseline evidence and fix report are under `docs/reviews/2026-10-28`. The counts in `PARSING_VERIFICATION.md` describe an earlier snapshot.
 

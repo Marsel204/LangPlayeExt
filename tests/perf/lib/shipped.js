@@ -15,15 +15,22 @@ function instrument(source,tail=buildTail(),extra=[]){
  return result;
 }
 function category(url){url=String(url);return url.includes('/api/captions')?'captions':url.includes('translate.googleapis')?'translate':url.includes('8765')?'anki':url.includes('/youtubei/')?'innertube':url.includes('/watch?')?'watchHtml':url.includes('generativelanguage')?'gemini':url.includes('deepseek')?'deepseek':url.includes('openrouter')?'openrouter':url.includes('/api/ai/')?'localAI':url.includes('/chat/completions')?'router':'other';}
+function isLocalNetworkUrl(url){
+ let host;try{host=new URL(url).hostname.replace(/\.$/,'');}catch{return false;}
+ if(host==='localhost'||host.endsWith('.localhost')||host==='[::1]'||host==='0.0.0.0')return true;
+ const parts=host.split('.').map(Number);if(parts.length!==4||parts.some(n=>!Number.isInteger(n)||n<0||n>255))return false;
+ const [a,b]=parts;return a===127||a===10||(a===172&&b>=16&&b<=31)||(a===192&&b===168)||(a===169&&b===254);
+}
 function response(data={},text='',ok=true){return {ok,status:ok?200:500,json:async()=>clone(data),text:async()=>text};}
 async function create(config={},options={}){
  const d=dom(),s=options.storage||storage({...config}),calls=[],messages=[],pending=[],spies={segmenters:0,wanakana:{},parserRequests:0};
  const wk=require(path.join(root,'lib/wanakana.min.js'));
  const wanakana=new Proxy(wk,{get(o,k){if(typeof o[k]!=='function')return o[k];return(...args)=>{spies.wanakana[k]=(spies.wanakana[k]||0)+1;return o[k](...args);};}});
  const {worker,runtime}=require('./worker-fixture').wire(s,options,messages);runtime.openOptionsPage=()=>{messages.push({action:'OPEN_OPTIONS'});};
- const fetch=(url,opts={})=>{const c={url:String(url),options:opts,category:category(url)};calls.push(c);if(options.fetch)return options.fetch(c);if(c.category==='translate')return Promise.resolve(response([[['translation']]]));return new Promise((resolve,reject)=>pending.push({call:c,resolve,reject}));};
- // Observe the actual worker transport through the same controlled recorder.
- worker.sandbox.fetch=fetch;
+ const fetchFrom=context=>(url,opts={})=>{const c={url:String(url),options:opts,category:category(url),context};calls.push(c);let action;try{action=JSON.parse(opts.body).action;}catch{}if(context==='content'&&(c.category==='anki'||action==='addNote'||c.url===s.state.linguaplay_ankiconnect_url))return Promise.reject(new HarnessError('CONTENT_ANKI_FETCH: AnkiConnect must use the extension worker'));if(context==='content'&&isLocalNetworkUrl(c.url))return Promise.reject(new HarnessError('CONTENT_LOCAL_NETWORK_FETCH: '+c.url+' must use the extension worker'));if(options.fetch)return options.fetch(c);if(c.category==='translate')return Promise.resolve(response([[['translation']]]));return new Promise((resolve,reject)=>pending.push({call:c,resolve,reject}));};
+ // Content requests cannot borrow the worker's host permissions in this fixture.
+ const fetch=fetchFrom('content');
+ worker.sandbox.fetch=fetchFrom('worker');
  const IntlSpy={...Intl,Segmenter:class extends Intl.Segmenter{constructor(...args){super(...args);spies.segmenters++;}}};
  d.window.wanakana=options.spies===false?wk:wanakana;d.window.YomitanDeinflector=require(path.join(root,'lib/yomitan-deinflector.js'));
  let Parser;
@@ -32,7 +39,7 @@ async function create(config={},options={}){
  const source=fs.readFileSync(path.join(root,'content.js'),'utf8');vm.runInNewContext(instrument(source,buildTail(options.extra||[]),options.extra||[]),sandbox,{filename:'content.js',timeout:10000});
  const raw=sandbox.__shipped;const api={...raw,snapshot:()=>clone(raw.snapshot()),timeline:()=>clone(raw.timeline())};
  api.injectUI();await flush();
- const h={...api,...d,storage:s,worker,sandbox,calls,messages,pending,spies,fixtureMode:'node-fake',navigate(id){d.window.location={search:id?'?v='+id:'',pathname:id?'/watch':'/',href:'https://www.youtube.com/'+(id?'watch?v='+id:'')};},async click(id){const el=d.document.getElementById(id);precondition(el,'element '+id);precondition(el.listeners.click?.size,'click handler '+id);el.click();await flush();},select(word='猫',sentence=word+'がいる',token={}){api.handleTokenClick({surface:word,baseForm:word,...token},sentence);},resolve(category,data,text='',ok=true){const p=pending.find(p=>p.call.category===category&&!p.done);precondition(p,'pending '+category);p.done=true;p.resolve(response(data,text,ok));},async tick(){const i=d.intervals.find(i=>i.fn.name==='checkAndInitVideo');precondition(i,'production interval');const p=i.fn();await flush();return {pending:p};}};
+ const h={...api,...d,storage:s,worker,sandbox,calls,messages,pending,spies,fixtureMode:'node-fake',navigate(id){d.window.location={search:id?'?v='+id:'',pathname:id?'/watch':'/',href:'https://www.youtube.com/'+(id?'watch?v='+id:'')};},async click(id){const el=d.document.getElementById(id);precondition(el,'element '+id);precondition(el.listeners.click?.size,'click handler '+id);el.click();await flush();},select(word='猫',sentence=word+'がいる',token={}){api.handleTokenClick({surface:word,baseForm:word,...token},sentence);},async waitForFetch(category,count=1){for(let i=0;i<128;i++){if(pending.filter(p=>p.call.category===category).length>=count)return;await flush(1);}throw new HarnessError('Pending fetch deadline: '+category);},resolve(category,data,text='',ok=true){const p=pending.find(p=>p.call.category===category&&!p.done);precondition(p,'pending '+category);p.done=true;p.resolve(response(data,text,ok));},async tick(){const i=d.intervals.find(i=>i.fn.name==='checkAndInitVideo');precondition(i,'production interval');const p=i.fn();await flush();return {pending:p};}};
  return h;
 }
 function loadBridge(h){const counts={load:0,get:0,set:0};let selected={languageCode:'en',vssId:'.en'};h.player.loadModule=()=>counts.load++;h.player.getOption=(_,k)=>{counts.get++;return k==='tracklist'?[{languageCode:'en',vssId:'.en'},{languageCode:'ja',vssId:'.ja'}]:selected;};h.player.setOption=(_,k,v)=>{counts.set++;selected=v;};vm.runInNewContext(fs.readFileSync(path.join(root,'js/youtube-bridge.js'),'utf8'),h.sandbox);return {counts,poll:()=>h.intervals.at(-1).fn(),get selected(){return selected;},set selected(v){selected=v;}};}
