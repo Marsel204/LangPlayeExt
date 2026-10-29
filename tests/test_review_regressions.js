@@ -117,6 +117,7 @@ function createContentHarness(config = {}, parser = undefined) {
     URLSearchParams,
     setInterval() {},
     setTimeout() {},
+    clearTimeout() {},
     fetch(url, options) {
       calls.push({ url, options });
       if (url.includes('translate.googleapis.com')) {
@@ -209,9 +210,14 @@ test('late parser results cannot replace a newer caption, cleared overlay or sel
 test('YouTube startup follows playback, including already-playing and replacement videos', async () => {
   const h = createContentHarness();
   const messages = [];
-  h.sandbox.chrome.runtime = { sendMessage(message, callback) { messages.push(message); callback?.({ success: true }); } };
+  h.sandbox.chrome.runtime = { sendMessage(message, callback) {
+    if (message.action === 'FETCH_BACKEND_CAPTIONS') {
+      callback?.({ success: true, vtt: 'WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n猫\n' });
+      return;
+    }
+    messages.push(message); callback?.({ success: true });
+  } };
   h.sandbox.window.location.search = '?v=playback-test';
-  h.sandbox.fetch = async () => ({ ok: true, text: async () => 'WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n猫\n' });
   const originalSelector = h.sandbox.document.querySelector;
   const createVideo = paused => ({ paused, ended: false, currentTime: 0, listeners: {}, addEventListener(name, fn) { this.listeners[name] = fn; }, removeEventListener(name, fn) { if (this.listeners[name] === fn) delete this.listeners[name]; } });
   let video = createVideo(true);

@@ -813,14 +813,14 @@
   let drawerPlacementObserver = null;
   let drawerSidebar = null;
 
-  function sendOwnedMessage(action, values = {}) {
+  function sendOwnedMessage(action, values = {}, {timeout = 8000, timeoutError = 'Could not confirm the extension storage result; please retry', acknowledgementError = 'No storage acknowledgement'} = {}) {
     return new Promise(resolve => {
       let settled = false;
       const finish = result => { if (settled) return; settled = true; clearTimeout(timer); resolve(result); };
-      const timer = setTimeout(() => finish({success:false, error:'Could not confirm the extension storage result; please retry'}), 8000);
+      const timer = setTimeout(() => finish({success:false, error:timeoutError}), timeout);
       try { chrome.runtime.sendMessage({action, ...values}, result => {
         const error = chrome.runtime.lastError;
-        finish(error ? {success:false, error:error.message} : result || {success:false, error:'No storage acknowledgement'});
+        finish(error ? {success:false, error:error.message} : result || {success:false, error:acknowledgementError});
       }); } catch (error) { finish({success:false, error:error.message}); }
     });
   }
@@ -845,35 +845,8 @@
     };
   }
 
-  async function addCardToAnki(fields) {
-    try {
-      const config = await new Promise((resolve, reject) => {
-        chrome.storage.local.get(['linguaplay_ankiconnect_url', 'linguaplay_anki_deck'], result => {
-          const error = chrome.runtime.lastError;
-          if (error) reject(new Error(error.message)); else resolve(result);
-        });
-      });
-      const endpointUrl = config.linguaplay_ankiconnect_url || 'http://127.0.0.1:8765';
-      const endpoint = new URL(endpointUrl);
-      if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) throw new Error('Invalid AnkiConnect URL');
-      const response = await fetch(endpointUrl, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({action: 'addNote', version: 6, params: {note: {
-          deckName: config.linguaplay_anki_deck || 'LinguaPlay', modelName: 'Basic', fields,
-          tags: ['linguaplay', 'youtube']
-        }}}),
-        signal: AbortSignal.timeout(5000)
-      });
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      const data = await response.json();
-      if (data.error) {
-        if (/duplicate/i.test(String(data.error))) return {success: true, duplicate: true};
-        const error = String(data.error);
-        throw new Error(/deck.*not found/i.test(error) ? error + '; create the configured deck in Anki, then retry' : error);
-      }
-      if (data.result == null) throw new Error('AnkiConnect did not confirm a note');
-      return {success: true};
-    } catch (error) { return {success: false, error: error.message}; }
+  function addCardToAnki(fields) {
+    return sendOwnedMessage('ADD_ANKI_NOTE', {fields}, {timeoutError: 'Could not confirm the Anki result; please retry', acknowledgementError: 'No Anki acknowledgement'});
   }
 
   async function saveCard(card, fields) {
@@ -1387,15 +1360,9 @@
   // ── Caption Fetchers with Auto-Discovery & Auto-Switch ──
   async function fetchYouTubeCaptions(videoId) {
     try {
-      const config = await chrome.storage.local.get(['linguaplay_server_url']);
-      const endpoint = new URL(config.linguaplay_server_url || 'http://127.0.0.1:8000');
-      if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) throw new Error('Invalid caption server URL');
-      endpoint.pathname = endpoint.pathname.replace(/\/+$/, '') + '/api/captions';
-      endpoint.search = ''; endpoint.hash = ''; endpoint.searchParams.set('v', videoId);
-      const res = await fetch(endpoint.href, {signal: AbortSignal.timeout(1500)});
-      if (res.ok) {
-        const vtt = await res.text();
-        const cues = parseVTT(vtt);
+      const res = await sendOwnedMessage('FETCH_BACKEND_CAPTIONS', {videoId}, {timeout: 3000, timeoutError: 'Caption backend did not respond', acknowledgementError: 'No caption acknowledgement'});
+      if (res.success) {
+        const cues = parseVTT(res.vtt);
         const hasJp = cues.some(c => hasJapaneseCharacters(c.text));
         if (cues.length > 0 && hasJp) return cues;
       }
@@ -2998,19 +2965,21 @@ Explain grammatical nuances, particle usage, verb conjugations, and sentence con
 Always provide Hiragana readings and Romaji for any Japanese words you introduce.
 Keep answers structured, concise, and focused on this sentence context.`;
 
-    function buildSenseiAnalysisPrompt(word, romaji, sentence) {
+    function buildSenseiAnalysisPrompt(word, furigana, romaji, sentence) {
       return `You are Sensei, an expert Japanese language and grammar teacher.
 Focus strictly on HOW THE TARGET WORD FITS INTO THIS SPECIFIC CONTEXT SENTENCE.
 Do NOT give generic dictionary essays or unrelated examples.
 
 Context Sentence: "${sentence}"
-Target Word: "${word}" (Reading: ${romaji})
+Target Word: "${word}"
+Kana Reading: ${furigana}
+Hepburn Romaji: ${romaji}
 
 Respond with ONLY valid JSON:
 {
   "contextual_meaning": "Precise meaning of '${word}' specifically in this sentence",
-  "reading": "${romaji}",
-  "romaji": "${romaji}",
+  "reading": "Kana only (hiragana or katakana)",
+  "romaji": "Hepburn romaji only",
   "jlpt_level": "N5|N4|N3|N2|N1|Vocab",
   "pos": "Part of speech in this sentence",
   "sentence_fit": {
@@ -3031,8 +3000,8 @@ Respond with ONLY valid JSON:
   "word_by_word": [
     {
       "word": "word/particle",
-      "reading": "reading",
-      "romaji": "romaji",
+      "reading": "Kana only (hiragana or katakana)",
+      "romaji": "Hepburn romaji only",
       "meaning": "English meaning",
       "role": "grammar role",
       "is_target": false
@@ -3170,7 +3139,7 @@ Respond with ONLY valid JSON:
     function sendSenseiQuestion(questionText) {
       if (!questionText || !questionText.trim() || activeSenseiChatRequest?.contextVersion === drawerContextVersion) return false;
       const word = document.getElementById('lp-active-word')?.textContent || '';
-      const romaji = document.getElementById('lp-active-romaji')?.textContent || '';
+      const {furigana, romaji} = drawerActiveReading;
       const sentence = drawerContextSentence || document.getElementById('lp-chat-context-sentence')?.textContent || document.getElementById('lp-sentence-jp')?.textContent || activeLiveSentence || '';
 
       const contextVersion = drawerContextVersion;
@@ -3190,7 +3159,7 @@ Respond with ONLY valid JSON:
           const messages = [
             {
               role: 'system',
-              content: `${SENSEI_SYSTEM_PROMPT}\n\nContext Sentence: "${sentence}"\nTarget Word: "${word}" (${romaji})`
+              content: `${SENSEI_SYSTEM_PROMPT}\n\nContext Sentence: "${sentence}"\nTarget Word: "${word}"\nKana Reading: ${furigana}\nHepburn Romaji: ${romaji}`
             },
             ...history
           ];
@@ -3255,7 +3224,7 @@ Respond with ONLY valid JSON:
       const analysis = activeAnalysis = {id: ++analysisSeq, contextVersion: drawerContextVersion, videoId: currentVideoId};
       const isCurrent = () => activeAnalysis === analysis && analysis.contextVersion === drawerContextVersion && analysis.videoId === currentVideoId && isAppEnabled;
       const word = document.getElementById('lp-active-word').textContent;
-      const romaji = document.getElementById('lp-active-romaji').textContent;
+      const {furigana, romaji} = drawerActiveReading;
       const sentence = drawerContextSentence || document.getElementById('lp-sentence-jp')?.textContent || activeLiveSentence || '';
       const loading = document.getElementById('lp-ai-loading');
       const results = document.getElementById('lp-ai-results');
@@ -3270,7 +3239,7 @@ Respond with ONLY valid JSON:
 
       chrome.storage.local.get(['linguaplay_9router_model'], async (cfg) => {
         if (!isCurrent()) return;
-        const prompt = buildSenseiAnalysisPrompt(word, romaji, sentence);
+        const prompt = buildSenseiAnalysisPrompt(word, furigana, romaji, sentence);
         const messages = [{ role: 'user', content: prompt }];
 
         try {
@@ -3320,11 +3289,17 @@ Respond with ONLY valid JSON:
       const text = value => typeof value === 'string' ? value : '';
       const meaning = text(target.meaning) || text(ai.contextual_meaning) || text(ai.meaning);
       const role = text(ai.sentence_fit?.role_in_sentence) || text(ai.grammar_role);
+      const wk = window.wanakana;
+      const isKana = value => /^[ぁ-ゖァ-ヺー]+$/.test(value) && (!wk?.isKana || wk.isKana(value));
+      // WanaKana's isRomaji also allows digits and punctuation; keep these out of card readings.
+      const isRomaji = value => /^[a-zāīūēō]+(?:[ '’-][a-zāīūēō]+)*$/i.test(value) && (!wk?.isRomaji || wk.isRomaji(value));
+      const reading = [drawerActiveReading.furigana, target.reading, ai.reading].map(value => text(value).trim()).find(isKana) || word;
+      const romaji = [drawerActiveReading.romaji, target.romaji, ai.romaji, word].map(value => text(value).trim()).find(isRomaji) || '';
+      const translation = typeof ai.sentence_translation === 'string' ? ai.sentence_translation : text(ai.sentence_translation?.en);
       const card = {
-        word, reading: text(target.reading) || text(ai.reading) || drawerActiveReading.furigana || word,
-        romaji: text(target.romaji) || text(ai.romaji) || drawerActiveReading.romaji,
+        word, reading, romaji,
         meaning: meaning + (role ? ' [Role: ' + role + ']' : ''), sentence,
-        sentence_en: text(ai.sentence_translation), date: new Date().toISOString()
+        sentence_en: translation, date: new Date().toISOString()
       };
       const btn = document.getElementById('lp-ai-anki-btn');
       const contextVersion = drawerContextVersion;
