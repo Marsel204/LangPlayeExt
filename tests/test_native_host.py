@@ -60,9 +60,24 @@ class NativeHostTests(unittest.TestCase):
 
     def test_origin_port_and_command_validation(self):
         self.assertFalse(self.request(origin='chrome-extension://other/')['success'])
-        for message in [{'action': 'ensure_server', 'port': self.port + 1}, {'action': 'ensure_server', 'port': self.port, 'command': 'other'}, {'action': 'ensure_server', 'port': True}]:
+        for message in [{'action': 'ensure_server', 'port': self.port + 1}, {'action': 'ensure_server', 'port': self.port, 'command': 'other'}, {'action': 'ensure_server', 'port': True}, {'action': 'enable_router_startup', 'command': 'other'}, {'action': 'disable_router_startup', 'port': self.port}]:
             self.assertFalse(self.request(message)['success'])
         self.assertFalse((self.directory / 'starts.log').exists())
+
+    def test_router_only_install_preserves_parser_and_adds_this_extension(self):
+        config_path = self.directory / 'native/config.json'
+        previous = json.loads(config_path.read_text())
+        previous['python_path'] = '/custom/parser/python'
+        previous['runtime_path'] = '/custom/parser/bin'
+        config_path.write_text(json.dumps(previous))
+        another = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+        subprocess.run([sys.executable, str(ROOT / 'native/install_host.py'), '--router-only', '--extension-id', another,
+                        '--install-dir', str(self.directory / 'native'), '--user-data-dir', str(self.directory / 'browser')], check=True, stdout=subprocess.DEVNULL)
+        current = json.loads(config_path.read_text())
+        for key in ['server_path', 'port', 'python_path', 'runtime_path', 'state_dir']:
+            self.assertEqual(current[key], previous[key], key)
+        self.assertEqual(set(current['allowed_origins']), {f'chrome-extension://{EXTENSION}/', f'chrome-extension://{another}/'})
+        self.assertTrue((self.directory / 'native/router_autostart.py').is_file())
 
     def test_prefers_server_virtual_environment(self):
         venv = self.directory / '.venv'

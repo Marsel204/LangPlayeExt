@@ -22,6 +22,7 @@ A Chrome/Chromium Manifest V3 extension written in plain HTML, CSS, and JavaScri
 
 - 9Router handles AI requests. Settings discovers its available chat models, preserves provider prefixes, accepts manual model IDs and combos, tests the connection, and saves the form explicitly.
 - The Japanese parser and its local launcher are optional and configured separately from 9Router.
+- On Linux / Omarchy, Settings can enable, check and disable local 9Router login startup through the installed helper. First-time setup downloads a self-contained script for that device's extension ID. Node.js and 9Router must already be installed; the parser is not required.
 - AnkiConnect and a matching deck enable direct card creation. The local flashcard collection can be exported or cleared from Settings.
 - Furigana, romaji, and hidden readings are available subtitle preferences.
 - Keep the existing storage keys, endpoint permissions, field IDs, and service behavior compatible with the current extension.

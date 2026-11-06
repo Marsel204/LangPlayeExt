@@ -54,7 +54,7 @@ A model list can load even when a provider request fails. Some 9Router responses
 
 ### Keep it available after login
 
-Follow [Start 9Router automatically](9router-autostart.md) to enable its tray startup or install a Linux user service. Each person configures startup on their own computer. Installing LinguaPlay or copying its repository does not install a 9Router service.
+On Linux / Omarchy, open **AI tutor → Start 9Router at login** in Settings. If the Linux helper is missing, use **Download Linux setup**, run the downloaded script once, then click **Check startup**. With the helper installed, **Enable login startup** creates/enables the local user service directly. **Turn off login startup** leaves a running router alone and disables future login launches. Node.js and 9Router must already be installed. Each device needs its own setup; see [Start 9Router automatically](9router-autostart.md) for the full steps and tray startup on other platforms.
 
 The **Start parser server when a video plays** checkbox controls the optional Japanese parser. 9Router has its own startup configuration.
 
