@@ -63,6 +63,8 @@ def ensure_server(config):
                 probe.bind(('127.0.0.1', port))
             except OSError as error:
                 raise RuntimeError(f'Port {port} is occupied by a server that is not responding as LinguaPlay') from error
+        if not config.get('server_path'):
+            raise RuntimeError('The Japanese parser is not configured. Install native/install_host.py with --server to add it.')
         server = Path(config['server_path'])
         if not server.is_file():
             raise RuntimeError(f'Server.py not found: {server}. Reinstall the local launcher with the correct --server path.')
@@ -103,9 +105,13 @@ def main():
         message = read_message(sys.stdin.buffer)
         if message is None:
             return
-        if not isinstance(message, dict) or set(message) != {'action', 'port'} or message.get('action') != 'ensure_server' or type(message.get('port')) is not int or message['port'] != config['port']:
+        if isinstance(message, dict) and set(message) == {'action'} and message['action'] in {'router_startup_status', 'enable_router_startup', 'disable_router_startup'}:
+            from router_autostart import startup_status, enable_autostart, disable_autostart
+            result = {'router_startup_status': startup_status, 'enable_router_startup': lambda: enable_autostart(config.get('router_runtime_path', config.get('runtime_path'))), 'disable_router_startup': disable_autostart}[message['action']]()
+        elif not isinstance(message, dict) or set(message) != {'action', 'port'} or message.get('action') != 'ensure_server' or type(message.get('port')) is not int or message['port'] != config['port']:
             raise ValueError('Invalid startup request or port does not match the installed launcher')
-        result = ensure_server(config)
+        else:
+            result = ensure_server(config)
     except Exception as error:
         result = {'success': False, 'error': str(error)}
     write_message(sys.stdout.buffer, result)

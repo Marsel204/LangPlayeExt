@@ -130,7 +130,7 @@ npm install -g 9router
 4. Search **Find your provider** by name or prefix (for example, `OpenCode` or `oc`), choose your **Provider**, then select an ID from **Available Models**. Only that provider's models appear; router combos are grouped under **Combos & unprefixed models**. The catalog loads automatically when browser access is already allowed; **Load Models** refreshes it or requests access to a hosted router. Selecting a model fills **Model or Combo** with its exact ID. You can also enter a model or combo there manually.
 5. Click **Test 9Router** to send a short AI request, then **Save Settings**.
 
-Sensei Chat, grammar breakdowns, and AI song identification use only the configured 9Router model or combo. Enter the router key in extension Options; upstream credentials stay in 9Router. Keep 9Router running while using these features. The extension does not start 9Router automatically; configure [automatic startup](docs/9router-autostart.md) once on each computer.
+Sensei Chat, grammar breakdowns, and AI song identification use only the configured 9Router model or combo. Enter the router key in extension Options; upstream credentials stay in 9Router. Keep 9Router running while using these features. On Linux / Omarchy, **Settings → AI tutor → Start 9Router at login** enables background startup. If the helper is missing, download the setup script there and run it once on that computer. See [automatic startup](docs/9router-autostart.md) for the steps and other platforms.
 
 For optional offline **Sudachi** parsing and automatic parser startup on Linux, see the [local backend setup guide](docs/local-backend.md). The parser improves contextual readings and dictionary forms; subtitle fallback readings work without it.
 
@@ -181,6 +181,7 @@ Run the extension checks:
 node --test tests/test_*.js
 node run_tests.js
 python3 tests/test_native_host.py
+python3 tests/test_router_autostart.py
 node tests/browser_custom_ai.mjs
 node tests/browser_anki_youtube.mjs
 node tests/browser_captions_youtube.mjs
