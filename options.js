@@ -165,6 +165,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const ankiDeck = document.getElementById('anki-deck');
   const ankiConnectUrl = document.getElementById('ankiconnect-url');
   const readingMode = document.getElementById('reading-mode');
+  const jimakuKey = document.getElementById('jimaku-key');
+  const sentenceMeaning = document.getElementById('sentence-meaning');
   const savedCardCounter = document.getElementById('saved-card-counter');
   
   const testServerBtn = document.getElementById('test-server-btn');
@@ -197,6 +199,8 @@ document.addEventListener('DOMContentLoaded', () => {
     'linguaplay_anki_deck',
     'linguaplay_ankiconnect_url',
     'linguaplay_reading_mode',
+    'linguaplay_jimaku_key',
+    'linguaplay_sentence_meaning',
     'linguaplay_cards'
   ], (res) => {
     if (res.linguaplay_9router_url) routerUrl.value = res.linguaplay_9router_url;
@@ -207,6 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (res.linguaplay_anki_deck) ankiDeck.value = res.linguaplay_anki_deck;
     if (res.linguaplay_ankiconnect_url) ankiConnectUrl.value = res.linguaplay_ankiconnect_url;
     if (res.linguaplay_reading_mode) readingMode.value = res.linguaplay_reading_mode;
+    if (res.linguaplay_jimaku_key) jimakuKey.value = res.linguaplay_jimaku_key;
+    sentenceMeaning.checked = res.linguaplay_sentence_meaning !== false;
 
     const cards = res.linguaplay_cards || [];
     savedCardCounter.textContent = `${cards.length} card${cards.length === 1 ? '' : 's'} in storage`;
@@ -219,7 +225,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formState() {
     return JSON.stringify([routerUrl.value.trim(), routerKey.value.trim(), routerModel.value.trim(),
-      serverUrl.value.trim(), autoStartServer.checked, ankiDeck.value.trim(), ankiConnectUrl.value.trim(), readingMode.value]);
+      serverUrl.value.trim(), autoStartServer.checked, ankiDeck.value.trim(), ankiConnectUrl.value.trim(), readingMode.value,
+      jimakuKey.value.trim(), sentenceMeaning.checked]);
   }
 
   function updateSaveState() {
@@ -246,6 +253,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   readingMode.addEventListener('change', () => { updateReadingPreview(); formChanged(); });
   autoStartServer.addEventListener('change', formChanged);
+  jimakuKey.addEventListener('input', formChanged);
+  sentenceMeaning.addEventListener('change', formChanged);
   for (const field of [serverUrl, ankiDeck, ankiConnectUrl]) field.addEventListener('input', formChanged);
   for (const id of ['open-setup-guide', 'nav-setup-guide']) {
     document.getElementById(id).addEventListener('click', () => { document.getElementById('setup-guide').open = true; });
@@ -303,7 +312,9 @@ document.addEventListener('DOMContentLoaded', () => {
         linguaplay_auto_start_server: autoStartServer.checked,
         linguaplay_anki_deck: ankiDeck.value.trim() || 'LinguaPlay',
         linguaplay_ankiconnect_url: ankiConnectUrl.value.trim() || 'http://127.0.0.1:8765',
-        linguaplay_reading_mode: readingMode.value
+        linguaplay_reading_mode: readingMode.value,
+        linguaplay_jimaku_key: jimakuKey.value.trim(),
+        linguaplay_sentence_meaning: sentenceMeaning.checked
       };
       await allowEndpointAccess([endpoint.href, submittedValues.linguaplay_server_url, submittedValues.linguaplay_ankiconnect_url]);
     } catch (error) {

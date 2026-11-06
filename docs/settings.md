@@ -127,3 +127,13 @@ npm --prefix "$env:APPDATA\9router\runtime" install wreq-js
 ```
 
 If you configured a custom 9Router data directory, use its `runtime` subdirectory instead. Restart 9Router after installation: use its tray **Quit** action and start it again, or use `systemctl --user restart 9router` if you installed the service from the [automatic startup guide](9router-autostart.md). Reload the models and run **Test 9Router** again. If loading still fails, check 9Router's error for an incompatible Node version or a missing native binding and consult [9Router's issue tracker](https://github.com/decolua/9router/issues).
+
+## Jimaku subtitles and sentence meaning
+
+Under **Reading → Jimaku subtitles**, enter the API key generated in your [Jimaku account](https://jimaku.cc/account) and save. Open a video on YouTube, Netflix, Prime Video, Disney+, Hulu, Crunchyroll or Vimeo; choose **Subtitles**, search a title, preview a supported episode file and explicitly apply it. Authentication errors explain how to fix the key; rate limits and empty results offer retry or local import.
+
+**Show English sentence meaning below Japanese** starts enabled. It uses Google Translate first and automatically falls back to your saved 9Router model or combo if Google fails or rate limits requests. The fallback needs a configured model and a running router; it may use your provider's paid quota. Google rate limits pause further Google requests for 1–5 minutes while sentences use AI. Word dictionary lookups wait for Google to recover. Hover **Retry sentence meaning** for the error if translation fails. The player subtitle panel also controls this option, **Subtitle size** (50–200%), horizontal/vertical position, and background opacity. Scroll to the appearance controls at the bottom. Size changes preview immediately, scale Japanese/readings/English together, and are saved when the adjustment finishes; **Default size** restores 100%. Position sliders move Japanese/readings/English together inside the video, are saved across pages, and include **Default position** to return to bottom-center. Word selection always shows its captured sentence translation in the study panel, with retry if unavailable.
+
+## Song or episode source mode
+
+Open **言 → Subtitles → Watching** and choose **Song**, **Episode**, or **Auto**. The choice is saved for the current video. Song uses the previous LRCLIB/Kugou lyrics workflow and its badge opens the Lyrics Manager. Episode uses captions/Jimaku and ignores song caches and automatic song searches. Auto keeps captions-first/lyrics-fallback on YouTube and episode sources on other sites. **More → Find lyrics** also selects Song. Switching modes rejects old pending results and keeps appearance preferences.

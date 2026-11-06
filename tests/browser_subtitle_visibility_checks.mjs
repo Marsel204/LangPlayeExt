@@ -7,11 +7,17 @@ import path from 'node:path';
 import { checkSenseiChat } from './browser_sensei_chat_checks.mjs';
 
 export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, routerUrl }) {
-  const [content, css] = await Promise.all([
+  const [content, css, wanakana] = await Promise.all([
     readFile(path.join(root, 'content.js'), 'utf8'),
     readFile(path.join(root, 'content.css'), 'utf8'),
+    readFile(path.join(root, 'lib/wanakana.min.js'), 'utf8'),
   ]);
-  const instrumented = content.replace(/\}\)\(\);\s*$/, `
+  // This fixture runs on an extension page; model the YouTube host identity
+  // as well as its DOM. Live-origin injection is checked by browser_captions_youtube.
+  const fixtureContent = content
+    .replace(/function isYouTubePage\(\) \{[\s\S]*?\n  \}/, 'function isYouTubePage() { return true; }')
+    .replace("return url.pathname === '/watch' ? new URLSearchParams(window.location.search).get('v') : null;", "return new URLSearchParams(window.location.search).get('v');");
+  const instrumented = fixtureContent.replace(/\}\)\(\);\s*$/, `
     window.visibilityTestApi = {
       injectUI, checkAndInitVideo,
       setTimeline(cues) {
@@ -46,10 +52,14 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
     };
     ['click', 'keydown', 'keyup', 'pointerdown', 'pointerup'].forEach(name => player.addEventListener(name, () => window.playerEvents.push(name)));
     window.translationResolvers = [];
-    window.completeTranslation = () => window.translationResolvers.splice(0).forEach(resolve => resolve({ok:true,json:async () => [[['A cat is here']]]}));
+    window.completeTranslation = () => window.translationResolvers.splice(0).forEach(resolve => resolve({success:true,translation:'A cat is here'}));
     window.chatRequests = [];
     const nativeSendMessage = chrome.runtime.sendMessage.bind(chrome.runtime);
     chrome.runtime.sendMessage = (message, callback) => {
+      if (message.action === 'TRANSLATE_JAPANESE') {
+        window.translationResolvers.push(callback);
+        return;
+      }
       if (message.action === 'FETCH_BACKEND_CAPTIONS') {
         const result = {success:true,vtt:'WEBVTT\\n\\n00:00:00.000 --> 00:00:02.000\\n犬がいる\\n'};
         if (callback) { callback(result); return; }
@@ -68,6 +78,7 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
       return Promise.resolve({ok:false,json:async () => ({}),text:async () => ''});
     };
   })()`);
+  await evaluate(wanakana);
   await evaluate(instrumented);
   await evaluate('window.visibilityTestApi.injectUI()');
   assert.equal(await evaluate('document.getElementById("linguaplay-yt-controls")'), null, 'Buttons stay detached until native controls are available');
@@ -212,6 +223,26 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   assert.equal(current.expanded, 'true');
   assert.equal(current.panelAboveBar, true);
   assert.equal(current.panelInside, true);
+  const compactToolbar = () => evaluate('(()=>{const bar=document.getElementById("linguaplay-yt-bar");const rect=bar.getBoundingClientRect();return {width:rect.width,height:rect.height,visibleChildren:Array.from(bar.children).filter(el=>getComputedStyle(el).display!=="none").length}})()');
+  let compact = await compactToolbar();
+  assert.ok(compact.width <= 320 && compact.height <= 48,JSON.stringify(compact));
+  assert.equal(compact.visibleChildren,5,'Only power, reading, subtitles, more and close occupy the main row');
+  await evaluate('document.getElementById("linguaplay-reading-mode").value="romaji";document.getElementById("linguaplay-reading-mode").dispatchEvent(new Event("change"))');
+  assert.match(await evaluate('document.querySelector(".linguaplay-token-reading").textContent'),/^[a-z]/i);
+  await evaluate('document.getElementById("linguaplay-reading-mode").value="hidden";document.getElementById("linguaplay-reading-mode").dispatchEvent(new Event("change"))');
+  assert.equal(await evaluate('getComputedStyle(document.querySelector(".linguaplay-token-reading")).display'),'none');
+  await evaluate('document.getElementById("linguaplay-reading-mode").value="furigana";document.getElementById("linguaplay-reading-mode").dispatchEvent(new Event("change"))');
+  await pressKey('Enter','Enter',13,'linguaplay-more-trigger');
+  assert.equal(await evaluate('document.getElementById("linguaplay-more-menu").open'),true);
+  assert.equal(await evaluate('document.getElementById("linguaplay-upload-sub-btn").offsetParent!==null'),true);
+  assert.equal(await evaluate('document.getElementById("linguaplay-fetch-lyrics-btn").offsetParent!==null'),true);
+  if (process.env.VISIBILITY_PANEL_SCREENSHOT_PATH) {
+    const screenshot = await rpc('Page.captureScreenshot', {format:'png'},sessionId);
+    await writeFile(process.env.VISIBILITY_PANEL_SCREENSHOT_PATH.replace(/\.png$/, '-more.png'),Buffer.from(screenshot.data,'base64'));
+  }
+  await pressKey('Escape','Escape',27,'linguaplay-more-trigger');
+  assert.equal(await evaluate('document.getElementById("linguaplay-more-menu").open'),false);
+  assert.equal((await state()).toolbar,'flex','Escape closes More before the toolbar');
   if (process.env.VISIBILITY_PANEL_SCREENSHOT_PATH) {
     const screenshot = await rpc('Page.captureScreenshot', { format: 'png' }, sessionId);
     await writeFile(process.env.VISIBILITY_PANEL_SCREENSHOT_PATH, Buffer.from(screenshot.data, 'base64'));
@@ -221,6 +252,12 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   assert.equal(current.panelInside, true);
   assert.equal(current.panelOverflow, false);
   assert.equal(current.panelAboveBar, true);
+  compact = await compactToolbar();
+  assert.ok(compact.width <= 320 && compact.height <= 48,JSON.stringify(compact));
+  if (process.env.VISIBILITY_PANEL_SCREENSHOT_PATH) {
+    const screenshot = await rpc('Page.captureScreenshot', {format:'png'},sessionId);
+    await writeFile(process.env.VISIBILITY_PANEL_SCREENSHOT_PATH.replace(/\.png$/, '-narrow.png'),Buffer.from(screenshot.data,'base64'));
+  }
   await evaluate('document.getElementById("movie_player").style.width = "900px"; window.dispatchEvent(new Event("resize"))');
 
   // Trusted input exercises the native button's Enter and Space activation.
@@ -244,7 +281,7 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   await pressKey(' ', 'Space', 32);
   assert.equal((await state()).pressed, 'true');
   assert.deepEqual((await state()).playerEvents, []);
-  await pressKey('Escape', 'Escape', 27, 'linguaplay-offset-add');
+  await pressKey('Escape', 'Escape', 27, 'linguaplay-reading-mode');
   current = await state();
   assert.equal(current.expanded, 'false');
   assert.equal(current.toolbar, 'none');

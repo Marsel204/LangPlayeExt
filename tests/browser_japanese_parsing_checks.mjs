@@ -45,7 +45,9 @@ export async function checkJapaneseParsing({ root, evaluate, backend }) {
       assert.equal(actual[i].tokens[0].baseForm, cases[i][2]);
     }
     const css = await readFile(path.join(root, 'content.css'), 'utf8');
-    const content = (await readFile(path.join(root, 'content.js'), 'utf8')).replace(/\}\)\(\);\s*$/, 'window.parsingApi={injectUI,renderSentenceTokens};})();');
+    const content = (await readFile(path.join(root, 'content.js'), 'utf8'))
+      .replace(/function isYouTubePage\(\) \{[\s\S]*?\n  \}/, 'function isYouTubePage() { return true; }')
+      .replace(/\}\)\(\);\s*$/, 'window.parsingApi={injectUI,renderSentenceTokens};})();');
     await evaluate(`(() => {
       document.body.innerHTML = '<div id="movie_player" style="position:relative;width:900px;height:510px"><video></video><div class="ytp-right-controls"><button class="ytp-subtitles-button">CC</button></div></div><div id="secondary"><div id="secondary-inner"></div></div>';
       const style = document.createElement('style'); style.textContent = ${JSON.stringify(css)}; document.head.appendChild(style);

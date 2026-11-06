@@ -453,7 +453,7 @@ test('content.js places #linguaplay-sub-status badge inside #linguaplay-yt-contr
   }
 });
 
-test('clicking the green #linguaplay-sub-status button opens the modal, replaces stale inputs, and autosearches with LLM', async () => {
+test('the subtitle badge opens Jimaku without AI; the explicit Lyrics action still identifies and searches songs', async () => {
   const vm = await import('node:vm');
   const { createRequire } = await import('node:module');
   const require = createRequire(import.meta.url);
@@ -606,6 +606,7 @@ test('clicking the green #linguaplay-sub-status button opens the modal, replaces
     MutationObserver: class { observe() {} disconnect() {} },
     AbortSignal,
     URLSearchParams,
+    URL,
     setInterval() {},
     setTimeout() {},
     fetch: async (url, options) => {
@@ -634,8 +635,13 @@ test('clicking the green #linguaplay-sub-status button opens the modal, replaces
   await new Promise(r => setImmediate(r));
   await new Promise(r => setImmediate(r));
 
+  assert.equal(elements.get('linguaplay-subtitle-panel').hidden, false, 'The badge opens subtitle discovery');
+  assert.equal(runtimeMessages.some(m => m.action === 'CALL_9ROUTER_AI'), false, 'Opening subtitles does not make a generative AI request');
+  await elements.get('linguaplay-fetch-lyrics-btn').listeners.click();
+  await new Promise(r => setImmediate(r));
+  await new Promise(r => setImmediate(r));
   const modal = elements.get('linguaplay-lyrics-modal');
-  assert.equal(modal.classList.contains('hidden'), false, 'Modal must open when green button is clicked');
+  assert.equal(modal.classList.contains('hidden'), false, 'The explicit Lyrics action opens its manager');
   assert.equal(trackInp.value, '春擬き', 'Track input must be updated to LLM-identified song title');
   assert.equal(artistInp.value, 'やなぎなぎ', 'Artist input must be updated to LLM-identified artist');
 

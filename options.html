@@ -103,7 +103,7 @@
               <option value="romaji">Romaji — alphabetic pronunciation</option>
               <option value="hidden">Hidden — Japanese text only</option>
             </select>
-            <p class="help-text">Try a style in the preview below. You can also switch modes in the YouTube player.</p>
+            <p class="help-text">Try a style in the preview below. You can also switch modes in the video player.</p>
           </div>
           <div class="inline-reading-preview" aria-label="Sample subtitle">
             <p class="help-text">Sample subtitle</p>
@@ -114,6 +114,17 @@
             </div>
             <p class="help-text">Learn Japanese with the videos you love.</p>
           </div>
+          <fieldset class="optional-tool" id="group-jimaku">
+            <legend>Jimaku subtitles <span class="optional-label">Optional</span></legend>
+            <p class="tool-description">Find Japanese subtitles for YouTube, Netflix, Prime Video, Disney+, Hulu, Crunchyroll, and Vimeo.</p>
+            <div class="field">
+              <label for="jimaku-key">Jimaku API Key</label>
+              <input type="password" id="jimaku-key" autocomplete="off" spellcheck="false" placeholder="Paste your Jimaku API key">
+              <p class="help-text">Generate a key in your <a href="https://jimaku.cc/account" target="_blank" rel="noopener noreferrer">Jimaku account</a>, then save these settings. In the player, choose <strong>Subtitles</strong>, search a title, preview an episode file, and load it. Local subtitle import works without a key.</p>
+            </div>
+            <label class="checkbox-label"><input type="checkbox" id="sentence-meaning" checked> Show English sentence meaning below Japanese</label>
+            <p class="help-text">Uses Google Translate, with your configured 9Router model as a fallback. You can change this in the player's Subtitles panel.</p>
+          </fieldset>
           <fieldset class="optional-tool" id="group-server">
             <legend>Japanese parser <span class="optional-label">Optional</span></legend>
             <p class="tool-description">Add contextual readings and dictionary forms with the local Sudachi backend.</p>

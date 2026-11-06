@@ -812,6 +812,14 @@
   let liveCaptionObserver = null;
   let drawerPlacementObserver = null;
   let drawerSidebar = null;
+  let sentenceMeaningEnabled = true;
+  let captionOpacity = 18;
+  let captionSize = 100;
+  let captionPosition = {horizontal: 50, vertical: 0};
+  let subtitleSourceName = '';
+  let subtitleSourceKind = '';
+  let watchMode = 'auto';
+  let selectedTokenElement = null;
 
   function sendOwnedMessage(action, values = {}, {timeout = 8000, timeoutError = 'Could not confirm the extension storage result; please retry', acknowledgementError = 'No storage acknowledgement'} = {}) {
     return new Promise(resolve => {
@@ -865,13 +873,43 @@
   let renderedSentence = '';
   let subtitleRenderVersion = 0;
 
-  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled'], (res) => {
+  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled', 'linguaplay_sentence_meaning', 'linguaplay_caption_opacity', 'linguaplay_caption_size', 'linguaplay_caption_position'], (res) => {
     if (res.linguaplay_reading_mode) readingMode = res.linguaplay_reading_mode;
     if (typeof res.linguaplay_panel_collapsed === 'boolean') isPanelCollapsed = res.linguaplay_panel_collapsed;
     if (typeof res.linguaplay_app_enabled === 'boolean') isAppEnabled = res.linguaplay_app_enabled;
+    sentenceMeaningEnabled = res.linguaplay_sentence_meaning !== false;
+    if (Number.isInteger(res.linguaplay_caption_opacity) && res.linguaplay_caption_opacity >= 0 && res.linguaplay_caption_opacity <= 100) captionOpacity = res.linguaplay_caption_opacity;
+    if (validCaptionSize(res.linguaplay_caption_size)) captionSize = res.linguaplay_caption_size;
+    if (validCaptionPosition(res.linguaplay_caption_position)) captionPosition = {...res.linguaplay_caption_position};
     updateWidgetState();
+    updateCaptionAppearance();
+    updateCaptionSizeControls();
+    updateCaptionPositionControls();
+    if (renderedSentence) updateCaptionTranslation(renderedSentence);
     if (!isAppEnabled) {
       setAppEnabled(false);
+    }
+  });
+
+  chrome.storage.onChanged?.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.linguaplay_sentence_meaning) { sentenceMeaningEnabled = changes.linguaplay_sentence_meaning.newValue !== false; updateCaptionTranslation(renderedSentence); }
+    if (changes.linguaplay_caption_opacity) {
+      const value = changes.linguaplay_caption_opacity.newValue;
+      if (Number.isInteger(value) && value >= 0 && value <= 100) { captionOpacity = value; updateCaptionAppearance(); }
+    }
+    if (changes.linguaplay_caption_size) {
+      captionSize = validCaptionSize(changes.linguaplay_caption_size.newValue) ? changes.linguaplay_caption_size.newValue : 100;
+      updateCaptionAppearance(); updateCaptionSizeControls();
+    }
+    if (changes.linguaplay_caption_position) {
+      const value = changes.linguaplay_caption_position.newValue;
+      captionPosition = validCaptionPosition(value) ? {...value} : {horizontal: 50, vertical: 0};
+      updateCaptionAppearance(); updateCaptionPositionControls();
+    }
+    if (changes.linguaplay_reading_mode) {
+      const mode = changes.linguaplay_reading_mode.newValue;
+      if (['furigana', 'romaji', 'hidden'].includes(mode) && mode !== readingMode) { readingMode = mode; if (playerUI?.readingSelect) playerUI.readingSelect.value = mode; renderSentenceTokens(renderedSentence); }
     }
   });
 
@@ -1058,11 +1096,35 @@
   }
 
   function parseSubtitleFile(raw, filename = '') {
+    if (/\.(ass|ssa)$/i.test(filename) || /^\s*\[Script Info\]/i.test(raw)) return parseASS(raw);
     const isVtt = filename.toLowerCase().endsWith('.vtt') || raw.trim().startsWith('WEBVTT');
     if (isVtt) return parseVTT(raw);
     const isLrc = filename.toLowerCase().endsWith('.lrc') || /\[\d{1,2}:\d{2}[.:]\d{2,3}\]/.test(raw);
     if (isLrc) return parseLRC(raw);
     return parseSRT(raw);
+  }
+
+  function parseASS(raw) {
+    const cues = [];
+    let inEvents = false, fields = ['layer', 'start', 'end', 'style', 'name', 'marginl', 'marginr', 'marginv', 'effect', 'text'];
+    const seconds = value => {
+      const match = value.trim().match(/^(\d+):(\d{2}):(\d{2})(?:[.,](\d{1,3}))?$/);
+      return match ? Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number('0.' + (match[4] || '0')) : NaN;
+    };
+    for (const line of String(raw).replace(/^\uFEFF/, '').split(/\r?\n/)) {
+      if (/^\s*\[/.test(line)) { inEvents = /^\s*\[Events\]/i.test(line); continue; }
+      if (!inEvents) continue;
+      if (/^Format:/i.test(line)) { fields = line.slice(line.indexOf(':') + 1).toLowerCase().split(',').map(v => v.trim()); continue; }
+      if (!/^Dialogue:/i.test(line) || fields.at(-1) !== 'text') continue;
+      const values = line.slice(line.indexOf(':') + 1).split(',');
+      if (values.length < fields.length) continue;
+      const start = seconds(values[fields.indexOf('start')] || ''), end = seconds(values[fields.indexOf('end')] || '');
+      const original = values.slice(fields.length - 1).join(',');
+      if (/\{[^}]*\\p[1-9]/.test(original)) continue;
+      const text = stripMarkupTags(original.replace(/\{[^}]*\}/g, '').replace(/\\[Nn]/g, '\n').replace(/\\h/g, ' ')).trim();
+      if (Number.isFinite(start) && end > start && text) cues.push({start, end, text});
+    }
+    return cues.sort((a, b) => a.start - b.start);
   }
 
   function cleanSongTitle(rawTitle, rawChannel = '') {
@@ -1495,10 +1557,11 @@ Respond in JSON only:
   }
 
   // ── Fetch Synced Lyrics from LRCLIB & Kugou (with Heuristic + Sensei AI Fallback) ──
-  async function fetchLrclibLyrics(title, channel, duration) {
+  async function fetchLrclibLyrics(title, channel, duration, isCurrent = () => true) {
     try {
       const meta = cleanSongTitle(title, channel);
       const queryApi = (t, a, q) => new Promise(resolve => {
+        if (!isCurrent()) { resolve({success: false}); return; }
         chrome.runtime.sendMessage({
           action: 'FETCH_LRCLIB_LYRICS',
           trackName: t,
@@ -1520,6 +1583,7 @@ Respond in JSON only:
         response = await queryApi(meta.trackName, meta.artistName, meta.query);
       }
 
+      if (!isCurrent()) return null;
       if (response && response.success && response.syncedLyrics) {
         const cues = parseLRC(response.syncedLyrics);
         if (cues && cues.length > 0) {
@@ -1607,75 +1671,447 @@ Respond in JSON only:
   }
 
   // ── Render Tokens into Subtitle Overlay ──
+  function isYouTubePage() {
+    return /(^|\.)youtube\.com$/i.test(new URL(window.location.href).hostname);
+  }
+
+  function findActiveVideo() {
+    const videos = Array.from(document.querySelectorAll('video'));
+    return videos.filter(video => video.isConnected && video.getBoundingClientRect().width > 0 && video.getBoundingClientRect().height > 0 && video.checkVisibility?.({checkVisibilityCSS: true}) !== false)
+      .sort((a, b) => b.getBoundingClientRect().width * b.getBoundingClientRect().height - a.getBoundingClientRect().width * a.getBoundingClientRect().height || Number(!b.paused) - Number(!a.paused))[0] || null;
+  }
+
+  function getVideoIdentity() {
+    const url = new URL(window.location.href);
+    if (isYouTubePage()) return url.pathname === '/watch' ? new URLSearchParams(window.location.search).get('v') : null;
+    if (!findActiveVideo()) return null;
+    if (/(^|\.)netflix\.com$/.test(url.hostname) && !/^\/watch\/\d+/.test(url.pathname)) return null;
+    return url.hostname + url.pathname;
+  }
+
+  function getPlayerContainer() {
+    if (isYouTubePage()) return document.querySelector('#movie_player') || document.querySelector('.html5-video-player') || document.querySelector('video')?.parentElement;
+    const video = activeVideoEl?.isConnected ? activeVideoEl : findActiveVideo();
+    const fullscreen = document.fullscreenElement;
+    if (fullscreen && fullscreen.tagName !== 'VIDEO' && fullscreen.contains(video)) return fullscreen;
+    return video?.closest('.watch-video--player-view, .watch-video, .NFPlayer, .btm-media-client-element, .video-player, .video-js, [data-player-container], .html5-video-player') || video?.parentElement;
+  }
+
+  let subtitlePanelState = null;
+  async function requestJimaku(action, values, timeout = 15000) {
+    const result = await sendOwnedMessage(action, values, {timeout, timeoutError: 'Jimaku timed out. Try again or import a subtitle file.'});
+    if (!result.success) throw new Error(result.error || 'Jimaku could not complete the request. Try again.');
+    return result;
+  }
+  function setSubtitleOffset(value) {
+    if (!Number.isFinite(value) || Math.abs(value) > 3600) return;
+    timingOffset = Math.round(value * 10) / 10;
+    if (currentVideoId) chrome.storage.local.set({['lp_offset_' + currentVideoId]: timingOffset});
+    updateOffsetDisplay(); updateLyricsModalStatus();
+    const input = document.getElementById('lp-jimaku-offset'); if (input) input.value = timingOffset.toFixed(1);
+    currentSubIndex = -1; onTimeUpdate();
+  }
+
+  function selectWatchMode(mode, startSearch = true) {
+    if (!['auto', 'song', 'episode'].includes(mode) || !currentVideoId || mode === watchMode) return;
+    const vid = currentVideoId;
+    const reopen = !!playerUI?.subtitlePanel && !playerUI.subtitlePanel.hidden;
+    const keepLyrics = mode === 'song' && subtitleSourceKind === 'lyrics';
+    if (!keepLyrics) disposeWatchContext();
+    watchMode = mode;
+    if (keepLyrics) {
+      beginManualSource();
+      subtitlePanelState = null;
+      acquisition.modeOverride = mode; acquisition.modeReady = true;
+    } else {
+      if (playerUI?.subStatusBadge) playerUI.subStatusBadge.textContent = mode === 'song' ? 'Song lyrics' : mode === 'episode' ? 'Episode subtitles' : 'Subtitles';
+      acquisition = {vid, gen: ++acquisitionSeq, captionsSettled: mode === 'song' || !isYouTubePage(), rank: 0, manualRequest: 0, modeOverride: mode, modeReady: true, started: !startSearch};
+    }
+    if (!startSearch) lyricsFetchAttemptedVid = vid;
+    updateWatchModeControls();
+    chrome.storage.local.set({['lp_watch_mode_' + vid]: mode}, () => {
+      const error = chrome.runtime.lastError;
+      if (error && currentVideoId === vid) {
+        const status = document.getElementById('lp-watch-mode-status');
+        if (status) status.textContent = 'Using ' + mode + ' for now. Could not save this choice: ' + error.message;
+      }
+    });
+    if (startSearch && !keepLyrics) void checkAndInitVideo();
+    if (reopen) openSubtitlePanel();
+  }
+
+  function updateWatchModeControls() {
+    const select = document.getElementById('lp-watch-mode');
+    const status = document.getElementById('lp-watch-mode-status');
+    const song = watchMode === 'song' || (watchMode === 'auto' && subtitleSourceKind === 'lyrics');
+    if (select) { select.value = watchMode; select.disabled = !!acquisition && !acquisition.modeReady; }
+    if (status) status.textContent = watchMode === 'song' ? 'Song: synced lyrics from LRCLIB / Kugou. Applies to this video.' : watchMode === 'episode' ? 'Episode: video captions or Jimaku. Song searches are off. Applies to this video.' : song ? 'Auto: using song lyrics. Choose a mode to override.' : isYouTubePage() ? 'Auto: video captions first, then song lyrics. Choose Song or Episode when needed.' : 'Auto: episode subtitles. Choose Song for music.';
+    const current = document.getElementById('lp-jimaku-current');
+    if (current) {
+      const text = subtitleTimeline.length ? (subtitleSourceName || 'Current subtitles') + ' · ' + subtitleTimeline.length + ' cues' : song ? 'No lyrics loaded. Open the lyrics manager to search by track and artist.' : 'No subtitle file loaded. You can also import a local file.';
+      if (current.textContent !== text) current.textContent = text;
+    }
+    const episode = document.getElementById('lp-episode-sources');
+    const lyrics = document.getElementById('lp-song-sources');
+    if (episode) episode.hidden = song;
+    if (lyrics) lyrics.hidden = !song;
+    const fetchButton = document.getElementById('linguaplay-fetch-lyrics-btn');
+    if (fetchButton) fetchButton.hidden = !isYouTubePage() && !song;
+  }
+
+  function openSubtitlePanel() {
+    const panel = playerUI?.subtitlePanel;
+    if (!panel) return;
+    const wasHidden = panel.hidden;
+    const fromToolbar = !isPanelCollapsed;
+    if (fromToolbar) setPanelCollapsed(true);
+    panel.hidden = false;
+    playerUI.drawer?.classList.add('hidden');
+    if (!subtitlePanelState || subtitlePanelState.owner !== acquisition) {
+      subtitlePanelState = {owner: acquisition, search: 0, download: 0, staged: null};
+      document.getElementById('lp-jimaku-query').value = (isYouTubePage() ? getYouTubeVideoMetadata()?.title : document.title.replace(/\s*[-|]\s*(Netflix|Prime Video|Disney\+|Hulu|Crunchyroll|Vimeo).*$/i, '')) || '';
+      document.getElementById('lp-jimaku-results').innerHTML = '';
+      document.getElementById('lp-jimaku-preview').textContent = '';
+      document.getElementById('lp-jimaku-apply').disabled = true;
+      document.getElementById('lp-jimaku-status').textContent = watchMode === 'song' || subtitleSourceKind === 'lyrics' ? 'Use the lyrics manager to search by track and artist.' : 'Search by Japanese, English, or romaji title. Choose a release that matches your video.';
+    }
+    const current = document.getElementById('lp-jimaku-current');
+    current.textContent = subtitleTimeline.length ? (subtitleSourceName || 'Current subtitles') + ' · ' + subtitleTimeline.length + ' cues' : 'No subtitle file loaded. You can also import a local file.';
+    document.getElementById('lp-jimaku-offset').value = timingOffset.toFixed(1);
+    document.getElementById('lp-caption-meaning').checked = sentenceMeaningEnabled;
+    document.getElementById('lp-caption-opacity').value = String(captionOpacity);
+    document.getElementById('lp-caption-opacity-value').textContent = captionOpacity + '%';
+    updateCaptionSizeControls();
+    updateCaptionPositionControls();
+    updateWatchModeControls();
+    ensurePlayerControls();
+    if (wasHidden || fromToolbar) document.getElementById(watchMode === 'song' || subtitleSourceKind === 'lyrics' ? 'lp-watch-mode' : 'lp-jimaku-query').focus({preventScroll: true});
+  }
+
+  function setupSubtitlePanel(moviePlayer, fileInput) {
+    const panel = document.createElement('aside');
+    panel.id = 'linguaplay-subtitle-panel'; panel.hidden = true;
+    panel.setAttribute('aria-label', 'Subtitle settings');
+    panel.innerHTML = `
+      <header><strong>Subtitles</strong><button type="button" id="lp-jimaku-close">Close</button></header>
+      <label for="lp-watch-mode">Watching</label>
+      <select id="lp-watch-mode"><option value="auto">Auto</option><option value="song">Song — synced lyrics</option><option value="episode">Episode — captions / Jimaku</option></select>
+      <p id="lp-watch-mode-status" class="lp-muted" role="status"></p>
+      <p id="lp-jimaku-current" class="lp-muted"></p>
+      <div id="lp-song-sources" hidden><button type="button" id="lp-open-song-lyrics">Open lyrics manager</button></div>
+      <section id="lp-episode-sources">
+      <form id="lp-jimaku-form">
+        <label for="lp-jimaku-query">Find subtitles on Jimaku</label>
+        <input id="lp-jimaku-query" type="search" maxlength="256" placeholder="Anime or series title" required>
+        <div class="lp-source-row">
+          <label for="lp-jimaku-type">Type<select id="lp-jimaku-type"><option value="anime">Anime</option><option value="live">Live action</option></select></label>
+          <label for="lp-jimaku-episode">Episode<input id="lp-jimaku-episode" type="number" min="0" max="100000" step="1" placeholder="Any"></label>
+          <button type="submit" id="lp-jimaku-search">Search</button>
+        </div>
+      </form>
+      <div id="lp-jimaku-results"></div>
+      <pre id="lp-jimaku-preview" aria-label="Subtitle preview"></pre>
+      <button type="button" id="lp-jimaku-apply" class="lp-source-primary" disabled>Use selected subtitles</button>
+      <p class="lp-muted">Timing varies by release. Preview a file, then adjust its delay below. Archives need extracting before local import.</p>
+      <div class="lp-source-row"><button type="button" id="lp-jimaku-import">Import subtitle file</button><button type="button" id="lp-jimaku-settings">Jimaku API key</button></div>
+      <p class="lp-muted">SRT, VTT, ASS, SSA, LRC · up to 10 MB</p>
+      </section>
+      <p id="lp-jimaku-status" class="lp-muted" role="status" aria-live="polite"></p>
+      <div class="lp-source-timing">
+        <label for="lp-jimaku-offset">Subtitle delay (seconds)</label>
+        <div class="lp-source-row"><button type="button" id="lp-jimaku-earlier" aria-label="Show subtitles 0.1 seconds earlier">−0.1</button><input id="lp-jimaku-offset" type="number" min="-3600" max="3600" step="0.1" value="0.0"><button type="button" id="lp-jimaku-later" aria-label="Show subtitles 0.1 seconds later">+0.1</button><button type="button" id="lp-jimaku-reset">Reset</button></div>
+        <p class="lp-muted">Positive delay shows subtitles later.</p>
+        <button type="button" id="lp-jimaku-sync">Sync first line to playhead</button>
+      </div>
+      <div class="lp-caption-settings">
+        <label class="lp-check"><input type="checkbox" id="lp-caption-meaning" checked>English below Japanese</label>
+        <div class="lp-opacity-label"><label for="lp-caption-size">Subtitle size</label><output id="lp-caption-size-value" for="lp-caption-size">100%</output></div>
+        <input id="lp-caption-size" type="range" min="50" max="200" step="5" value="100" aria-valuetext="100%">
+        <div class="lp-opacity-label lp-muted"><span>Small</span><button type="button" id="lp-caption-size-reset">Default size</button><span>Large</span></div>
+        <div class="lp-opacity-label"><label for="lp-caption-horizontal">Horizontal position</label><output id="lp-caption-horizontal-value" for="lp-caption-horizontal">50%</output></div>
+        <input id="lp-caption-horizontal" type="range" min="0" max="100" step="1" value="50" aria-valuetext="50% from left">
+        <div class="lp-opacity-label lp-muted"><span>Left</span><span>Right</span></div>
+        <div class="lp-opacity-label"><label for="lp-caption-vertical">Vertical position</label><output id="lp-caption-vertical-value" for="lp-caption-vertical">0%</output></div>
+        <input id="lp-caption-vertical" type="range" min="0" max="100" step="1" value="0" aria-valuetext="0% from bottom">
+        <div class="lp-opacity-label lp-muted"><span>Bottom</span><span>Top</span></div>
+        <button type="button" id="lp-caption-position-reset">Default position</button>
+        <div class="lp-opacity-label"><label for="lp-caption-opacity">Background opacity</label><output id="lp-caption-opacity-value" for="lp-caption-opacity">18%</output></div>
+        <input id="lp-caption-opacity" type="range" min="0" max="100" step="1" value="18">
+        <div class="lp-opacity-label lp-muted"><span>Transparent</span><span>Solid</span></div>
+      </div>`;
+    moviePlayer.appendChild(panel); playerUI.subtitlePanel = panel;
+    ['click', 'keydown', 'keyup', 'pointerdown', 'pointerup', 'mousedown', 'mouseup'].forEach(name => panel.addEventListener(name, event => event.stopPropagation()));
+    const el = id => document.getElementById(id);
+    const status = message => { el('lp-jimaku-status').textContent = message; };
+    el('lp-jimaku-close').addEventListener('click', () => { panel.hidden = true; ensureDrawerPlacement(); playerUI.settingsToggle.focus({preventScroll: true}); });
+    el('lp-watch-mode').addEventListener('change', event => selectWatchMode(event.target.value));
+    el('lp-open-song-lyrics').addEventListener('click', () => playerUI.openLyricsModal?.({autoAiSearch: subtitleTimeline.length === 0}));
+    el('lp-jimaku-import').addEventListener('click', () => fileInput.click());
+    el('lp-jimaku-settings').addEventListener('click', () => chrome.runtime.sendMessage({action: 'OPEN_OPTIONS_PAGE'}));
+    el('lp-jimaku-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const query = el('lp-jimaku-query').value.trim(); if (!query) { status('Enter a title to search.'); return; }
+      const state = subtitlePanelState, version = ++state.search;
+      state.download++; state.staged = null; el('lp-jimaku-apply').disabled = true;
+      el('lp-jimaku-results').innerHTML = ''; el('lp-jimaku-preview').textContent = ''; status('Searching Jimaku…');
+      try {
+        const response = await requestJimaku('JIMAKU_SEARCH', {query, anime: el('lp-jimaku-type').value === 'anime'});
+        if (state !== subtitlePanelState || state.owner !== acquisition || version !== state.search) return;
+        const entries = response.entries || [];
+        status(entries.length ? 'Choose a title to see its subtitle files.' : 'No matching titles. Try another name, change the type, or import a file.');
+        for (const entry of entries) {
+          const button = document.createElement('button'); button.type = 'button'; button.className = 'lp-source-result';
+          const title = document.createElement('strong'); title.textContent = entry.english_name || entry.name; button.appendChild(title);
+          const jp = document.createElement('span'); jp.textContent = entry.japanese_name || entry.name; jp.lang = 'ja'; button.appendChild(jp);
+          button.addEventListener('click', () => loadFiles(entry, state)); el('lp-jimaku-results').appendChild(button);
+        }
+      } catch (error) { if (state === subtitlePanelState && state.owner === acquisition && version === state.search) status(error.message); }
+    });
+    async function loadFiles(entry, state) {
+      const version = ++state.search; state.download++; state.staged = null;
+      el('lp-jimaku-apply').disabled = true; el('lp-jimaku-preview').textContent = ''; status('Loading files for ' + (entry.english_name || entry.name) + '…');
+      try {
+        const response = await requestJimaku('JIMAKU_FILES', {entryId: entry.id, episode: el('lp-jimaku-episode').value});
+        if (state !== subtitlePanelState || state.owner !== acquisition || version !== state.search) return;
+        el('lp-jimaku-results').innerHTML = '';
+        const files = response.files || [];
+        status(files.length ? 'Select a file to preview. Use Search to choose another title.' : 'No files for this episode. Clear the episode filter and search again, or import a file.');
+        for (const file of files) {
+          const button = document.createElement('button'); button.type = 'button'; button.className = 'lp-source-result';
+          button.disabled = !file.supported;
+          const name = document.createElement('strong'); name.textContent = file.name; button.appendChild(name);
+          const detail = document.createElement('span'); detail.textContent = file.supported ? (file.name.split('.').pop().toUpperCase() + ' · ' + Math.ceil(file.size / 1024) + ' KB · Preview file') : 'Extract archives and import a supported subtitle file'; button.appendChild(detail);
+          button.addEventListener('click', () => previewFile(entry, file, state, button)); el('lp-jimaku-results').appendChild(button);
+        }
+      } catch (error) { if (state === subtitlePanelState && state.owner === acquisition && version === state.search) status(error.message); }
+    }
+    async function previewFile(entry, file, state, button) {
+      const version = ++state.download; state.staged = null;
+      el('lp-jimaku-apply').disabled = true; status('Downloading subtitle preview…');
+      for (const item of panel.querySelectorAll('.lp-source-result')) item.setAttribute('aria-pressed', String(item === button));
+      try {
+        const response = await requestJimaku('JIMAKU_DOWNLOAD', {entryId: entry.id, name: file.name}, 30000);
+        if (state !== subtitlePanelState || state.owner !== acquisition || version !== state.download) return;
+        const cues = parseSubtitleFile(response.text, file.name).filter(cue => Number.isFinite(cue.start) && Number.isFinite(cue.end) && cue.end > cue.start && typeof cue.text === 'string').sort((a, b) => a.start - b.start);
+        if (!cues.length || cues.length > 50000 || !cues.some(cue => hasJapaneseCharacters(cue.text))) throw new Error('This file has no usable Japanese subtitles. Choose another file.');
+        state.staged = {cues, name: file.name};
+        el('lp-jimaku-preview').textContent = cues.slice(0, 3).map(cue => cue.text).join('\n\n');
+        el('lp-jimaku-apply').disabled = false; status(cues.length + ' cues ready. Your current subtitles are still active.');
+      } catch (error) { if (state === subtitlePanelState && state.owner === acquisition && version === state.download) status(error.message); }
+    }
+    el('lp-jimaku-apply').addEventListener('click', () => {
+      const state = subtitlePanelState;
+      if (!state?.staged || state.owner !== acquisition) return;
+      const {cues, name} = state.staged;
+      const token = beginManualSource();
+      if (installSubtitleTimeline(cues, {source: 'jimaku', token})) {
+        subtitleSourceName = 'Jimaku · ' + name;
+        playerUI.subStatusBadge.textContent = 'Jimaku (' + cues.length + ')';
+        status('Loaded ' + name + '. Adjust delay if the lines do not match the audio.');
+        el('lp-jimaku-current').textContent = subtitleSourceName + ' · ' + cues.length + ' cues';
+        state.staged = null; el('lp-jimaku-apply').disabled = true;
+        ensureYouTubeCCEnabled();
+      }
+    });
+    el('lp-jimaku-offset').addEventListener('change', event => setSubtitleOffset(Number(event.target.value)));
+    el('lp-jimaku-earlier').addEventListener('click', () => setSubtitleOffset(timingOffset - 0.1));
+    el('lp-jimaku-later').addEventListener('click', () => setSubtitleOffset(timingOffset + 0.1));
+    el('lp-jimaku-reset').addEventListener('click', () => setSubtitleOffset(0));
+    el('lp-jimaku-sync').addEventListener('click', () => {
+      if (!activeVideoEl || !subtitleTimeline.length) { status('Load subtitles before syncing the first line.'); return; }
+      setSubtitleOffset(activeVideoEl.currentTime - subtitleTimeline[0].start);
+    });
+    el('lp-caption-meaning').addEventListener('change', event => {
+      sentenceMeaningEnabled = event.target.checked;
+      chrome.storage.local.set({linguaplay_sentence_meaning: sentenceMeaningEnabled}); updateCaptionTranslation(renderedSentence);
+    });
+    el('lp-caption-opacity').addEventListener('input', event => {
+      captionOpacity = Number(event.target.value); updateCaptionAppearance(); el('lp-caption-opacity-value').textContent = captionOpacity + '%';
+      chrome.storage.local.set({linguaplay_caption_opacity: captionOpacity});
+    });
+    el('lp-caption-size').addEventListener('input', event => {
+      const value = Number(event.target.value);
+      if (!validCaptionSize(value)) return;
+      captionSize = value; updateCaptionAppearance(); updateCaptionSizeControls();
+    });
+    el('lp-caption-size').addEventListener('change', () => {
+      chrome.storage.local.set({linguaplay_caption_size: captionSize});
+    });
+    el('lp-caption-size-reset').addEventListener('click', () => {
+      captionSize = 100; updateCaptionAppearance(); updateCaptionSizeControls();
+      chrome.storage.local.set({linguaplay_caption_size: captionSize});
+    });
+    for (const axis of ['horizontal', 'vertical']) {
+      el('lp-caption-' + axis).addEventListener('input', event => {
+        const next = {...captionPosition, [axis]: Number(event.target.value)};
+        if (!validCaptionPosition(next)) return;
+        captionPosition = next; updateCaptionAppearance(); updateCaptionPositionControls();
+      });
+      el('lp-caption-' + axis).addEventListener('change', () => {
+        chrome.storage.local.set({linguaplay_caption_position: captionPosition});
+      });
+    }
+    el('lp-caption-position-reset').addEventListener('click', () => {
+      captionPosition = {horizontal: 50, vertical: 0}; updateCaptionAppearance(); updateCaptionPositionControls();
+      chrome.storage.local.set({linguaplay_caption_position: captionPosition});
+    });
+  }
+
+  function validCaptionSize(value) {
+    return Number.isInteger(value) && value >= 50 && value <= 200;
+  }
+
+  function updateCaptionSizeControls() {
+    const slider = document.getElementById('lp-caption-size');
+    const output = document.getElementById('lp-caption-size-value');
+    const value = captionSize + '%';
+    if (slider) {
+      if (slider.value !== String(captionSize)) slider.value = String(captionSize);
+      if (slider.getAttribute('aria-valuetext') !== value) slider.setAttribute('aria-valuetext', value);
+    }
+    if (output && output.textContent !== value) output.textContent = value;
+  }
+
+  function updateCaptionAppearance() {
+    const overlay = playerUI?.overlay;
+    if (!overlay) return;
+    if (playerUI.appliedCaptionOpacity !== captionOpacity) {
+      overlay.style.setProperty('--langplay-caption-opacity', String(captionOpacity / 100));
+      overlay.style.setProperty('--langplay-glass-strength', String(Math.min(1, captionOpacity / 18)));
+      overlay.dataset.transparent = String(captionOpacity === 0);
+      playerUI.appliedCaptionOpacity = captionOpacity;
+    }
+    if (playerUI.appliedCaptionSize !== captionSize) {
+      overlay.style.setProperty('--langplay-caption-scale', String(captionSize / 100));
+      playerUI.appliedCaptionSize = captionSize;
+    }
+    if (playerUI.appliedCaptionX !== captionPosition.horizontal) {
+      overlay.style.setProperty('--langplay-caption-x', captionPosition.horizontal + '%');
+      playerUI.appliedCaptionX = captionPosition.horizontal;
+    }
+    if (playerUI.appliedCaptionY !== captionPosition.vertical) {
+      overlay.style.setProperty('--langplay-caption-y', (100 - captionPosition.vertical) + '%');
+      playerUI.appliedCaptionY = captionPosition.vertical;
+    }
+  }
+
+  function validCaptionPosition(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) &&
+      ['horizontal', 'vertical'].every(axis => Number.isInteger(value[axis]) && value[axis] >= 0 && value[axis] <= 100);
+  }
+
+  function updateCaptionPositionControls() {
+    for (const axis of ['horizontal', 'vertical']) {
+      const slider = document.getElementById('lp-caption-' + axis);
+      const output = document.getElementById('lp-caption-' + axis + '-value');
+      const percent = captionPosition[axis] + '%';
+      const description = percent + (axis === 'horizontal' ? ' from left' : ' from bottom');
+      if (slider) {
+        if (slider.value !== String(captionPosition[axis])) slider.value = String(captionPosition[axis]);
+        if (slider.getAttribute('aria-valuetext') !== description) slider.setAttribute('aria-valuetext', description);
+      }
+      if (output && output.textContent !== percent) output.textContent = percent;
+    }
+  }
+
+  const captionTranslationFailures = new Set();
+  const captionTranslations = new Map();
+  function updateCaptionTranslation(sentence, retry = false) {
+    const line = document.getElementById('linguaplay-caption-english');
+    if (!line) return;
+    const clean = (sentence || '').trim();
+    line.hidden = !sentenceMeaningEnabled || !clean || !isAppEnabled;
+    if (line.hidden) { line.textContent = ''; return; }
+    if (sentenceTranslationCache.has(clean)) { line.textContent = cachedTranslation(clean); line.title = line.textContent; return; }
+    if (retry) captionTranslationFailures.delete(clean);
+    if (captionTranslationFailures.has(clean)) {
+      line.innerHTML = '<button type="button" class="lp-caption-retry">Retry sentence meaning</button>';
+      line.title = sentenceTranslationErrors.get(clean) || 'Sentence translation unavailable. Try again.';
+      line.querySelector('button')?.addEventListener('click', event => { event.stopPropagation(); updateCaptionTranslation(clean, true); });
+      return;
+    }
+    line.title = '';
+    line.textContent = 'Translating…';
+    if (captionTranslations.has(clean) || captionTranslations.size >= 2) return;
+    const request = fetchSentenceTranslation(clean).then(translation => {
+      if (!translation) {
+        captionTranslationFailures.add(clean);
+        while (captionTranslationFailures.size > 64) captionTranslationFailures.delete(captionTranslationFailures.values().next().value);
+      }
+    }).finally(() => {
+      captionTranslations.delete(clean);
+      if (renderedSentence) updateCaptionTranslation(renderedSentence);
+    });
+    captionTranslations.set(clean, request);
+  }
+
   function renderSentenceTokens(sentenceText) {
     const renderVersion = ++subtitleRenderVersion;
     const videoId = currentVideoId;
     renderedSentence = sentenceText || '';
     const container = document.getElementById('linguaplay-yt-tokens');
     const overlay = document.getElementById('linguaplay-yt-tokens-overlay');
-    const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
+    const player = getPlayerContainer();
     if (!container) return;
 
     if (!isAppEnabled || !sentenceText || !sentenceText.trim() || !hasJapaneseCharacters(sentenceText)) {
       container.innerHTML = '';
-      if (overlay) overlay.classList.remove('active');
-      if (player) player.classList.remove('linguaplay-has-japanese');
+      overlay?.classList.remove('active');
+      player?.classList.remove('linguaplay-has-japanese');
+      updateCaptionTranslation('');
       return;
     }
-
-    if (overlay) overlay.classList.add('active');
-    if (player) player.classList.add('linguaplay-has-japanese');
-
+    overlay?.classList.add('active');
+    player?.classList.add('linguaplay-has-japanese');
     const tokens = tokenize(sentenceText);
     if (japaneseParser && !japaneseParser.cached(sentenceText)) {
       japaneseParser.request(sentenceText).then(parsed => {
-        if (parsed && renderVersion === subtitleRenderVersion && videoId === currentVideoId && renderedSentence === sentenceText) {
-          renderSentenceTokens(sentenceText);
-        }
+        if (parsed && renderVersion === subtitleRenderVersion && videoId === currentVideoId && renderedSentence === sentenceText) renderSentenceTokens(sentenceText);
       });
     }
     container.innerHTML = '';
-
     let offset = 0;
     tokens.forEach(tk => {
-      if (!tk.surface.trim()) return;
       const start = Number.isInteger(tk.start) ? tk.start : sentenceText.indexOf(tk.surface, offset);
-      const token = { ...tk, start, end: Number.isInteger(tk.end) ? tk.end : start + tk.surface.length };
-      offset = token.end;
-      const span = document.createElement('span');
-      span.className = 'linguaplay-yt-token';
-      span.dataset.word = tk.surface;
-      span.dataset.romaji = tk.romaji;
-      span.dataset.baseform = tk.baseForm;
-
-      let reading = tk.furigana || tk.reading;
-      let hiddenClass = '';
-      if (readingMode === 'romaji') {
-        reading = tk.romaji || tk.furigana;
-      } else if (readingMode === 'hidden') {
-        hiddenClass = 'hidden-reading';
+      if (start > offset) {
+        const gap = document.createElement('span'); gap.textContent = sentenceText.slice(offset, start); container.appendChild(gap);
       }
-
+      const token = {...tk, start, end: Number.isInteger(tk.end) ? tk.end : start + tk.surface.length};
+      offset = token.end;
+      if (!hasJapaneseCharacters(tk.surface)) {
+        const literal = document.createElement('span'); literal.textContent = tk.surface; container.appendChild(literal); return;
+      }
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'linguaplay-yt-token';
+      button.dataset.word = tk.surface;
+      button.dataset.romaji = tk.romaji;
+      button.dataset.baseform = tk.baseForm;
+      const reading = readingMode === 'romaji' ? tk.romaji || tk.furigana : tk.furigana || tk.reading;
+      button.setAttribute('aria-label', tk.surface + (reading ? ' (' + reading + ')' : '') + ' — study word');
       const readingSpan = document.createElement('span');
-      readingSpan.className = `linguaplay-token-reading ${hiddenClass}`;
+      readingSpan.className = 'linguaplay-token-reading' + (readingMode === 'hidden' ? ' hidden-reading' : '');
       readingSpan.textContent = reading || '\u00a0';
       const surfaceSpan = document.createElement('span');
-      surfaceSpan.className = 'linguaplay-jp-text';
-      surfaceSpan.textContent = tk.surface;
-      span.appendChild(readingSpan);
-      span.appendChild(surfaceSpan);
-
-      span.addEventListener('click', (e) => {
-        e.stopPropagation();
+      surfaceSpan.className = 'linguaplay-jp-text'; surfaceSpan.textContent = tk.surface;
+      button.appendChild(readingSpan); button.appendChild(surfaceSpan);
+      button.addEventListener('click', event => {
+        event.stopPropagation();
+        if (videoId !== currentVideoId || sentenceText !== renderedSentence) return;
+        selectedTokenElement = button;
         handleTokenClick(token, sentenceText);
       });
-
-      container.appendChild(span);
+      ['keydown', 'keyup', 'pointerdown', 'mousedown'].forEach(name => button.addEventListener(name, event => event.stopPropagation()));
+      container.appendChild(button);
     });
+    if (offset < sentenceText.length) { const tail = document.createElement('span'); tail.textContent = sentenceText.slice(offset); container.appendChild(tail); }
+    updateCaptionTranslation(sentenceText);
   }
 
-  // ── High-Speed Instant Sentence Translation Cache & Fetcher (Client-Side) ──
+  // The worker shares Google Translate and uses configured AI for sentence fallback.
   const sentenceTranslationCache = new Map();
+  const sentenceTranslationErrors = new Map();
+  const pendingSentenceTranslations = new Map();
   function cachedTranslation(key) {
     const value = sentenceTranslationCache.get(key);
     if (value !== undefined) { sentenceTranslationCache.delete(key); sentenceTranslationCache.set(key, value); }
@@ -1685,99 +2121,123 @@ Respond in JSON only:
     sentenceTranslationCache.delete(key); sentenceTranslationCache.set(key, value);
     while (sentenceTranslationCache.size > 500) sentenceTranslationCache.delete(sentenceTranslationCache.keys().next().value);
   }
-
   async function fetchSentenceTranslation(sentence) {
-    if (!sentence || !sentence.trim()) return '';
-    const clean = sentence.trim();
-    if (sentenceTranslationCache.has(clean)) {
-      return cachedTranslation(clean);
-    }
-    try {
-      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&q=${encodeURIComponent(clean)}`, {
-        signal: AbortSignal.timeout(4000)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        let translation = '';
-        if (data && data[0] && Array.isArray(data[0])) {
-          translation = data[0].map(segment => segment[0]).filter(Boolean).join('');
-        }
-        if (translation) {
-          cacheTranslation(clean, translation);
-          return translation;
-        }
+    const clean = (sentence || '').trim();
+    if (!clean || clean.length > 4096) return '';
+    if (sentenceTranslationCache.has(clean)) return cachedTranslation(clean);
+    if (pendingSentenceTranslations.has(clean)) return pendingSentenceTranslations.get(clean);
+    if (pendingSentenceTranslations.size >= 16) return '';
+    const work = sendOwnedMessage('TRANSLATE_JAPANESE', {text: clean}, {timeout: 45000, timeoutError: 'Sentence translation timed out. Try again.'}).then(result => {
+      if (!result.success) throw new Error(result.error || 'Sentence translation unavailable. Try again.');
+      const translation = typeof result.translation === 'string' ? result.translation.trim() : '';
+      if (!translation) throw new Error('No usable translation returned');
+      sentenceTranslationErrors.delete(clean);
+      cacheTranslation(clean, translation);
+      return translation;
+    }).catch(error => {
+      sentenceTranslationErrors.set(clean, error.message);
+      while (sentenceTranslationErrors.size > 64) sentenceTranslationErrors.delete(sentenceTranslationErrors.keys().next().value);
+      return '';
+    }).finally(() => pendingSentenceTranslations.delete(clean));
+    pendingSentenceTranslations.set(clean, work);
+    return work;
+  }
+
+  const dictionaryMeanings = new Map();
+  const dictionaryPending = new Map();
+  async function lookupWord(word) {
+    if (Object.prototype.hasOwnProperty.call(JDICT, word)) return JDICT[word];
+    if (dictionaryMeanings.has(word)) return dictionaryMeanings.get(word);
+    if (dictionaryPending.has(word)) return dictionaryPending.get(word);
+    if (!word || word.length > 256 || dictionaryPending.size >= 40) return '';
+    const work = sendOwnedMessage('TRANSLATE_JAPANESE', {text: word, dictionary: true}, {timeout: 18000}).then(result => {
+      const meaning = typeof result.translation === 'string' ? result.translation : '';
+      if (meaning) {
+        dictionaryMeanings.set(word, meaning);
+        while (dictionaryMeanings.size > 256) dictionaryMeanings.delete(dictionaryMeanings.keys().next().value);
       }
-    } catch (e) {
-      console.warn('[LinguaPlay] Sentence translation fetch error:', e);
+      return meaning;
+    }).catch(() => '').finally(() => dictionaryPending.delete(word));
+    dictionaryPending.set(word, work);
+    return work;
+  }
+
+  function renderStudySentence(sentence, targetWord, version) {
+    const container = document.getElementById('lp-sentence-jp');
+    if (!container) return;
+    const tokens = tokenize(sentence);
+    container.innerHTML = '';
+    let offset = 0;
+    for (const token of tokens) {
+      const start = Number.isInteger(token.start) ? token.start : sentence.indexOf(token.surface, offset);
+      if (start > offset) { const gap = document.createElement('span'); gap.textContent = sentence.slice(offset, start); container.appendChild(gap); }
+      offset = Number.isInteger(token.end) ? token.end : start + token.surface.length;
+      if (!hasJapaneseCharacters(token.surface)) { const literal = document.createElement('span'); literal.textContent = token.surface; container.appendChild(literal); continue; }
+      const word = document.createElement('span');
+      word.className = 'lp-sentence-word' + (token.surface === targetWord ? ' is-target' : '');
+      const ruby = document.createElement('ruby');
+      ruby.textContent = token.surface;
+      const reading = document.createElement('rt'); reading.textContent = token.romaji || '';
+      ruby.appendChild(reading); word.appendChild(ruby);
+      const gloss = document.createElement('span'); gloss.className = 'lp-word-gloss'; gloss.textContent = 'Loading…'; word.appendChild(gloss);
+      container.appendChild(word);
+      lookupWord(token.baseForm || token.surface).then(meaning => {
+        if (version !== drawerContextVersion || sentence !== drawerContextSentence) return;
+        gloss.title = meaning || 'No definition';
+        gloss.textContent = meaning ? meaning.split(';')[0].slice(0, 90) : 'No definition';
+      });
     }
-    return '';
+    if (offset < sentence.length) { const tail = document.createElement('span'); tail.textContent = sentence.slice(offset); container.appendChild(tail); }
+    const fallback = document.getElementById('lp-sentence-romaji');
+    if (fallback) fallback.style.display = tokens.some(token => token.romaji) ? 'none' : 'block';
+  }
+
+  function translateStudySentence(sentence, version) {
+    const english = document.getElementById('lp-sentence-en');
+    const retry = document.getElementById('lp-translation-retry');
+    if (retry) retry.hidden = true;
+    if (english) english.textContent = 'Translating with Google…';
+    return fetchSentenceTranslation(sentence).then(translation => {
+      if (version !== drawerContextVersion || sentence !== drawerContextSentence) return;
+      if (english) english.textContent = translation || 'Sentence translation unavailable. Try again.';
+      const chatEnglish = document.getElementById('lp-chat-sentence-en');
+      if (chatEnglish) chatEnglish.textContent = translation || '';
+      if (retry) retry.hidden = !!translation;
+      const status = document.getElementById('lp-sentence-speed'); if (status) status.textContent = '';
+    });
   }
 
   // ── Switch Drawer Navigation Tab (Breakdown vs Sensei Chatbot) ──
   function switchDrawerTab(tab) {
-    const tabBreakdownBtn = document.getElementById('lp-tab-breakdown-btn');
-    const tabChatBtn = document.getElementById('lp-tab-chat-btn');
-    const viewBreakdown = document.getElementById('lp-view-breakdown');
-    const viewChat = document.getElementById('lp-view-chat');
-
-    if (tab === 'chat') {
-      if (viewBreakdown) viewBreakdown.style.display = 'none';
-      if (viewChat) viewChat.style.display = 'block';
-      if (tabChatBtn) tabChatBtn.classList.add('active');
-      if (tabBreakdownBtn) tabBreakdownBtn.classList.remove('active');
-
-      const sentJpEl = document.getElementById('lp-sentence-jp');
-      const sentRomajiEl = document.getElementById('lp-sentence-romaji');
-      const sentEnEl = document.getElementById('lp-sentence-en');
-      const sentSpeedEl = document.getElementById('lp-sentence-speed');
-      const chatContextEl = document.getElementById('lp-chat-context-sentence');
-      const chatRomajiEl = document.getElementById('lp-chat-sentence-romaji');
-      const chatEnEl = document.getElementById('lp-chat-sentence-en');
-      const chatBadgeEl = document.getElementById('lp-sensei-provider-badge');
-
-      if (chatContextEl) {
-        if (sentJpEl && sentJpEl.innerHTML) {
-          chatContextEl.innerHTML = sentJpEl.innerHTML;
-        } else {
-          chatContextEl.textContent = drawerContextSentence || activeLiveSentence || '';
-        }
-      }
-      if (chatRomajiEl && sentRomajiEl) {
-        chatRomajiEl.innerHTML = sentRomajiEl.innerHTML;
-        chatRomajiEl.style.display = sentRomajiEl.style.display;
-      }
-      if (chatEnEl && sentEnEl) {
-        chatEnEl.innerHTML = sentEnEl.innerHTML;
-      }
-      if (chatBadgeEl && (!chatBadgeEl.textContent || chatBadgeEl.textContent === 'Instant')) {
-        chatBadgeEl.textContent = sentSpeedEl ? sentSpeedEl.textContent : 'Instant';
-      }
-
-      const chatInputEl = document.getElementById('lp-chat-input');
-      if (chatInputEl) {
-        setTimeout(() => chatInputEl.focus(), 50);
-      }
-    } else {
-      if (viewBreakdown) viewBreakdown.style.display = 'block';
-      if (viewChat) viewChat.style.display = 'none';
-      if (tabBreakdownBtn) tabBreakdownBtn.classList.add('active');
-      if (tabChatBtn) tabChatBtn.classList.remove('active');
-    }
+    const chat = document.getElementById('lp-view-chat');
+    if (chat) chat.style.display = 'block';
+    if (tab === 'chat') document.getElementById('lp-chat-input')?.focus();
   }
 
   // Use the outer sidebar: Mix/playlist panels may precede #secondary-inner.
   function ensureDrawerPlacement() {
     const drawer = playerUI?.drawer || document.getElementById('linguaplay-yt-drawer');
     if (!drawer) return;
-    const sidebar = ['#secondary', '#secondary-inner', '#related']
-      .map(selector => document.querySelector(selector))
-      .find(element => element && element.offsetParent !== null) || null;
-    if (sidebar) {
-      if (drawer.classList.contains('floating-fallback')) drawer.classList.remove('floating-fallback');
+    const player = getPlayerContainer();
+    const fullscreen = document.fullscreenElement;
+    const insidePlayer = !isYouTubePage() || !!(fullscreen && player && fullscreen.contains(player));
+    const sidebar = insidePlayer ? null : ['#secondary', '#secondary-inner', '#related']
+      .map(selector => document.querySelector(selector)).find(element => element && element.offsetParent !== null) || null;
+    if (drawer.classList.contains('floating-fallback') !== (!sidebar && !insidePlayer)) drawer.classList.toggle('floating-fallback', !sidebar && !insidePlayer);
+    if (drawer.classList.contains('in-player') !== insidePlayer) drawer.classList.toggle('in-player', insidePlayer);
+    if (insidePlayer && player) {
+      if (drawer.parentElement !== player) player.appendChild(drawer);
+    } else if (sidebar) {
       if (drawer.parentElement !== sidebar || sidebar.firstChild !== drawer) sidebar.insertBefore(drawer, sidebar.firstChild);
-    } else {
-      if (!drawer.classList.contains('floating-fallback')) drawer.classList.add('floating-fallback');
-      if (drawer.parentElement !== document.body) document.body.appendChild(drawer);
+    } else if (drawer.parentElement !== document.body) document.body.appendChild(drawer);
+    if (playerUI?.overlay) {
+      const sourcesOpen = !!playerUI.subtitlePanel && !playerUI.subtitlePanel.hidden;
+      const studyOpen = String((insidePlayer && !drawer.classList.contains('hidden')) || sourcesOpen);
+      if (playerUI.overlay.dataset.studyOpen !== studyOpen) playerUI.overlay.dataset.studyOpen = studyOpen;
+      if (playerUI.overlay.dataset.sourceOpen !== String(sourcesOpen)) {
+        playerUI.overlay.dataset.sourceOpen = String(sourcesOpen);
+        playerUI.overlay.style.setProperty('--langplay-panel-width', sourcesOpen ? '380px' : '340px');
+      }
     }
     if (drawerSidebar !== sidebar) {
       if (drawerPlacementObserver) drawerPlacementObserver.disconnect();
@@ -1803,6 +2263,8 @@ Respond in JSON only:
   function handleTokenClick(token, sentenceContext) {
     const drawer = playerUI?.drawer || document.getElementById('linguaplay-yt-drawer');
     if (!drawer) return;
+    if (typeof activeVideoEl?.pause === 'function') activeVideoEl.pause();
+    if (playerUI?.subtitlePanel) playerUI.subtitlePanel.hidden = true;
     ensureDrawerPlacement();
 
     const wordEl = document.getElementById('lp-active-word');
@@ -1857,14 +2319,11 @@ Respond in JSON only:
       definitionBase = base;
       const local = JDICT[base] || JDICT[selected.surface];
       if (local) { defEl.innerHTML = local; return; }
-      defEl.innerHTML = '<span style="opacity:0.6;">Looking up definition…</span>';
-      fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=en&dt=t&q=${encodeURIComponent(base)}`)
-        .then(r => r.json()).then(d => {
-          if (drawerContextVersion !== contextVersion || definitionBase !== base) return;
-          defEl.textContent = d?.[0]?.map(s => s[0]).filter(Boolean).join('') || 'No definition found';
-        }).catch(() => {
-          if (drawerContextVersion === contextVersion && definitionBase === base) defEl.textContent = 'Click Ask Sensei below for deep analysis.';
-        });
+      defEl.textContent = 'Looking up definition…';
+      lookupWord(base).then(meaning => {
+        if (drawerContextVersion !== contextVersion || definitionBase !== base) return;
+        defEl.textContent = meaning || 'No definition. Ask Sensei for help with this word.';
+      });
     }
 
     if (japaneseParser) {
@@ -1886,6 +2345,7 @@ Respond in JSON only:
         }
         const html = japaneseParser.romaji(contextSentence, token.surface);
         if (html != null) {
+          renderStudySentence(contextSentence, token.surface, contextVersion);
           if (sentRomajiEl) sentRomajiEl.innerHTML = html;
           if (chatRomajiEl) chatRomajiEl.innerHTML = html;
         }
@@ -1900,53 +2360,20 @@ Respond in JSON only:
         sentenceWrap.style.display = 'block';
         if (chatSentenceWrap) chatSentenceWrap.style.display = 'block';
 
-        if (token.surface && activeText.includes(token.surface)) {
-          const parts = activeText.split(token.surface);
-          const highlightedJp = parts.map(escapeHtmlText).join(`<span style="color:#a78bfa; font-weight:bold; background:rgba(167,139,250,0.2); padding:1px 4px; border-radius:4px;">${escapeHtmlText(token.surface)}</span>`);
-          sentJpEl.innerHTML = highlightedJp;
-          if (chatContextEl) chatContextEl.innerHTML = highlightedJp;
-        } else {
-          sentJpEl.textContent = activeText;
-          if (chatContextEl) chatContextEl.textContent = activeText;
-        }
+        renderStudySentence(activeText, token.surface, contextVersion);
 
         if (sentRomajiEl) {
           let romajiHtml = '';
           try { romajiHtml = generateSentenceRomaji(activeText, token.surface); } catch { romajiHtml = activeText.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
           sentRomajiEl.innerHTML = romajiHtml;
-          sentRomajiEl.style.display = romajiHtml ? 'block' : 'none';
+          sentRomajiEl.style.display = 'none';
           if (chatRomajiEl) {
             chatRomajiEl.innerHTML = romajiHtml;
             chatRomajiEl.style.display = romajiHtml ? 'block' : 'none';
           }
         }
 
-        if (sentenceTranslationCache.has(activeText)) {
-          const trans = cachedTranslation(activeText);
-          sentEnEl.textContent = trans;
-          if (chatEnEl) chatEnEl.textContent = trans;
-          if (sentSpeedEl) sentSpeedEl.textContent = '0ms (Cached)';
-          if (chatBadgeEl && (!chatBadgeEl.textContent || chatBadgeEl.textContent === 'Instant')) chatBadgeEl.textContent = '0ms (Cached)';
-        } else {
-          sentEnEl.innerHTML = '<span style="opacity:0.6; font-size:12px;">⚡ Translating sentence...</span>';
-          if (chatEnEl) chatEnEl.innerHTML = '<span style="opacity:0.6; font-size:12px;">⚡ Translating sentence...</span>';
-          if (sentSpeedEl) sentSpeedEl.textContent = 'Translating...';
-          const targetSentence = activeText;
-          fetchSentenceTranslation(targetSentence).then(trans => {
-            if (drawerContextSentence.trim() === targetSentence) {
-              if (trans) {
-                sentEnEl.textContent = trans;
-                if (chatEnEl) chatEnEl.textContent = trans;
-                if (sentSpeedEl) sentSpeedEl.textContent = 'Instant';
-                if (chatBadgeEl && (!chatBadgeEl.textContent || chatBadgeEl.textContent === 'Instant')) chatBadgeEl.textContent = 'Instant';
-              } else {
-                sentEnEl.textContent = 'Sentence translation unavailable';
-                if (chatEnEl) chatEnEl.textContent = 'Sentence translation unavailable';
-                if (sentSpeedEl) sentSpeedEl.textContent = '';
-              }
-            }
-          });
-        }
+        translateStudySentence(activeText, contextVersion);
       } else {
         sentenceWrap.style.display = 'none';
         if (chatSentenceWrap) chatSentenceWrap.style.display = 'none';
@@ -1957,9 +2384,9 @@ Respond in JSON only:
     aiResults.style.display = 'none';
     aiLoading.style.display = 'none';
     aiAnkiBtn.style.display = 'none';
-    aiAnkiBtn.textContent = '🗂️ Save Enriched AI Card to Anki';
+    aiAnkiBtn.textContent = 'Save enriched card';
     const quickAnkiBtn = document.getElementById('lp-quick-anki-btn');
-    if (quickAnkiBtn) quickAnkiBtn.textContent = '🗃️ Quick Add to Anki';
+    if (quickAnkiBtn) quickAnkiBtn.textContent = 'Save card';
     if (chatBox) chatBox.style.display = 'none';
     if (chatMessages) chatMessages.innerHTML = '';
     if (chatInput) chatInput.value = '';
@@ -1976,7 +2403,10 @@ Respond in JSON only:
     updateDefinition(token);
 
     drawer.classList.remove('hidden');
-    drawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const source = document.getElementById('lp-study-source');
+    if (source) source.textContent = subtitleSourceName || (isYouTubePage() ? 'YouTube captions' : 'Video subtitles');
+    ensureDrawerPlacement();
+    document.getElementById('lp-study-heading')?.focus({preventScroll: true});
   }
 
   // ── Render Full Structured Pedagogical AI Breakdown (Horizontal Gloss) ──
@@ -2044,11 +2474,13 @@ Respond in JSON only:
   // ── Hook Live YouTube Closed Captions (DOM & textTracks) ──
   function setupLiveCaptionHooking() {
     if (liveCaptionObserver) liveCaptionObserver.disconnect();
+    let lastCaptionContainer = null;
     const observer = new MutationObserver((records) => {
       if (!isAppEnabled) return;
-      const captionContainer = document.querySelector('.ytp-caption-window-container') || document.querySelector('.caption-window');
+      const captionContainer = isYouTubePage() ? document.querySelector('.ytp-caption-window-container') || document.querySelector('.caption-window') : document.querySelector('.player-timedtext');
       if (captionContainer) {
-        const segs = captionContainer.querySelectorAll('.ytp-caption-segment');
+        lastCaptionContainer = captionContainer;
+        const segs = captionContainer.querySelectorAll(isYouTubePage() ? '.ytp-caption-segment' : '.player-timedtext-text-container span');
         if (segs.length > 0) {
           const text = Array.from(segs).map(s => s.textContent || '').join(' ').trim();
           const captionChanged = (records || []).some(record => captionContainer.contains(record.target) || Array.from(record.addedNodes || []).some(node => node === captionContainer || node.contains?.(captionContainer)));
@@ -2067,10 +2499,13 @@ Respond in JSON only:
           activeLiveSentence = '';
           renderSentenceTokens('');
         }
+      } else if (lastCaptionContainer) {
+        lastCaptionContainer = null;
+        if (subtitleTimeline.length === 0) { activeLiveSentence = ''; renderSentenceTokens(''); }
       }
     });
 
-    const target = document.querySelector('#movie_player') || document.body;
+    const target = getPlayerContainer() || document.body;
     observer.observe(target, { childList: true, subtree: true, characterData: true });
     liveCaptionObserver = observer;
 
@@ -2114,12 +2549,13 @@ Respond in JSON only:
       lastAiData = null;
       renderSentenceTokens('');
       playerUI?.drawer?.classList.add('hidden');
+      if (playerUI?.subtitlePanel) playerUI.subtitlePanel.hidden = true;
       setPanelCollapsed(true);
       return;
     }
 
     setPanelCollapsed(false);
-    inspectAndSwitchPlayerTracks();
+    if (isYouTubePage()) inspectAndSwitchPlayerTracks();
     // Playback may have advanced while off; do not restore the old cue.
     currentSubIndex = -1;
     onTimeUpdate();
@@ -2158,6 +2594,8 @@ Respond in JSON only:
     const widget = playerUI?.widget;
     if (!widget) return;
     const trigger = playerUI.settingsToggle;
+    if (playerUI.readingSelect && playerUI.readingSelect.value !== readingMode) playerUI.readingSelect.value = readingMode;
+    if (isPanelCollapsed && playerUI.moreMenu?.open) playerUI.moreMenu.open = false;
     trigger.classList.toggle('app-disabled', !isAppEnabled);
     const label = isAppEnabled ? 'LinguaPlay settings' : 'LinguaPlay is OFF — Click to turn ON';
     trigger.title = label;
@@ -2179,19 +2617,42 @@ Respond in JSON only:
   function ensurePlayerControls() {
     if (!playerUI) return;
     ensureDrawerPlacement();
-    const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player') || document.querySelector('video')?.parentElement;
+    const player = getPlayerContainer();
     if (!player) {
       playerUI.controls.remove();
       playerUI.widget.hidden = true;
       return;
     }
     const { controls, widget, overlay } = playerUI;
+    const video = activeVideoEl;
+    if (video?.videoWidth && video.videoHeight) {
+      const playerRect = player.getBoundingClientRect(), videoRect = video.getBoundingClientRect();
+      const scale = Math.min(videoRect.width / video.videoWidth, videoRect.height / video.videoHeight);
+      const pictureBottom = videoRect.top + (videoRect.height + video.videoHeight * scale) / 2;
+      const inset = `${Math.max(80, playerRect.bottom - pictureBottom + 80)}px`;
+      if (playerUI.captionBottom !== inset) { overlay.style.setProperty('--langplay-caption-bottom', inset); playerUI.captionBottom = inset; }
+    }
     if (overlay.parentElement !== player) player.appendChild(overlay);
     if (widget.parentElement !== player) player.appendChild(widget);
     if (playerUI.player !== player) {
       playerUI.player = player;
       setupLiveCaptionHooking();
     }
+    updateCaptionAppearance();
+    if (playerUI.subtitlePanel && playerUI.subtitlePanel.parentElement !== player) player.appendChild(playerUI.subtitlePanel);
+    const generic = !isYouTubePage();
+    if (player.classList.contains('linguaplay-generic-player') !== generic) player.classList.toggle('linguaplay-generic-player', generic);
+    if (generic) {
+      if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
+      widget.hidden = false;
+      if (controls.parentElement !== player) player.appendChild(controls);
+      if (!controls.classList.contains('linguaplay-generic-controls')) controls.classList.add('linguaplay-generic-controls');
+      if (widget.style.bottom !== '96px') widget.style.bottom = '96px';
+      if (widget.style.right !== '16px') widget.style.right = '16px';
+      if (!playerUI.subStatusBadge.textContent) playerUI.subStatusBadge.textContent = 'Subtitles';
+      return;
+    }
+    if (controls.classList.contains('linguaplay-generic-controls')) controls.classList.remove('linguaplay-generic-controls');
     const rightControls = player.querySelector('.ytp-right-controls');
     if (widget.hidden !== !rightControls) widget.hidden = !rightControls;
     if (!rightControls) {
@@ -2226,13 +2687,13 @@ Respond in JSON only:
       return;
     }
 
-    const moviePlayer = document.querySelector('#movie_player') || document.querySelector('.html5-video-player') || document.querySelector('video')?.parentElement;
+    const moviePlayer = getPlayerContainer();
     if (!moviePlayer) return;
 
     // 1. Hidden file input for manual .srt/.vtt/.lrc upload on YouTube
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = '.srt,.vtt,.lrc';
+    fileInput.accept = '.srt,.vtt,.lrc,.ass,.ssa';
     fileInput.id = 'linguaplay-manual-sub-input';
     fileInput.style.display = 'none';
     document.body.appendChild(fileInput);
@@ -2240,6 +2701,8 @@ Respond in JSON only:
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      e.target.value = '';
+      if (file.size > 10 * 1024 * 1024) { openSubtitlePanel(); document.getElementById('lp-jimaku-status').textContent = 'Subtitle is larger than 10 MB.'; return; }
       const sourceToken = beginManualSource();
       const reader = new FileReader();
       reader.onload = (evt) => {
@@ -2250,16 +2713,29 @@ Respond in JSON only:
           if (statusBadge) statusBadge.textContent = `Subs (${cues.length})`;
           updateLyricsModalStatus();
           ensureYouTubeCCEnabled();
-          alert(`Loaded ${cues.length} subtitle cues from ${file.name}!`);
+          subtitleSourceName = file.name;
+          openSubtitlePanel();
+          document.getElementById('lp-jimaku-status').textContent = 'Loaded ' + file.name + ' · ' + cues.length + ' cues.';
+        } else if (sourceIsCurrent(sourceToken)) {
+          openSubtitlePanel(); document.getElementById('lp-jimaku-status').textContent = 'No usable subtitles found. Choose an SRT, VTT, ASS, SSA, or LRC file.';
         }
       };
-      reader.readAsText(file);
+      reader.onerror = () => { if (sourceIsCurrent(sourceToken)) { openSubtitlePanel(); document.getElementById('lp-jimaku-status').textContent = 'Could not read the file. Try importing it again.'; } };
+      if (typeof file.arrayBuffer === 'function') {
+        file.arrayBuffer().then(buffer => {
+          const bytes = new Uint8Array(buffer); let text;
+          if (bytes[0] === 255 && bytes[1] === 254) text = new TextDecoder('utf-16le').decode(bytes);
+          else if (bytes[0] === 254 && bytes[1] === 255) text = new TextDecoder('utf-16be').decode(bytes);
+          else { try { text = new TextDecoder('utf-8', {fatal: true}).decode(bytes); } catch { text = new TextDecoder('shift_jis').decode(bytes); } }
+          reader.onload({target: {result: text}});
+        }).catch(reader.onerror);
+      } else reader.readAsText(file);
     });
 
     // 2. Subtitle Tokens Area (Centered Bottom of Video)
     const overlay = document.createElement('div');
     overlay.id = 'linguaplay-yt-tokens-overlay';
-    overlay.innerHTML = `<div id="linguaplay-yt-tokens"></div>`;
+    overlay.innerHTML = `<div id="linguaplay-caption-surface"><div id="linguaplay-yt-tokens" lang="ja"></div><div id="linguaplay-caption-english" lang="en" hidden></div></div>`;
     moviePlayer.appendChild(overlay);
 
     // 3. Settings panel above the native player control bar.
@@ -2268,22 +2744,30 @@ Respond in JSON only:
     if (isPanelCollapsed) widget.classList.add('collapsed');
 
     widget.innerHTML = `
-      <div id="linguaplay-yt-bar" role="group" aria-label="LinguaPlay settings">
-        <button type="button" id="linguaplay-bar-logo" class="linguaplay-bar-logo-btn" title="Turn OFF LinguaPlay (stop subtitles)">
-          <span>言</span> <span>LinguaPlay</span>
+      <div id="linguaplay-yt-bar" role="group" aria-label="LinguaPlay controls">
+        <button type="button" id="linguaplay-bar-logo" class="linguaplay-toolbar-icon" title="Turn off LinguaPlay" aria-label="Turn off LinguaPlay">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9M6.3 5.8a8 8 0 1 0 11.4 0"/></svg>
         </button>
-        <button class="linguaplay-bar-btn ${readingMode === 'furigana' ? 'active' : ''}" data-mode="furigana">Furigana</button>
-        <button class="linguaplay-bar-btn ${readingMode === 'romaji' ? 'active' : ''}" data-mode="romaji">Romaji</button>
-        <button class="linguaplay-bar-btn ${readingMode === 'hidden' ? 'active' : ''}" data-mode="hidden">Hidden</button>
-        <span style="width: 1px; height: 12px; background: rgba(255,255,255,0.2); margin: 0 1px;"></span>
-        <button class="linguaplay-bar-btn" id="linguaplay-offset-sub" title="Advance -0.1s">-0.1s</button>
-        <span id="linguaplay-offset-display" style="font-size: 10px; font-family: monospace; color: #cbd5e1; padding: 0 1px;">0.0s</span>
-        <button class="linguaplay-bar-btn" id="linguaplay-offset-add" title="Delay +0.1s">+0.1s</button>
-        <button class="linguaplay-bar-btn" id="linguaplay-repeat-btn" title="Repeat Cue (Shortcut: R)">🔁</button>
-        <button class="linguaplay-bar-btn" id="linguaplay-upload-sub-btn" title="Upload Japanese .srt/.vtt/.lrc subtitle file">📁</button>
-        <button class="linguaplay-bar-btn" id="linguaplay-fetch-lyrics-btn" title="Lyrics Manager (Search Synced Lyrics & Audio Timing)" style="background:rgba(124,58,237,0.35); border-color:#a78bfa; color:#fff; font-weight:600;">🎵 Lyrics</button>
-        <button class="linguaplay-bar-btn" id="linguaplay-open-settings-btn" title="Open Extension Settings" style="background: rgba(124,58,237,0.25); border-color:rgba(167,139,250,0.5); color:#fff;">⚙️</button>
-        <button class="linguaplay-bar-btn linguaplay-collapse-btn" id="linguaplay-collapse-btn" title="Collapse Bar">✕</button>
+        <select id="linguaplay-reading-mode" aria-label="Subtitle reading" title="Subtitle reading">
+          <option value="furigana">Furigana</option>
+          <option value="romaji">Romaji</option>
+          <option value="hidden">Japanese only</option>
+        </select>
+        <button type="button" class="linguaplay-bar-btn" id="linguaplay-jimaku-btn" aria-controls="linguaplay-subtitle-panel" title="Subtitle sources, timing, size, position and opacity">Subtitles</button>
+        <details id="linguaplay-more-menu">
+          <summary id="linguaplay-more-trigger" class="linguaplay-toolbar-icon" aria-label="More LinguaPlay controls" title="More controls">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+          </summary>
+          <div class="linguaplay-more-actions">
+            <button type="button" id="linguaplay-repeat-btn">Repeat current line</button>
+            <button type="button" id="linguaplay-upload-sub-btn">Import subtitles…</button>
+            <button type="button" id="linguaplay-fetch-lyrics-btn">Find lyrics…</button>
+            <button type="button" id="linguaplay-open-settings-btn">Extension settings</button>
+          </div>
+        </details>
+        <button type="button" class="linguaplay-toolbar-icon" id="linguaplay-collapse-btn" title="Close controls" aria-label="Close LinguaPlay controls">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
       </div>
     `;
     moviePlayer.appendChild(widget);
@@ -2301,7 +2785,7 @@ Respond in JSON only:
           <path d="m3 3 18 18M10.6 5.1A12 12 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-3 4M6.5 6.5A18 18 0 0 0 2 12s3.5 7 10 7a12 12 0 0 0 5.5-1.5M10 10a3 3 0 0 0 4 4"/>
         </svg>
       </button>
-      <span id="linguaplay-sub-status" class="linguaplay-sub-status-badge" title="Click to open Lyrics Manager" role="button" tabindex="0"></span>
+      <span id="linguaplay-sub-status" class="linguaplay-sub-status-badge" title="Choose subtitles or search Jimaku" role="button" tabindex="0"></span>
       <button type="button" class="ytp-button" id="linguaplay-toggle-trigger" title="LinguaPlay settings" aria-label="LinguaPlay settings" aria-controls="linguaplay-yt-bar" aria-expanded="false">
         <span aria-hidden="true">言</span>
       </button>
@@ -2309,101 +2793,74 @@ Respond in JSON only:
     const visibilityToggle = controls.querySelector('#linguaplay-visibility-toggle');
     const subStatusBadge = controls.querySelector('#linguaplay-sub-status');
     const settingsToggle = controls.querySelector('#linguaplay-toggle-trigger');
-    playerUI = { player: moviePlayer, controls, widget, overlay, visibilityToggle, subStatusBadge, settingsToggle };
+    const readingSelect = widget.querySelector('#linguaplay-reading-mode');
+    const moreMenu = widget.querySelector('#linguaplay-more-menu');
+    readingSelect.value = readingMode;
+    playerUI = { player: moviePlayer, controls, widget, overlay, visibilityToggle, subStatusBadge, settingsToggle, readingSelect, moreMenu };
+    moreMenu.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { moreMenu.open = false; }));
 
     // 4. Translation Panel (Defaults to Native Sidebar or Body)
     const drawer = document.createElement('div');
     drawer.id = 'linguaplay-yt-drawer';
     drawer.className = 'hidden';
+    drawer.setAttribute('role', 'complementary');
+    drawer.setAttribute('aria-label', 'LangPlay word study');
     drawer.innerHTML = `
       <div class="linguaplay-drawer-header">
-        <div style="flex:1; min-width:0; padding-right:12px;">
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:2px;">
-            <span id="lp-active-romaji" style="font-size: 13px; color: #fda4af; font-family: monospace; font-weight: 500;"></span>
-            <span id="lp-active-pos" style="font-size: 11px; color: #94a3b8;"></span>
-          </div>
-          <div style="display:flex; align-items:baseline; flex-wrap:wrap; gap:8px;">
-            <h3 id="lp-active-word" style="font-size: 26px; font-weight: bold; color: white; margin: 0; line-height: 1.2;"></h3>
-            <span id="lp-def-separator" style="color: #a78bfa; font-size: 16px; font-weight: 600;">—</span>
-            <span id="lp-active-def" style="font-size: 14px; color: #e2e8f0; line-height: 1.4; font-weight: 500;"></span>
-          </div>
-        </div>
-        <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
-          <button id="lp-drawer-settings-btn" title="Open Extension Settings" style="background:rgba(255,255,255,0.08); border:none; color:#cbd5e1; font-size:12px; cursor:pointer; padding:5px 8px; border-radius:6px; transition:0.2s;">⚙️ Settings</button>
-          <button id="lp-dismiss-btn" style="background:rgba(255,255,255,0.08); border:none; color:#cbd5e1; font-size:12px; cursor:pointer; padding:5px 10px; border-radius:6px; transition:0.2s;">✕ Close</button>
+        <strong id="lp-study-heading" tabindex="-1">Study</strong>
+        <div class="lp-header-actions">
+          <button type="button" id="lp-drawer-settings-btn" aria-label="Open extension settings">Settings</button>
+          <button type="button" id="lp-dismiss-btn">Close</button>
         </div>
       </div>
-
-      <!-- Navigation Tabs: Breakdown vs Sensei Chatbot -->
-      <div class="linguaplay-drawer-tabs">
-        <button id="lp-tab-breakdown-btn" class="linguaplay-tab-btn active">
-          <span>📖</span> <span>Breakdown & Gloss</span>
-        </button>
-        <button id="lp-tab-chat-btn" class="linguaplay-tab-btn">
-          <span>🧑‍🏫</span> <span>Sensei Chat</span>
-        </button>
-      </div>
-
-      <!-- Tab 1: Breakdown & Sentence View -->
+      <h2 id="lp-active-word" lang="ja"></h2>
+      <p id="lp-active-romaji"></p>
+      <p id="lp-active-pos"></p>
+      <p id="lp-active-def"></p>
       <div id="lp-view-breakdown">
-        <div id="lp-sentence-wrapper" class="linguaplay-card-wrapper" style="display:none; margin-bottom:10px; background:rgba(30,27,75,0.45); border:1px solid rgba(139,92,246,0.3); border-radius:10px; padding:10px 12px;">
-          <div style="font-size:10px; font-weight:bold; color:#a78bfa; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.04em; display:flex; justify-content:space-between; align-items:center;">
-            <span>💬 Context Sentence</span>
-            <span id="lp-sentence-speed" style="font-size:9.5px; color:#34d399; font-weight:600; text-transform:none;"></span>
-          </div>
-          <div id="lp-sentence-jp" style="font-size:14px; color:#f8fafc; font-weight:500; line-height:1.5; margin-bottom:2px; font-family:'Noto Sans JP',sans-serif;"></div>
-          <div id="lp-sentence-romaji" style="font-size:12px; color:#fda4af; font-family:monospace; line-height:1.4; margin-bottom:4px;"></div>
-          <div id="lp-sentence-en" style="font-size:13px; color:#cbd5e1; line-height:1.45; font-style:italic;"></div>
+        <div id="lp-sentence-wrapper" class="lp-sentence-context" style="display:none;">
+          <div id="lp-sentence-jp" lang="ja"></div>
+          <div id="lp-sentence-romaji" lang="ja-Latn"></div>
+          <p id="lp-sentence-en" lang="en" aria-live="polite"></p>
+          <span id="lp-sentence-speed" hidden></span>
+          <button type="button" id="lp-translation-retry" hidden>Retry translation</button>
         </div>
-
-        <button id="lp-quick-anki-btn" class="linguaplay-btn linguaplay-btn-secondary">
-          🗃️ Quick Add to Anki
-        </button>
-
-        <button id="lp-ai-btn" class="linguaplay-btn linguaplay-btn-primary">
-          ✨ Ask Sensei (AI Grammar Tutor)
-        </button>
-
+        <p id="lp-study-source" class="lp-muted"></p>
+        <div class="lp-study-actions">
+          <button type="button" id="lp-quick-anki-btn" class="linguaplay-btn linguaplay-btn-secondary">Save card</button>
+          <button type="button" id="lp-ai-btn" class="linguaplay-btn linguaplay-btn-secondary">Explain this sentence</button>
+        </div>
         <div id="lp-ai-section">
-          <div id="lp-ai-loading" style="display:none; font-size: 12px; color: #a78bfa; text-align: center; padding: 10px 0;">
-            <span style="display:inline-block; animation:spin 1s linear infinite;">⚡</span> Sensei is analyzing…
-          </div>
-          <div id="lp-ai-results" style="margin-top: 10px; display: none;"></div>
-          <button id="lp-ai-anki-btn" class="linguaplay-btn linguaplay-btn-secondary" style="display:none; margin-top: 8px;">
-            🗂️ Save Enriched AI Card to Anki
-          </button>
+          <div id="lp-ai-loading" role="status" style="display:none;">Sensei is analyzing…</div>
+          <div id="lp-ai-results" style="display:none;"></div>
+          <button type="button" id="lp-ai-anki-btn" class="linguaplay-btn linguaplay-btn-secondary" style="display:none;">Save enriched card</button>
         </div>
       </div>
-
-      <!-- Tab 2: Dedicated Chatbot View -->
-      <div id="lp-view-chat" style="display:none;">
-        <div id="lp-chat-sentence-wrapper" class="linguaplay-card-wrapper" style="margin-bottom:10px; background:rgba(30,27,75,0.45); border:1px solid rgba(139,92,246,0.3); border-radius:10px; padding:10px 12px;">
-          <div style="font-size:10px; font-weight:bold; color:#a78bfa; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.04em; display:flex; justify-content:space-between; align-items:center;">
-            <span>💬 Context Sentence</span>
-            <span id="lp-sensei-provider-badge" style="font-size:9.5px; color:#34d399; font-weight:600; text-transform:none;"></span>
-          </div>
-          <div id="lp-chat-context-sentence" style="font-size:14px; color:#f8fafc; font-weight:500; line-height:1.5; margin-bottom:2px; font-family:'Noto Sans JP',sans-serif;"></div>
-          <div id="lp-chat-sentence-romaji" style="font-size:12px; color:#fda4af; font-family:monospace; line-height:1.4; margin-bottom:4px;"></div>
-          <div id="lp-chat-sentence-en" style="font-size:13px; color:#cbd5e1; line-height:1.45; font-style:italic;"></div>
+      <div id="lp-view-chat">
+        <div id="lp-chat-sentence-wrapper" hidden>
+          <div id="lp-chat-context-sentence"></div><div id="lp-chat-sentence-romaji"></div>
+          <div id="lp-chat-sentence-en"></div><span id="lp-sensei-provider-badge"></span>
         </div>
-
-        <div class="lp-chat-chips-row" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;">
-          <button class="lp-chat-chip" data-prompt="Why is this particle used here?">Why this particle?</button>
-          <button class="lp-chat-chip" data-prompt="Break down the grammar step-by-step.">Grammar breakdown</button>
-          <button class="lp-chat-chip" data-prompt="Give me 2 more natural example sentences with this word.">2 More examples</button>
-          <button class="lp-chat-chip" data-prompt="Explain the nuance and politeness level.">Nuance & Politeness</button>
+        <div class="lp-chat-chips-row">
+          <button type="button" class="lp-chat-chip" data-prompt="Why is this particle used here?">Why this particle?</button>
+          <button type="button" class="lp-chat-chip" data-prompt="Explain the nuance and politeness level.">Nuance</button>
         </div>
-
-        <div id="lp-chat-messages" style="max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px; padding-right:4px;"></div>
-
-        <div style="display:flex; gap:6px;">
-          <input type="text" id="lp-chat-input" placeholder="Ask Sensei anything about this sentence..." style="flex:1; background:rgba(15,23,42,0.85); border:1px solid rgba(167,139,250,0.3); border-radius:8px; padding:7px 10px; color:#f8fafc; font-size:12px; outline:none;" />
-          <button id="lp-chat-send-btn" class="linguaplay-btn linguaplay-btn-primary" style="padding:7px 12px; font-size:12px; width:auto; margin:0; cursor:pointer;">Send</button>
+        <div id="lp-chat-messages" aria-live="polite"></div>
+        <label for="lp-chat-input">Ask about this sentence</label>
+        <div class="lp-question-row">
+          <input type="text" id="lp-chat-input" maxlength="2000" placeholder="Why is this form used?">
+          <button type="button" id="lp-chat-send-btn">Ask</button>
         </div>
+      </div>
+      <div class="lp-study-footer">
+        <button type="button" id="lp-resume-btn" class="linguaplay-btn linguaplay-btn-primary">Resume watching</button>
+        <p class="lp-muted">Close or Escape keeps playback paused.</p>
       </div>
     `;
 
     playerUI.drawer = drawer;
+    setupSubtitlePanel(moviePlayer, fileInput);
+    document.getElementById('linguaplay-jimaku-btn').addEventListener('click', openSubtitlePanel);
     ensureDrawerPlacement();
 
     // 5. Retractable Widget Toggle Listeners
@@ -2437,7 +2894,11 @@ Respond in JSON only:
       });
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !isPanelCollapsed) {
+      if (e.key === 'Escape' && moreMenu.open && widget.contains(e.target)) {
+        e.preventDefault(); e.stopImmediatePropagation(); moreMenu.open = false;
+        document.getElementById('linguaplay-more-trigger').focus(); return;
+      }
+      if (e.key === 'Escape' && !isPanelCollapsed && (widget.contains(e.target) || (drawer.classList.contains('hidden') && playerUI.subtitlePanel.hidden))) {
         e.preventDefault();
         e.stopPropagation();
         setPanelCollapsed(true);
@@ -2449,28 +2910,13 @@ Respond in JSON only:
     });
 
     // 6. Bar Event Listeners
-    widget.querySelectorAll('[data-mode]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        widget.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        readingMode = btn.dataset.mode;
-        chrome.storage.local.set({ linguaplay_reading_mode: readingMode });
-        if (currentSubIndex >= 0 && subtitleTimeline[currentSubIndex]) {
-          renderSentenceTokens(subtitleTimeline[currentSubIndex].text);
-        } else if (activeLiveSentence) {
-          renderSentenceTokens(activeLiveSentence);
-        }
-      });
-    });
-
-    document.getElementById('linguaplay-offset-sub').addEventListener('click', () => {
-      timingOffset = Math.round((timingOffset - 0.1) * 10) / 10;
-      updateOffsetDisplay();
-    });
-
-    document.getElementById('linguaplay-offset-add').addEventListener('click', () => {
-      timingOffset = Math.round((timingOffset + 0.1) * 10) / 10;
-      updateOffsetDisplay();
+    readingSelect.addEventListener('change', () => {
+      if (!['furigana', 'romaji', 'hidden'].includes(readingSelect.value)) return;
+      readingMode = readingSelect.value;
+      chrome.storage.local.set({ linguaplay_reading_mode: readingMode });
+      if (currentSubIndex >= 0 && subtitleTimeline[currentSubIndex]) {
+        renderSentenceTokens(subtitleTimeline[currentSubIndex].text);
+      } else if (activeLiveSentence) renderSentenceTokens(activeLiveSentence);
     });
 
     document.getElementById('linguaplay-repeat-btn').addEventListener('click', () => {
@@ -2664,7 +3110,7 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       });
     }
 
-    let isModalAiIdentifying = false;
+    let modalAiToken = null;
 
     async function runModalLyricsSearch(prefixBannerHtml = '', sourceToken = beginManualSource()) {
       if (!sourceIsCurrent(sourceToken)) return false;
@@ -2708,7 +3154,7 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       if (response && response.success && response.syncedLyrics) {
         const cues = parseLRC(response.syncedLyrics);
         if (cues && cues.length > 0) {
-          if (!installSubtitleTimeline(cues, {source: 'manual', token: sourceToken})) return false;
+          if (!installSubtitleTimeline(cues, {source: 'lyrics-manual', token: sourceToken})) return false;
           const provName = response.provider === 'kugou' ? 'Kugou Music' : 'LRCLIB';
           const provTag = response.provider === 'kugou' ? ' [Kugou]' : (prefixBannerHtml ? ' [AI]' : '');
           const statusBadge = playerUI?.subStatusBadge || document.getElementById('linguaplay-sub-status');
@@ -2723,7 +3169,7 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
           }
 
           // Persist to local cache so user never has to re-search this video
-          if (currentVideoId && chrome.storage?.local) {
+          if (isYouTubePage() && currentVideoId && chrome.storage?.local) {
             cacheLyrics(searchVid, {
                 trackName: response.trackName || track,
                 artistName: response.artistName || artist,
@@ -2754,7 +3200,7 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
     }
 
     async function runModalAiIdentifyAndSearch() {
-      if (isModalAiIdentifying) return;
+      if (modalAiToken && sourceIsCurrent(modalAiToken)) return;
       const listContainer = document.getElementById('lp-search-results-list');
       const aiBtn = document.getElementById('lp-ai-identify-btn');
       const trackInp = document.getElementById('lp-search-track-input');
@@ -2769,7 +3215,8 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
         return;
       }
 
-      isModalAiIdentifying = true;
+      const sourceToken = beginManualSource();
+      modalAiToken = sourceToken;
       if (statusBadge && subtitleTimeline.length === 0) {
         statusBadge.textContent = '✨ AI Identifying...';
       }
@@ -2781,16 +3228,16 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
         listContainer.innerHTML = '<div style="font-size:11px; color:#ec4899; display:flex; align-items:center; gap:6px;"><span>✨</span> Sensei AI is analyzing video title and identifying artist...</div>';
       }
 
-      const identifyVid = currentVideoId;
-      const sourceToken = beginManualSource();
       let ai = null;
       try {
         ai = await identifySongWithSensei(rawTitle, rawChannel);
       } finally {
-        isModalAiIdentifying = false;
-        if (aiBtn) {
-          aiBtn.disabled = false;
-          aiBtn.textContent = '✨ AI Identify';
+        if (modalAiToken === sourceToken) {
+          modalAiToken = null;
+          if (aiBtn && sourceIsCurrent(sourceToken)) {
+            aiBtn.disabled = false;
+            aiBtn.textContent = '✨ AI Identify';
+          }
         }
       }
 
@@ -2833,6 +3280,10 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
     async function openLyricsModal(options = {}) {
       const modal = document.getElementById('linguaplay-lyrics-modal');
       if (!modal) return;
+      if (watchMode !== 'song') selectWatchMode('song', false);
+      if (playerUI?.subtitlePanel) playerUI.subtitlePanel.hidden = true;
+      ensureDrawerPlacement();
+      if (!isPanelCollapsed) setPanelCollapsed(true);
       modal.classList.remove('hidden');
 
       const autoAiSearch = options === true || Boolean(options && options.autoAiSearch) || subtitleTimeline.length === 0;
@@ -2862,20 +3313,26 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       }
     }
 
+    function openActiveSource() {
+      return watchMode === 'song' || (watchMode === 'auto' && subtitleSourceKind === 'lyrics') ? openLyricsModal({autoAiSearch: false}) : openSubtitlePanel();
+    }
+
+    playerUI.openLyricsModal = openLyricsModal;
     const fetchLyricsBtn = document.getElementById('linguaplay-fetch-lyrics-btn');
+    if (fetchLyricsBtn) fetchLyricsBtn.hidden = !isYouTubePage();
     if (fetchLyricsBtn) {
       fetchLyricsBtn.addEventListener('click', () => openLyricsModal({ autoAiSearch: subtitleTimeline.length === 0 }));
     }
     if (subStatusBadge) {
       subStatusBadge.addEventListener('click', (e) => {
         e.stopPropagation();
-        return openLyricsModal({ autoAiSearch: true });
+        return openActiveSource();
       });
       subStatusBadge.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           e.stopPropagation();
-          return openLyricsModal({ autoAiSearch: true });
+          return openActiveSource();
         }
       });
     }
@@ -2920,9 +3377,26 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       });
     }
 
-    document.getElementById('lp-dismiss-btn').addEventListener('click', () => {
-      drawer.classList.add('hidden');
+    function closeStudy() {
+      drawer.classList.add('hidden'); ensureDrawerPlacement();
+      if (selectedTokenElement?.isConnected) selectedTokenElement.focus({preventScroll: true});
+      else playerUI.visibilityToggle?.focus({preventScroll: true});
+    }
+    document.getElementById('lp-dismiss-btn').addEventListener('click', closeStudy);
+    document.getElementById('lp-resume-btn').addEventListener('click', () => {
+      if (!activeVideoEl || getVideoIdentity() !== currentVideoId) return;
+      closeStudy();
+      const playing = activeVideoEl.play(); playing?.catch(() => {});
     });
+    document.getElementById('lp-translation-retry').addEventListener('click', () => translateStudySentence(drawerContextSentence, drawerContextVersion));
+    ['click', 'keydown', 'keyup', 'pointerdown', 'pointerup', 'mousedown', 'mouseup'].forEach(name => drawer.addEventListener(name, event => event.stopPropagation()));
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (!drawer.classList.contains('hidden') || !playerUI.subtitlePanel.hidden) {
+        event.preventDefault(); event.stopImmediatePropagation();
+        playerUI.subtitlePanel.hidden = true; closeStudy();
+      }
+    }, true);
 
     // Tab Navigation Listeners
     const tabBreakdownBtn = document.getElementById('lp-tab-breakdown-btn');
@@ -2956,7 +3430,7 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       if (contextVersion !== drawerContextVersion) return;
       btn.textContent = label;
       setTimeout(() => {
-        if (contextVersion === drawerContextVersion && btn.textContent === label) btn.textContent = '🗃️ Quick Add to Anki';
+        if (contextVersion === drawerContextVersion && btn.textContent === label) btn.textContent = 'Save card';
       }, 5000);
     });
 
@@ -3308,7 +3782,7 @@ Respond with ONLY valid JSON:
       if (contextVersion !== drawerContextVersion) return;
       btn.textContent = label;
       setTimeout(() => {
-        if (contextVersion === drawerContextVersion && btn.textContent === label) btn.textContent = '🗂️ Save Enriched AI Card to Anki';
+        if (contextVersion === drawerContextVersion && btn.textContent === label) btn.textContent = 'Save enriched card';
       }, 5000);
     });
 
@@ -3354,11 +3828,8 @@ Respond with ONLY valid JSON:
   }
 
   function updateOffsetDisplay() {
-    const disp = document.getElementById('linguaplay-offset-display');
-    if (disp) {
-      const sign = timingOffset > 0 ? '+' : '';
-      disp.textContent = `${sign}${timingOffset.toFixed(1)}s`;
-    }
+    const input = document.getElementById('lp-jimaku-offset');
+    if (input && document.activeElement !== input && input.value !== timingOffset.toFixed(1)) input.value = timingOffset.toFixed(1);
   }
 
   function buildTimelineIndex() {
@@ -3392,7 +3863,10 @@ Respond with ONLY valid JSON:
       acquisition.rank = token.rank;
     }
     subtitleTimeline = cues;
+    subtitleSourceKind = source === 'reset' ? '' : ['cached', 'lyrics-auto', 'lyrics-manual'].includes(source) ? 'lyrics' : source;
+    if (source !== 'reset' && source !== 'manual' && source !== 'jimaku') subtitleSourceName = source === 'captions' ? 'YouTube captions' : source === 'cached' ? 'Saved lyrics' : 'Synced lyrics';
     buildTimelineIndex();
+    updateWatchModeControls();
     if (!cues.length) { activeLiveSentence = ''; renderSentenceTokens(''); }
     else onTimeUpdate();
     return true;
@@ -3426,6 +3900,12 @@ Respond with ONLY valid JSON:
   function disposeWatchContext(leaving = false) {
     if (currentVideoId) staleLiveSentence = Array.from(document.querySelectorAll('.ytp-caption-segment')).map(s => s.textContent || '').join(' ').trim();
     acquisition = null;
+    subtitlePanelState = null; subtitleSourceName = ''; subtitleSourceKind = ''; watchMode = 'auto'; selectedTokenElement = null;
+    captionTranslationFailures.clear();
+    if (playerUI?.subtitlePanel) playerUI.subtitlePanel.hidden = true;
+    document.getElementById('linguaplay-lyrics-modal')?.classList.add('hidden');
+    const identifyButton = document.getElementById('lp-ai-identify-btn');
+    if (identifyButton) { identifyButton.disabled = false; identifyButton.textContent = '✨ AI Identify'; }
     acquisitionSeq++;
     subtitleRenderVersion++; drawerContextVersion++;
     installSubtitleTimeline([], {source: 'reset'});
@@ -3451,12 +3931,14 @@ Respond with ONLY valid JSON:
       }
       liveCaptionObserver?.disconnect(); liveCaptionObserver = null;
       drawerPlacementObserver?.disconnect(); drawerPlacementObserver = null; drawerSidebar = null;
+      playerUI?.controls.remove();
+      if (playerUI?.widget) playerUI.widget.hidden = true;
       activeVideoEl = null; currentVideoId = null;
     }
   }
 
   function ensureYouTubeCCEnabled() {
-    if (!isAppEnabled || areSubtitlesHidden) return;
+    if (!isYouTubePage() || !isAppEnabled || areSubtitlesHidden) return;
     const ccBtn = document.querySelector('.ytp-subtitles-button');
     if (ccBtn && ccBtn.getAttribute('aria-pressed') === 'false') {
       ccBtn.click();
@@ -3464,7 +3946,7 @@ Respond with ONLY valid JSON:
   }
 
   function startServerOnPlayback() {
-    if (!activeVideoEl || activeVideoEl.paused || activeVideoEl.ended || !new URLSearchParams(window.location.search).get('v')) return;
+    if (!activeVideoEl || activeVideoEl.paused || activeVideoEl.ended || !currentVideoId) return;
     if (!chrome.runtime?.sendMessage) return;
     try {
       chrome.runtime.sendMessage({ action: 'ENSURE_LOCAL_SERVER' }, response => {
@@ -3480,16 +3962,16 @@ Respond with ONLY valid JSON:
   }
 
   async function checkAndInitVideo() {
-    const vid = new URLSearchParams(window.location.search).get('v');
+    const vid = getVideoIdentity();
     if (!vid) { if (currentVideoId !== null) disposeWatchContext(true); return; }
     const changed = vid !== currentVideoId;
     if (changed) {
       disposeWatchContext();
       currentVideoId = vid;
-      acquisition = {vid, gen: ++acquisitionSeq, captionsSettled: false, rank: 0, manualRequest: 0};
+      acquisition = {vid, gen: ++acquisitionSeq, captionsSettled: !isYouTubePage(), rank: 0, manualRequest: 0};
     }
     injectUI();
-    const v = document.querySelector('video');
+    const v = isYouTubePage() ? document.querySelector('video') : findActiveVideo();
     if (v && v !== activeVideoEl) {
       if (activeVideoEl) {
         activeVideoEl.removeEventListener('timeupdate', onTimeUpdate);
@@ -3502,37 +3984,46 @@ Respond with ONLY valid JSON:
       setupLiveCaptionHooking(); startServerOnPlayback();
     }
     const owner = acquisition;
-    if (changed) {
-      const cacheToken = {owner, rank: 1};
-      chrome.storage.local.get([`lp_offset_${vid}`, `lp_lyrics_cache_${vid}`], res => {
-        if (owner !== acquisition) return;
-        timingOffset = typeof res[`lp_offset_${vid}`] === 'number' ? res[`lp_offset_${vid}`] : 0;
-        updateOffsetDisplay();
-        const cached = res[`lp_lyrics_cache_${vid}`];
-        if (cached?.syncedLyrics && subtitleTimeline.length === 0) {
-          const cues = parseLRC(cached.syncedLyrics);
-          if (cues.length && installSubtitleTimeline(cues, {source: 'cached', token: cacheToken})) {
-            lyricsFetchAttemptedVid = vid;
-            const badge = playerUI?.subStatusBadge;
-            if (badge) badge.textContent = `🎵 ${cached.trackName || 'Lyrics'} (${cues.length})`;
-            ensureYouTubeCCEnabled();
-          }
-        }
-        onTimeUpdate(); updateLyricsModalStatus();
-      });
-      if (!isAppEnabled) { owner.captionsSettled = true; return; }
-      inspectAndSwitchPlayerTracks();
-      let cues = [];
-      try { cues = await fetchYouTubeCaptions(vid); }
-      finally { if (owner === acquisition) owner.captionsSettled = true; }
+    if (!owner.started) {
+      owner.started = true;
+      const res = await new Promise(resolve => chrome.storage.local.get([`lp_offset_${vid}`, `lp_lyrics_cache_${vid}`, `lp_watch_mode_${vid}`], resolve));
       if (owner !== acquisition) return;
-      if (cues.length && installSubtitleTimeline(cues, {source: 'captions', token: {owner, rank: 2}})) {
-        lyricsFetchAttemptedVid = vid;
-        if (playerUI?.subStatusBadge) playerUI.subStatusBadge.textContent = `Auto Sub (${cues.length})`;
-        ensureYouTubeCCEnabled(); updateLyricsModalStatus(); return;
+      const savedMode = res[`lp_watch_mode_${vid}`];
+      watchMode = owner.modeOverride || (['auto', 'song', 'episode'].includes(savedMode) ? savedMode : 'auto');
+      if (!subtitleTimeline.length && owner.rank < 3 && playerUI?.subStatusBadge) playerUI.subStatusBadge.textContent = watchMode === 'song' ? 'Song lyrics' : watchMode === 'episode' ? 'Episode subtitles' : 'Subtitles';
+      owner.modeReady = true;
+      updateWatchModeControls();
+      const cacheToken = {owner, rank: 1};
+      timingOffset = typeof res[`lp_offset_${vid}`] === 'number' ? res[`lp_offset_${vid}`] : 0;
+      updateOffsetDisplay();
+      const cached = res[`lp_lyrics_cache_${vid}`];
+      if (watchMode !== 'episode' && cached?.syncedLyrics && subtitleTimeline.length === 0) {
+        const cues = parseLRC(cached.syncedLyrics);
+        if (cues.length && installSubtitleTimeline(cues, {source: 'cached', token: cacheToken})) {
+          lyricsFetchAttemptedVid = vid;
+          const badge = playerUI?.subStatusBadge;
+          if (badge) badge.textContent = `🎵 ${cached.trackName || 'Lyrics'} (${cues.length})`;
+          ensureYouTubeCCEnabled();
+        }
+      }
+      onTimeUpdate(); updateLyricsModalStatus();
+      if (!isAppEnabled) { owner.captionsSettled = true; return; }
+      if (watchMode === 'song') { owner.captionsSettled = true; }
+      else {
+        if (!isYouTubePage()) { if (playerUI?.subStatusBadge) playerUI.subStatusBadge.textContent = 'Subtitles'; return; }
+        inspectAndSwitchPlayerTracks();
+        let cues = [];
+        try { cues = await fetchYouTubeCaptions(vid); }
+        finally { if (owner === acquisition) owner.captionsSettled = true; }
+        if (owner !== acquisition) return;
+        if (cues.length && installSubtitleTimeline(cues, {source: 'captions', token: {owner, rank: 2}})) {
+          lyricsFetchAttemptedVid = vid;
+          if (playerUI?.subStatusBadge) playerUI.subStatusBadge.textContent = `Auto Sub (${cues.length})`;
+          ensureYouTubeCCEnabled(); updateLyricsModalStatus(); return;
+        }
       }
     }
-    if (!isAppEnabled || owner !== acquisition || !owner.captionsSettled || owner.rank >= 3) return;
+    if ((!isYouTubePage() && watchMode !== 'song') || watchMode === 'episode' || !isAppEnabled || owner !== acquisition || !owner.captionsSettled || owner.rank >= 3) return;
     if (subtitleTimeline.length === 0 && lyricsFetchAttemptedVid !== vid && !isFetchingLyrics) {
       const meta = getYouTubeVideoMetadata();
       if (!meta?.title || /^youtube$/i.test(meta.title)) return;
@@ -3541,11 +4032,11 @@ Respond with ONLY valid JSON:
       const statusBadge = playerUI?.subStatusBadge;
       if (statusBadge) statusBadge.textContent = '🎵 Searching lyrics...';
       try {
-        const lyricsInfo = await fetchLrclibLyrics(meta.title, meta.channel, activeVideoEl?.duration || 0);
+        const lyricsInfo = await fetchLrclibLyrics(meta.title, meta.channel, activeVideoEl?.duration || 0, () => sourceIsCurrent(sourceToken) && owner.rank <= sourceToken.rank);
         if (!sourceIsCurrent(sourceToken) || owner.rank > sourceToken.rank) return;
         if (lyricsInfo?.cues?.length && installSubtitleTimeline(lyricsInfo.cues, {source: 'lyrics-auto', token: sourceToken})) {
           if (statusBadge) statusBadge.textContent = `🎵 ${lyricsInfo.trackName || 'Lyrics'} (${lyricsInfo.cues.length})`;
-          if (lyricsInfo.syncedLyrics) cacheLyrics(vid, {
+          if (isYouTubePage() && lyricsInfo.syncedLyrics) cacheLyrics(vid, {
             trackName: lyricsInfo.trackName, artistName: lyricsInfo.artistName, provider: lyricsInfo.provider || 'lrclib',
             syncedLyrics: lyricsInfo.syncedLyrics, isAi: !!lyricsInfo.isAi, cachedAt: Date.now()
           });

@@ -2,11 +2,11 @@
   <img src="icons/icon128.png" width="72" height="72" alt="LinguaPlay extension icon">
 </p>
 
-<h1 align="center">LinguaPlay for YouTube</h1>
+<h1 align="center">LinguaPlay — Japanese Video Learning</h1>
 
 <p align="center">
   <strong>Learn Japanese from the videos you already love.</strong><br>
-  Clickable subtitles, contextual explanations, and Anki cards — directly on YouTube.
+  Clickable subtitles, sentence meanings, contextual explanations, and Anki cards on YouTube and streaming video sites.
 </p>
 
 <p align="center">
@@ -32,13 +32,25 @@ LinguaPlay adds a Japanese learning workspace to YouTube's watch page. Subtitles
 
 Open a YouTube video with Japanese captions. LinguaPlay detects the captions and displays an interactive Japanese overlay with **furigana** above the words.
 
-Use the **言** control in the video player to open LinguaPlay's toolbar. Switch to **Romaji** for alphabetic pronunciation or **Hidden** to practise reading without pronunciation guides. The **eye** control shows or hides the Japanese subtitle overlay and learning drawer. To watch with original subtitles, hide the Japanese overlay with the eye control and turn on YouTube's **CC** button.
+Use the **言** control in the video player to open LinguaPlay's toolbar. Use the reading dropdown to choose **Furigana**, **Romaji**, or **Japanese only**. The compact toolbar keeps its reading dropdown and **Subtitles** action visible; **More (⋯)** contains Repeat, Import, Lyrics, and extension settings. The **eye** control shows or hides the Japanese subtitle overlay and learning drawer. To watch with original subtitles, hide the Japanese overlay with the eye control and turn on YouTube's **CC** button.
 
-Click the **LinguaPlay** logo in the toolbar to turn the app off and restore native captions. Click **言** again to turn it back on.
+Click the toolbar's **power** button to turn the app off and restore native captions. Click **言** again to turn it back on.
 
-For music videos without captions, click **Lyrics** to search for synced lyrics by track and artist. You can also use the toolbar's **folder** button to load a Japanese `.srt`, `.vtt`, or `.lrc` file. Adjust the timing offset or use **Sync Line 1 to Playhead** in the Lyrics Manager when the text is out of sync.
+Open **Subtitles** to find episode subtitles or change **English below Japanese**, **Subtitle size**, **Horizontal/Vertical position**, and **Background opacity**. Scroll to the appearance controls at the bottom. Subtitle size ranges from 50–200%, updates Japanese/readings/English together, and is saved automatically after adjustment; **Default size** restores 100%. Position sliders move the full subtitle block left/right and bottom/top within the available video area; their values are saved after adjustment, and **Default position** restores bottom-center placement. Sentence meanings appear inside the Japanese caption strip and use Google Translate first. If Google fails or rate limits requests, LinguaPlay automatically tries your configured 9Router model or combo. Google rate limits pause further Google requests for 1–5 minutes. Hover **Retry sentence meaning** to see the error if both services are unavailable.
+
+For music videos without captions, choose **More (⋯) → Find lyrics** to search for synced lyrics by track and artist. You can also use **More (⋯) → Import subtitles** to load a Japanese `.srt`, `.vtt`, `.ass`, `.ssa`, or `.lrc` file. Adjust the timing offset or use **Sync Line 1 to Playhead** in the Lyrics Manager when the text is out of sync.
 
 Your latest manual file or lyrics selection stays active until you choose another source or leave the video. While the overlay is hidden, LinguaPlay leaves your native caption language and CC choice alone.
+
+### Choose the right source for songs and episodes
+
+In **言 → Subtitles → Watching**, choose a mode for the current video:
+
+- **Song — synced lyrics:** use the existing LRCLIB/Kugou lyrics search, cache and song-identification workflow. Jimaku controls stay hidden. The subtitle badge opens the Lyrics Manager.
+- **Episode — captions / Jimaku:** use video captions or choose an episode subtitle file. Song searches and old song caches are ignored.
+- **Auto:** retain the existing YouTube captions-first, lyrics-fallback behavior. On streaming sites, start with episode subtitles. The badge follows the active source.
+
+Your manual choice is saved per video and restored on reload. It does not carry into another episode or song. Choosing **More → Find lyrics** also selects Song mode for that video. Mode changes clear the previous source and reject its pending results; your reading, size, position and opacity preferences stay available.
 
 ### 2. Click a word to understand the sentence
 
@@ -65,6 +77,21 @@ Click **Quick Add to Anki** to save the selected word with its reading, meaning,
 Both buttons use your configured AnkiConnect URL and deck and keep a local copy. Create that deck in Anki first. The result states what completed: **Added to Anki · stored locally**, **Kept locally — Anki: …**, or a local-storage failure. An existing duplicate is reported as **Already in Anki**. Kana readings and romaji are stored separately.
 
 Click the extension's toolbar icon to open Settings and choose **Export TSV File** to export the collection later. The export contains sentence, word, kana reading, and meaning columns, including the sentence translation when available. The TSV retains the historical `LinguaPlay Japanese Immersion` deck header.
+
+## Jimaku on Netflix and other video sites
+
+The extension also attaches to visible HTML5 players on **Netflix, Prime Video, Disney+, Hulu, Crunchyroll, and Vimeo**. Open the site in your browser, start its player, and use the green **Subtitles** badge or **言 → Subtitles**. YouTube retains its automatic caption and lyrics support; other sites use Jimaku/local files, with Japanese live text captured where available.
+
+1. Create a [Jimaku account](https://jimaku.cc/account) and generate an API key. In extension **Settings → Reading → Jimaku subtitles**, enter the key and click **Save Settings**.
+2. Open **Subtitles** in the video. Search by Japanese, English, or romaji title, choose **Anime** or **Live action**, and optionally enter an episode number.
+3. Choose a title and subtitle file. Preview its first lines, then click **Use selected subtitles**. Previewing keeps the current source active.
+4. Adjust **Subtitle delay** if the release does not match your video. Positive values show subtitles later. **Sync first line to playhead** aligns the first cue with the video's current position.
+
+SRT, VTT, ASS, SSA and LRC files up to 10 MB are supported, including UTF-8, UTF-16 BOM and Shift_JIS text. Extract ZIP/RAR/7z archives before using **Import subtitle file**. Local import works without a Jimaku key. Jimaku supplies subtitle text; you watch video through the streaming site's usual player.
+
+The study panel follows [LangPlay's current player design](https://github.com/Marsel204/LangPlay/tree/main/integrations/seanime). Clicking a word pauses and captures the sentence with per-word romaji/glosses and English. **Close** or **Escape** keeps playback paused; **Resume watching** explicitly resumes it. Reading modes, English captions and background opacity are separate controls.
+
+Site-provided fullscreen keeps the extension inside the player. Native fullscreen of the `<video>` element alone cannot contain extension controls. Chromium tests use intercepted site pages and fixture Jimaku responses; live subscription-site layouts and authenticated Jimaku access require account testing. See the [implementation scope](docs/specs/langplay-player-and-jimaku.md) and [verification results](docs/player-verification.md).
 
 ## Install the extension
 
@@ -157,6 +184,7 @@ python3 tests/test_native_host.py
 node tests/browser_custom_ai.mjs
 node tests/browser_anki_youtube.mjs
 node tests/browser_captions_youtube.mjs
+node tests/browser_video_sites.mjs
 LP_REVIEW_MODE=after node tests/review/lib/worker.js
 ```
 
