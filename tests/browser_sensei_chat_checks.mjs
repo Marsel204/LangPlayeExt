@@ -25,7 +25,7 @@ export async function checkSenseiChat({ evaluate }) {
     return {top:box.scrollTop,max:box.scrollHeight-box.clientHeight,replyTop:last.getBoundingClientRect().top-box.getBoundingClientRect().top,replyBottom:last.getBoundingClientRect().bottom-box.getBoundingClientRect().bottom,pageY:window.scrollY};
   })()`);
 
-  await click('lp-tab-chat-btn');
+  assert.equal(await evaluate('getComputedStyle(document.getElementById("lp-view-chat")).display !== "none"'), true);
   await send('First question', 1);
   assert.equal(await evaluate('document.getElementById("lp-chat-messages").getAttribute("aria-busy")'), 'true');
   assert.equal(await evaluate('Array.from(document.querySelectorAll(".lp-chat-chip")).every(button => button.disabled)'), true);
@@ -69,13 +69,10 @@ export async function checkSenseiChat({ evaluate }) {
   assert.ok(Math.abs(state.top - state.max) < 2);
   assert.ok(state.replyTop >= 0 && state.replyBottom <= 2, 'A short answer remains fully visible when following the conversation');
 
-  await send('While viewing breakdown', 6);
+  await send('While viewing sentence study', 6);
   await evaluate('document.getElementById("lp-chat-messages").scrollTop=100');
   const savedTop = (await geometry()).top;
-  await click('lp-tab-breakdown-btn');
   await reply(5, longReply);
-  await click('lp-tab-chat-btn');
-  assert.equal((await geometry()).top, savedTop, 'A reply arriving in a hidden tab does not reset the saved reading position');
-  await click('lp-tab-breakdown-btn');
-  return { longReplyStart: true, readingPosition: true, pagePosition: true, orderedHistory: true, draftPreserved: true, retry: true, hiddenTab: true };
+  assert.equal((await geometry()).top, savedTop, 'A reply does not reset the saved reading position while studying the sentence');
+  return { longReplyStart: true, readingPosition: true, pagePosition: true, orderedHistory: true, draftPreserved: true, retry: true, unifiedStudy: true };
 }

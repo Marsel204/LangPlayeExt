@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "LinguaPlay for YouTube",
+  "name": "LinguaPlay — Japanese Video Learning",
   "version": "1.0.0",
-  "description": "Learn Japanese directly on YouTube with clickable subtitles, furigana, AI explanations, Sensei Chat, and Anki cards.",
+  "description": "Japanese subtitles, sentence translations, Jimaku search, AI explanations and Anki on YouTube, Netflix and other video sites.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -39,7 +39,13 @@
     {
       "matches": [
         "*://*.youtube.com/watch*",
-        "*://*.youtube.com/*"
+        "*://*.youtube.com/*",
+        "https://*.netflix.com/*",
+        "https://*.primevideo.com/*",
+        "https://*.disneyplus.com/*",
+        "https://*.hulu.com/*",
+        "https://*.crunchyroll.com/*",
+        "https://*.vimeo.com/*"
       ],
       "js": [
         "lib/wanakana.min.js",
@@ -64,7 +70,14 @@
     "http://lyrics.kugou.com/*",
     "https://translate.googleapis.com/*",
     "http://127.0.0.1/*",
-    "http://localhost/*"
+    "http://localhost/*",
+    "https://*.netflix.com/*",
+    "https://*.primevideo.com/*",
+    "https://*.disneyplus.com/*",
+    "https://*.hulu.com/*",
+    "https://*.crunchyroll.com/*",
+    "https://*.vimeo.com/*",
+    "https://jimaku.cc/*"
   ],
   "optional_host_permissions": [
     "http://*/*",
@@ -79,7 +92,13 @@
         "options.js"
       ],
       "matches": [
-        "*://*.youtube.com/*"
+        "*://*.youtube.com/*",
+        "https://*.netflix.com/*",
+        "https://*.primevideo.com/*",
+        "https://*.disneyplus.com/*",
+        "https://*.hulu.com/*",
+        "https://*.crunchyroll.com/*",
+        "https://*.vimeo.com/*"
       ]
     }
   ]

@@ -98,7 +98,7 @@ function createContentHarness(config = {}, parser = undefined) {
   const sandbox = {
     console,
     LinguaPlayParser: parser,
-    window: { wanakana, location: { search: '', href: '' }, addEventListener() {} },
+    window: { wanakana, location: { search: '', href: 'https://www.youtube.com/watch' }, addEventListener() {} },
     document: {
       body,
       documentElement: new Element(),
@@ -108,12 +108,16 @@ function createContentHarness(config = {}, parser = undefined) {
       createElement: () => new Element(),
       addEventListener() {},
     },
-    chrome: { runtime: { sendMessage(request, callback) { calls.push(JSON.parse(JSON.stringify(request))); pending.push(callback); } }, storage: { local: {
+    chrome: { runtime: { sendMessage(request, callback) {
+      if (request.action === 'TRANSLATE_JAPANESE') { callback?.({success: true, translation: 'translation'}); return; }
+      calls.push(JSON.parse(JSON.stringify(request))); pending.push(callback);
+    } }, storage: { local: {
       get: (_keys, callback) => callback(config),
       set: () => {},
     } } },
     MutationObserver: class { observe() {} disconnect() {} },
     AbortSignal,
+    URL,
     URLSearchParams,
     setInterval() {},
     setTimeout() {},
@@ -211,6 +215,7 @@ test('YouTube startup follows playback, including already-playing and replacemen
   const h = createContentHarness();
   const messages = [];
   h.sandbox.chrome.runtime = { sendMessage(message, callback) {
+    if (message.action === 'TRANSLATE_JAPANESE') { callback?.({success: true, translation: 'translation'}); return; }
     if (message.action === 'FETCH_BACKEND_CAPTIONS') {
       callback?.({ success: true, vtt: 'WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n猫\n' });
       return;

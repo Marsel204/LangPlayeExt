@@ -232,3 +232,7 @@ Controls and status boxes use gently rounded corners; navigation is slightly sof
 - **Don't** apply this Settings redesign to the YouTube learning interface without a separate design decision.
 
 Evidence: `.impeccable/review/first-{desktop,tablet,mobile}-{light,dark}.png`, their full-document companions, and `anki-error-*` captures. Review screenshots use explicit mock configuration; displayed ports, model counts, and collection contents are fixtures rather than product defaults.
+
+## Player surface
+
+The separately requested player redesign follows [LangPlay's current on-video implementation](https://github.com/Marsel204/LangPlay/tree/main/integrations/seanime), with solid charcoal study, lavender actions and transparent Japanese captions. This player surface is specified in [langplay-player-and-jimaku.md](docs/specs/langplay-player-and-jimaku.md) and `.impeccable/surfaces/content-js.md`; the Settings tokens and system-appearance treatment above retain their scope.

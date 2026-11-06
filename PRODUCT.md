@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Japanese learners watching YouTube, including first-time users installing 9Router and configuring their first AI explanation. Settings also serves returning users changing models, reading preferences, and flashcard connections.
+Japanese learners watching YouTube, Netflix and the other declared streaming video sites, including first-time users installing 9Router and configuring their first AI explanation. Settings also serves returning users changing models, reading preferences, and flashcard connections.
 
 ## Product Purpose
 
@@ -16,7 +16,7 @@ LinguaPlay brings clickable Japanese subtitles, readings, contextual AI explanat
 
 ## Operating Context
 
-A Chrome/Chromium Manifest V3 extension written in plain HTML, CSS, and JavaScript. The toolbar icon opens Settings directly. Learning tools run in the YouTube page. Settings must work in both light and dark system appearances, as requested by the user.
+A Chrome/Chromium Manifest V3 extension written in plain HTML, CSS, and JavaScript. The toolbar icon opens Settings directly. Learning tools run in YouTube and the declared streaming-site players. Settings must work in both light and dark system appearances, as requested by the user.
 
 ## Capabilities and Constraints
 
@@ -29,7 +29,7 @@ A Chrome/Chromium Manifest V3 extension written in plain HTML, CSS, and JavaScri
 
 ## Brand Commitments
 
-Keep the LinguaPlay name and existing extension identity. The user requested a replacement for the current Settings visual design and delegated the visual direction. This task redesigns Settings; the YouTube learning interface has its own scope.
+Keep the LinguaPlay name and existing extension identity. Settings retains its previously requested system-appearance design. The separately requested player redesign follows the current LangPlay reference, as recorded below.
 
 ## Evidence on Hand
 
@@ -42,3 +42,7 @@ README.md, docs/settings.md, docs/9router-autostart.md, the shipped Settings con
 - Preserve exact model choices and user-entered values.
 - Show honest connection, test, and save feedback.
 - Keep the settings usable by keyboard and on narrow screens.
+
+## Player redesign and streaming subtitles
+
+The user separately requested the current LangPlay player appearance for Japanese captions and study, Jimaku search for streaming video, and English sentence meaning inside the caption strip. `docs/specs/langplay-player-and-jimaku.md` and `.impeccable/surfaces/content-js.md` record this surface. YouTube keeps automatic captions/lyrics; other declared sites use Jimaku or local files against their HTML5 playback clock. Jimaku is optional, requires its own saved API key, and remains independent of 9Router and the parser.

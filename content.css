@@ -1,723 +1,282 @@
-/* ══════════════════════════════════════════════════════════════════════
-   LinguaPlay Chrome Extension — YouTube On-Site Content Styles (content.css)
-   ══════════════════════════════════════════════════════════════════════ */
-
-/* Replace native captions only while the Japanese overlay is visible.
-   When it is hidden, YouTube's CC control owns original caption visibility. */
+/* LangPlay player surface: charcoal study panel, lavender actions and glass captions. */
 :root:not(.linguaplay-subtitles-hidden) .linguaplay-has-japanese .ytp-caption-window-container,
-:root:not(.linguaplay-subtitles-hidden) .linguaplay-has-japanese .caption-window {
+:root:not(.linguaplay-subtitles-hidden) .linguaplay-has-japanese .caption-window,
+:root:not(.linguaplay-subtitles-hidden) .linguaplay-has-japanese .player-timedtext {
   opacity: 0 !important;
   pointer-events: none !important;
 }
-
-/* Suppress presentation without stopping live caption capture or drawer updates. */
 .linguaplay-subtitles-hidden #linguaplay-yt-tokens-overlay,
-.linguaplay-subtitles-hidden #linguaplay-yt-drawer {
-  display: none !important;
+.linguaplay-subtitles-hidden #linguaplay-yt-drawer { display: none !important; }
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel, #linguaplay-yt-widget, #linguaplay-yt-controls) {
+  --lp-panel: #17191c;
+  --lp-surface: #22252a;
+  --lp-text: #f2f1ed;
+  --lp-muted: #c2bec8;
+  --lp-line: #36393f;
+  --lp-accent: #c4b5fd;
+  box-sizing: border-box;
+  color: var(--lp-text);
+  font: 14px/1.5 system-ui, sans-serif;
+  color-scheme: dark;
+  text-align: left;
+  text-shadow: none;
+  cursor: auto;
+  pointer-events: auto;
 }
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel) *,
+#linguaplay-caption-surface * { box-sizing: border-box; }
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel) [hidden],
+#linguaplay-subtitle-panel[hidden], #linguaplay-caption-english[hidden] { display: none !important; }
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel, #linguaplay-yt-widget) :is(button, input, select) {
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  min-height: 36px;
+  border: 1px solid #45434c;
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: var(--lp-surface);
+}
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel, #linguaplay-yt-widget) button { cursor: pointer; }
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel, #linguaplay-yt-widget) button:hover { background: #37323f; }
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel, #linguaplay-yt-widget) button:disabled { opacity: .55; cursor: default; }
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel, #linguaplay-yt-widget, #linguaplay-yt-controls, #linguaplay-yt-tokens-overlay) :is(button, input, select):focus-visible {
+  outline: 2px solid #dfd3ff;
+  outline-offset: 3px;
+}
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel) ::selection { color: #211b35; background: #d6c9f3; }
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel) input { min-width: 0; caret-color: #d6c9f3; }
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel) p { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+:is(#linguaplay-yt-drawer, #linguaplay-subtitle-panel) .lp-muted { font-size: 12px; line-height: 1.5; color: var(--lp-muted); }
 
-/* ── 1. Subtitle Tokens Area (Centered Bottom of Video) ── */
+/* LangPlay captions stay centered on the video when a side panel opens. */
 #linguaplay-yt-tokens-overlay {
   position: absolute;
-  bottom: 45px;
-  left: 0;
-  right: 0;
-  display: none;
-  justify-content: center;
-  align-items: flex-end;
-  padding: 8px 24px;
-  z-index: 55;
+  left: 4%; right: 4%;
+  top: 24px;
+  bottom: max(var(--langplay-caption-bottom, 80px), env(safe-area-inset-bottom));
+  z-index: 80;
   pointer-events: none;
-  user-select: none;
-}
-
-#linguaplay-yt-tokens-overlay.active {
-  display: flex;
-}
-
-#linguaplay-yt-tokens {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 4px;
-  max-width: 950px;
-  text-align: center;
-  pointer-events: auto;
-  background: rgba(8, 7, 26, 0.75);
-  padding: 6px 16px;
-  border-radius: 12px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(167, 139, 250, 0.2);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-  transition: opacity 0.2s ease;
-}
-
-#linguaplay-yt-tokens:empty {
-  display: none !important;
-}
-
-/* ── Token Styles on YouTube ── */
-.linguaplay-yt-token {
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 6px;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.linguaplay-yt-token:hover {
-  background: rgba(167, 139, 250, 0.35);
-}
-
-.linguaplay-yt-token:hover .linguaplay-jp-text {
-  text-decoration: underline;
-  text-decoration-color: #a78bfa;
-}
-
-.linguaplay-yt-token.active {
-  background: rgba(167, 139, 250, 0.5);
-  box-shadow: 0 0 12px rgba(167, 139, 250, 0.5);
-}
-
-.linguaplay-token-reading {
-  font-size: 11.5px;
-  line-height: 1.1;
-  color: #fda4af;
-  font-family: 'Inter', 'Noto Sans JP', sans-serif;
-  letter-spacing: 0.02em;
-  font-weight: 500;
-}
-
-.linguaplay-token-reading.hidden-reading {
-  visibility: hidden;
-  height: 0;
-  opacity: 0;
-}
-
-.linguaplay-jp-text {
-  font-family: 'Noto Sans JP', 'Hiragino Sans', -apple-system, sans-serif;
-  color: #ffffff;
-  font-size: 22px;
-  font-weight: 600;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.9);
-}
-
-/* ── 2. Native Player Buttons and Settings Panel ── */
-#linguaplay-yt-widget {
-  position: absolute;
-  bottom: 64px;
-  right: 12px;
-  z-index: 65;
-  width: max-content;
-  max-width: calc(100% - 24px);
-  display: flex;
-  user-select: none;
-}
-
-#linguaplay-yt-controls {
-  display: inline-flex;
-  height: 100%;
-  align-items: center;
-  vertical-align: top;
-}
-
-#linguaplay-sub-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  line-height: 24px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #6ee7b7;
-  background: rgba(16, 185, 129, 0.16);
-  border: 1px solid rgba(110, 231, 183, 0.35);
-  border-radius: 12px;
-  padding: 0 9px;
-  margin: 0 4px;
-  cursor: pointer;
-  white-space: nowrap;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  box-sizing: border-box;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
-  user-select: none;
-}
-
-#linguaplay-sub-status:hover {
-  background: rgba(16, 185, 129, 0.28);
-  border-color: rgba(110, 231, 183, 0.6);
-  color: #a7f3d0;
-}
-
-#linguaplay-sub-status:focus-visible {
-  outline: 2px solid #6ee7b7;
-  outline-offset: 1px;
-}
-
-#linguaplay-sub-status:empty {
-  display: none !important;
-}
-
-/* Keyboard users must be able to see the focused button during auto-hide. */
-.html5-video-player.ytp-autohide .ytp-chrome-bottom:has(#linguaplay-yt-controls :focus-visible) {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-#linguaplay-toggle-trigger,
-#linguaplay-visibility-toggle {
-  width: var(--linguaplay-control-width, 48px);
-  height: 100%;
-  flex-shrink: 0;
-  box-sizing: border-box;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-weight: 600;
-  font-size: 21px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: none;
-  opacity: 0.85;
-  transition: opacity 0.15s ease;
-}
-
-#linguaplay-toggle-trigger:hover,
-#linguaplay-visibility-toggle:hover {
-  opacity: 1;
-}
-
-#linguaplay-toggle-trigger:focus-visible,
-#linguaplay-visibility-toggle:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: -4px;
-}
-
-#linguaplay-visibility-toggle .linguaplay-eye-off,
-#linguaplay-visibility-toggle[aria-pressed="true"] .linguaplay-eye-open {
   display: none;
-}
-
-#linguaplay-visibility-toggle[aria-pressed="true"] .linguaplay-eye-off {
-  display: block;
-}
-
-#linguaplay-toggle-trigger.app-disabled {
-  opacity: 0.5;
-  filter: grayscale(0.85);
-  border-color: rgba(148, 163, 184, 0.4);
-  color: #94a3b8;
-  background: rgba(15, 23, 42, 0.75);
-}
-
-#linguaplay-toggle-trigger.app-disabled:hover {
-  opacity: 1;
-  filter: none;
-  background: rgba(124, 58, 237, 0.85);
-  color: white;
-  border-color: #a78bfa;
-  transform: scale(1.1);
-  box-shadow: 0 0 14px rgba(167, 139, 250, 0.7);
-}
-
-#linguaplay-bar-logo {
-  font-size: 11px;
-  font-weight: bold;
-  color: #a78bfa;
-  margin-right: 2px;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 2px 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-  font-family: inherit;
-}
-
-#linguaplay-bar-logo:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(248, 113, 113, 0.4);
-  color: #fca5a5;
-  transform: translateY(-1px);
-}
-
-#linguaplay-bar-logo:active {
-  transform: translateY(0);
-}
-
-#linguaplay-yt-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  text-align: center;
   min-width: 0;
+}
+#linguaplay-yt-tokens-overlay.active { display: flex; flex-direction: column; align-items: center; }
+#linguaplay-caption-surface {
   box-sizing: border-box;
-  gap: 5px;
-  background: rgba(22, 19, 42, 0.9);
-  border: 1px solid rgba(167, 139, 250, 0.35);
-  padding: 4px 8px;
-  border-radius: 12px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.7);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  transform-origin: bottom right;
-  overflow: hidden;
+  position: absolute;
+  left: var(--langplay-caption-x,50%);
+  top: var(--langplay-caption-y,100%);
+  transform: translate(calc(-1 * var(--langplay-caption-x,50%)),calc(-1 * var(--langplay-caption-y,100%)));
+  margin: 0;
+  max-width: min(950px, 100%);
+  width: max-content;
+  max-height: 100%;
+  overflow: auto;
+  scrollbar-width: thin;
+  padding: 8px 16px 10px;
+  background-color: rgba(15,17,27,var(--langplay-caption-opacity,.26));
+  background-image: linear-gradient(165deg,rgba(255,255,255,calc(.09 * var(--langplay-glass-strength,1))),rgba(255,255,255,calc(.02 * var(--langplay-glass-strength,1))) 42%,transparent 65%);
+  border: 1px solid rgba(255,255,255,calc(.16 * var(--langplay-glass-strength,1)));
+  border-top-color: rgba(255,255,255,calc(.35 * var(--langplay-glass-strength,1)));
+  border-bottom-color: rgba(255,255,255,calc(.08 * var(--langplay-glass-strength,1)));
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,calc(.08 * var(--langplay-glass-strength,1))),inset 0 -1px 0 rgba(255,255,255,calc(.03 * var(--langplay-glass-strength,1))),0 4px 10px rgba(0,0,0,calc(.13 * var(--langplay-glass-strength,1))),0 8px 24px rgba(0,0,0,calc(.2 * var(--langplay-glass-strength,1)));
+  text-shadow: 0 1px 2px #000, 0 0 4px #000c, 0 2px 8px #0009;
+  color: #fff;
 }
-
-#linguaplay-yt-widget.collapsed,
-#linguaplay-yt-widget[hidden] {
-  display: none !important;
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+  #linguaplay-caption-surface {
+    background-color: rgba(15,17,27,var(--langplay-caption-opacity,.18));
+    backdrop-filter: blur(calc(8px * var(--langplay-glass-strength,1))) saturate(120%);
+    -webkit-backdrop-filter: blur(calc(8px * var(--langplay-glass-strength,1))) saturate(120%);
+  }
 }
-
-.linguaplay-bar-btn {
-  background: transparent;
-  border: 1px solid transparent;
-  color: #cbd5e1;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 7px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
+#linguaplay-yt-tokens-overlay[data-transparent="true"] #linguaplay-caption-surface { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+#linguaplay-yt-tokens {
+  font: 600 clamp(22px,2.2vw,32px)/1.35 "Noto Sans CJK JP","Noto Sans JP",Meiryo,sans-serif;
+  font-size: calc(clamp(22px,2.2vw,32px) * var(--langplay-caption-scale,1));
+  font-optical-sizing: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.linguaplay-yt-token {
   display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  user-select: none;
-  white-space: nowrap;
-}
-
-.linguaplay-bar-btn:hover {
-  background: rgba(167, 139, 250, 0.25);
-  color: white;
-  border-color: rgba(167, 139, 250, 0.4);
-}
-
-.linguaplay-bar-btn.active {
-  background: rgba(124, 58, 237, 0.7);
-  border-color: #a78bfa;
-  color: white;
-  box-shadow: 0 0 8px rgba(167, 139, 250, 0.3);
-}
-
-.linguaplay-collapse-btn {
-  color: #94a3b8;
-  padding: 2px 5px;
-  font-size: 12px;
-  margin-left: 2px;
-}
-
-.linguaplay-collapse-btn:hover {
-  color: #fca5a5;
-  background: rgba(239, 68, 68, 0.2);
-}
-
-/* ── 3. Native-Aligned YouTube Sidebar Translation Card ── */
-#linguaplay-yt-drawer {
-  width: 100%;
-  background: rgba(22, 19, 42, 0.95);
-  border: 1px solid rgba(167, 139, 250, 0.35);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  color: #e2e8f0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  line-height: 1.5;
-  box-sizing: border-box;
-  transition: all 0.25s ease;
-}
-
-/* Keep the translation card first when YouTube uses a flex sidebar. */
-#secondary > #linguaplay-yt-drawer,
-#secondary-inner > #linguaplay-yt-drawer,
-#related > #linguaplay-yt-drawer {
-  order: -1;
-}
-
-/* When in Floating/Fullscreen/Theater fallback mode */
-#linguaplay-yt-drawer.floating-fallback {
-  position: fixed;
-  top: 70px;
-  right: 20px;
-  width: 360px;
-  max-height: calc(100vh - 100px);
-  overflow-y: auto;
-  z-index: 2147483647;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.85);
-}
-
-#linguaplay-yt-drawer.hidden {
-  display: none !important;
-}
-
-.linguaplay-drawer-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 10px;
-  margin-bottom: 10px;
-}
-
-.linguaplay-drawer-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 8px;
-}
-
-.linguaplay-tab-btn {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  transition: all 0.2s ease;
-}
-
-.linguaplay-tab-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #f1f5f9;
-}
-
-.linguaplay-tab-btn.active {
-  background: rgba(124, 58, 237, 0.28);
-  border-color: rgba(167, 139, 250, 0.5);
-  color: #ffffff;
-  box-shadow: 0 0 10px rgba(124, 58, 237, 0.2);
-}
-
-.linguaplay-card-wrapper {
-  background: rgba(18, 15, 36, 0.7);
-  border: 1px solid rgba(167, 139, 250, 0.15);
-  border-radius: 12px;
-  padding: 10px 12px;
-  margin-bottom: 10px;
-}
-
-/* ── Horizontal Interlinear Gloss Breakdown ── */
-.linguaplay-gloss-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  align-items: flex-start;
-  padding: 8px 10px;
-  background: rgba(12, 10, 24, 0.7);
-  border: 1px solid rgba(167, 139, 250, 0.18);
-  border-radius: 10px;
-  margin-top: 6px;
-}
-
-.linguaplay-gloss-card {
-  display: inline-flex;
+  vertical-align: bottom;
   flex-direction: column;
   align-items: center;
-  text-align: center;
-  padding: 3px 6px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  min-width: 32px;
-  transition: all 0.2s ease;
-  user-select: text;
-}
-
-.linguaplay-gloss-card:hover {
-  background: rgba(167, 139, 250, 0.15);
-  border-color: rgba(167, 139, 250, 0.35);
-}
-
-.linguaplay-gloss-card.is-target {
-  background: rgba(167, 139, 250, 0.22);
-  border-color: rgba(244, 114, 182, 0.6);
-  box-shadow: 0 0 10px rgba(244, 114, 182, 0.25);
-}
-
-.linguaplay-gloss-reading {
-  font-size: 10px;
-  color: #fda4af;
-  font-family: 'Inter', monospace;
-  line-height: 1.1;
-  letter-spacing: 0.02em;
-}
-
-.linguaplay-gloss-jp {
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 1px 0 2px;
-  font-family: 'Noto Sans JP', sans-serif;
-}
-
-.linguaplay-gloss-card.is-target .linguaplay-gloss-jp {
-  color: #f472b6;
-}
-
-.linguaplay-gloss-en {
-  font-size: 10px;
-  color: #94a3b8;
-  line-height: 1.15;
-  max-width: 90px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  justify-content: flex-end;
+  max-width: 100%;
+  gap: 3px;
+  font: inherit;
+  color: #fff;
+  line-height: inherit;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 8px;
+  min-height: 36px;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
   white-space: nowrap;
+  text-shadow: inherit;
+  transition: background-color 140ms ease-out, box-shadow 140ms ease-out, transform 160ms cubic-bezier(.2,.8,.2,1);
 }
+.linguaplay-yt-token:hover, .linguaplay-yt-token:focus-visible {
+  color: #fff; background: #ffffff1f; box-shadow: inset 0 1px 0 #ffffff24;
+  text-decoration: underline; text-decoration-color: #ffffff80; text-underline-offset: 5px;
+}
+.linguaplay-yt-token:active { background: #ffffff33; box-shadow: inset 0 1px 3px #0003; transform: scale(.97); transition: none; }
+.linguaplay-token-reading { font: 600 clamp(11.5px,.9vw,14px)/1.2 system-ui,"Noto Sans CJK JP",sans-serif; font-size: calc(clamp(11.5px,.9vw,14px) * var(--langplay-caption-scale,1)); color: #ffd1dc; letter-spacing: .02em; text-shadow: 0 1px 2px #000,0 0 3px #000e; }
+.linguaplay-token-reading.hidden-reading { display: none; }
+.linguaplay-jp-text { font: inherit; color: inherit; text-shadow: inherit; }
+#linguaplay-caption-english {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  overflow: hidden; margin-top: 6px; font: 500 clamp(14px,1.25vw,18px)/1.45 system-ui,sans-serif;
+  font-size: calc(clamp(14px,1.25vw,18px) * var(--langplay-caption-scale,1));
+  color: #f2f1ed; white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty;
+  text-shadow: 0 1px 2px #000,0 0 4px #000e;
+}
+#linguaplay-caption-english .lp-caption-retry { pointer-events: auto; font: inherit; color: inherit; background: #17191c; border: 1px solid #ffffff80; border-radius: 6px; padding: 4px 8px; cursor: pointer; }
 
-.linguaplay-gloss-card:hover .linguaplay-gloss-en {
-  white-space: normal;
-  color: #f1f5f9;
-}
+/* Inline host-player controls, with a compact fallback for other video sites. */
+#linguaplay-yt-controls { display: inline-flex; height: 100%; align-items: center; gap: 4px; vertical-align: top; }
+#linguaplay-toggle-trigger, #linguaplay-visibility-toggle { display: inline-flex; align-items: center; justify-content: center; width: var(--linguaplay-control-width,48px); height: 100%; flex-shrink: 0; padding: 0; border: 0; background: transparent; color: #fff; cursor: pointer; font: 600 20px system-ui,sans-serif; }
+#linguaplay-toggle-trigger.app-disabled { opacity: .5; }
+#linguaplay-visibility-toggle .linguaplay-eye-off { display: none; }
+#linguaplay-visibility-toggle[aria-pressed="true"] .linguaplay-eye-open { display: none; }
+#linguaplay-visibility-toggle[aria-pressed="true"] .linguaplay-eye-off { display: block; }
+#linguaplay-sub-status { display: inline-flex; align-items: center; cursor: pointer; max-width: 160px; height: 28px; padding: 0 10px; border: 1px solid #8aebc04d; border-radius: 16px; background: #53d9a31a; color: #8aebc0; font: 600 12px/1 system-ui,sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#linguaplay-sub-status:empty { display: none; }
+#linguaplay-sub-status:hover { background: #53d9a333; }
+.html5-video-player.ytp-autohide .ytp-chrome-bottom:has(#linguaplay-yt-controls :focus-visible) { opacity: 1; pointer-events: auto; }
+#linguaplay-yt-controls.linguaplay-generic-controls { position: absolute; right: 16px; bottom: 46px; z-index: 10001; height: 36px; padding: 0 4px; border-radius: 8px; background: #17191cd9; }
+.linguaplay-generic-controls :is(#linguaplay-toggle-trigger,#linguaplay-visibility-toggle) { width: 36px; }
+#linguaplay-yt-widget { position: absolute; bottom: 64px; right: 12px; z-index: 10002; max-width: calc(100% - 24px); }
+#linguaplay-yt-widget[hidden], #linguaplay-yt-widget.collapsed, #linguaplay-yt-widget [hidden] { display: none !important; }
+#linguaplay-yt-bar { display: flex; flex-wrap: nowrap; align-items: center; gap: 3px; width: max-content; max-width: 100%; padding: 4px; border: 1px solid #45434c; border-radius: 8px; background: #17191cf5; box-shadow: 0 8px 24px #0004; }
+#linguaplay-yt-widget .linguaplay-bar-btn { min-height: 32px; padding: 4px 8px; border: 0; background: transparent; font-size: 12px; }
+#linguaplay-yt-widget #linguaplay-reading-mode { width: 112px; min-width: 0; max-width: 35vw; height: 32px; min-height: 32px; padding: 4px 6px; border: 0; font-size: 12px; color: #d6c9f3; cursor: pointer; }
+#linguaplay-yt-widget .linguaplay-toolbar-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; box-sizing: border-box; width: 30px; height: 32px; min-height: 32px; padding: 6px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+#linguaplay-yt-widget svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#linguaplay-bar-logo { font-weight: 600; }
+#linguaplay-more-menu { position: relative; margin: 0; }
+#linguaplay-more-trigger { list-style: none; }
+#linguaplay-more-trigger::-webkit-details-marker { display: none; }
+#linguaplay-more-trigger:hover, #linguaplay-more-menu[open] > summary { background: #37323f; }
+#linguaplay-more-trigger:focus-visible { outline: 2px solid #dfd3ff; outline-offset: 3px; }
+#linguaplay-yt-widget .linguaplay-more-actions { position: absolute; right: 0; bottom: calc(100% + 10px); width: 190px; padding: 4px; border: 1px solid #45434c; border-radius: 8px; background: #17191c; box-shadow: 0 8px 24px #0004; }
+#linguaplay-yt-widget .linguaplay-more-actions button { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 34px; padding: 6px 10px; border: 0; background: transparent; text-align: left; font-size: 12px; white-space: nowrap; }
+#linguaplay-yt-widget .linguaplay-more-actions button:hover { background: #37323f; }
 
-.linguaplay-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 10px;
-  font-weight: 600;
-  background: rgba(167, 139, 250, 0.2);
-  color: #c4b5fd;
-  border: 1px solid rgba(167, 139, 250, 0.3);
-  margin-right: 4px;
+/* Single study surface, matching the current LangPlay drawer. */
+#linguaplay-yt-drawer, #linguaplay-subtitle-panel {
+  position: relative; z-index: 90; pointer-events: auto;
+  background: var(--lp-panel); border: 1px solid var(--lp-line); border-radius: 8px;
+  max-height: min(72vh,760px); overflow: auto; padding: 0 12px 12px; min-width: 0;
+  box-shadow: 0 8px 24px #0004; scrollbar-width: thin; scrollbar-color: #59535f #17191c; isolation: isolate;
 }
+#linguaplay-yt-drawer { width: 100%; margin-bottom: 16px; }
+#secondary > #linguaplay-yt-drawer, #secondary-inner > #linguaplay-yt-drawer, #related > #linguaplay-yt-drawer { order: -1; }
+#linguaplay-yt-drawer.hidden { display: none !important; }
+#linguaplay-yt-drawer.floating-fallback { position: fixed; top: 70px; right: 20px; width: min(340px,calc(100vw - 24px)); z-index: 2147483646; }
+#linguaplay-yt-drawer.in-player { position: absolute; z-index: 10000; right: 16px; top: 24px; bottom: 84px; width: min(340px,42vw); max-height: none; margin: 0; }
+.linguaplay-drawer-header, #linguaplay-subtitle-panel > header {
+  display: flex; gap: 8px; align-items: center; justify-content: space-between;
+  margin: 0 -12px 8px; padding: 8px 12px; background: #17191c;
+  border-bottom: 1px solid #36393f; position: sticky; top: 0; z-index: 2;
+}
+.lp-header-actions { display: flex; gap: 6px; }
+#linguaplay-yt-drawer #lp-active-word { font: 500 30px/1.45 "Noto Sans CJK JP","Noto Sans JP",sans-serif; margin: 8px 0 0; overflow-wrap: anywhere; color: #f2f1ed; }
+#lp-active-romaji { color: #d6c9f3; margin-top: 0 !important; }
+#lp-active-pos { color: #c2bec8; font-size: 12px; }
+#lp-active-pos:empty, #lp-study-source:empty { display: none; }
+#lp-active-def { font-size: 15px; line-height: 1.45; margin: 8px 0; }
+.lp-sentence-context { border-block: 1px solid #36393f; padding: 8px 0; margin: 10px 0 4px; }
+#lp-sentence-jp { font: 16px/2.5 "Noto Sans CJK JP","Noto Sans JP",sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; padding-top: 4px; }
+#lp-sentence-jp .lp-sentence-word { display: inline-flex; flex-direction: column; align-items: center; vertical-align: top; max-width: 100%; margin: 5px 5px 4px 0; line-height: 1.6; }
+#lp-sentence-jp ruby { ruby-position: over; ruby-align: center; margin-inline: 2px; }
+#lp-sentence-jp rt { font: 400 12px/1.2 system-ui,sans-serif; color: #d6c9f3; white-space: nowrap; }
+#lp-sentence-jp .lp-word-gloss { font: 400 12px/1.4 system-ui,sans-serif; color: #c2bec8; max-width: 14ch; white-space: normal; overflow-wrap: anywhere; text-align: center; margin-top: 2px; }
+#lp-sentence-jp .is-target ruby { color: #dfd3ff; text-decoration: underline; text-underline-offset: 4px; }
+#lp-sentence-romaji { color: #d6c9f3; font-size: 14px; line-height: 1.6; margin: 8px 0; }
+#lp-sentence-en { font-size: 13px; line-height: 1.5; margin: 6px 0 0; }
+#lp-translation-retry { margin-top: 10px; }
+.lp-study-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.lp-study-actions .linguaplay-btn { flex: 1; }
+#linguaplay-yt-drawer label { display: block; color: #d4d0da; font-size: 13px; margin: 10px 0 5px; }
+#linguaplay-yt-drawer .lp-question-row { display: flex; gap: 6px; align-items: center; }
+#linguaplay-yt-drawer #lp-chat-input { flex: 1; width: 0; font-size: 13px; }
+#linguaplay-yt-drawer .linguaplay-btn-primary, #linguaplay-subtitle-panel .lp-source-primary { background: #c4b5fd; border-color: transparent; color: #211b35; font-weight: 600; }
+#linguaplay-yt-drawer .linguaplay-btn-primary:hover, #linguaplay-subtitle-panel .lp-source-primary:hover { background: #ded4ff; }
+.lp-study-footer { position: sticky; bottom: -12px; z-index: 1; padding-top: 12px; background: #17191c; box-shadow: 0 -6px 16px #17191ccc; }
+#lp-resume-btn { width: 100%; }
+.lp-study-footer p { margin: 4px 0 0; }
+#lp-chat-messages { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin: 10px 0; padding-right: 4px; }
+#lp-chat-messages:empty, .lp-chat-chips-row { display: none; }
+#lp-ai-results { font-size: 13px; line-height: 1.55; }
+#lp-ai-results:not(:empty) { border-top: 1px solid #36393f; margin: 10px 0; padding-top: 10px; }
+.lp-chat-msg-user { align-self: flex-end; background: #2e2939; padding: 8px 10px; border-radius: 6px; max-width: 92%; overflow-wrap: anywhere; font-size: 13px; }
+.lp-chat-msg-assistant { align-self: flex-start; padding: 8px 0; max-width: 100%; overflow-wrap: anywhere; font-size: 13px; line-height: 1.55; }
+.lp-chat-table-wrapper { overflow-x: auto; margin: 8px 0; border: 1px solid #45434c; border-radius: 6px; }
+.lp-chat-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+.lp-chat-table th, .lp-chat-table td { border-bottom: 1px solid #36393f; padding: 6px 8px; vertical-align: top; }
+.lp-chat-table th { background: #22252a; color: #d6c9f3; }
+.lp-chat-inline-code { background: #22252a; color: #ffd1dc; padding: 1px 4px; border-radius: 3px; font-family: monospace; }
+.lp-chat-bullet { margin: 4px 0; }
+.linguaplay-gloss-container { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.linguaplay-gloss-card { display: inline-flex; flex-direction: column; align-items: center; padding: 4px; max-width: 100%; }
+.linguaplay-gloss-card.is-target { border-bottom: 1px solid #d6c9f3; }
+.linguaplay-gloss-reading { font-size: 12px; color: #d6c9f3; }
+.linguaplay-gloss-jp { font-size: 16px; color: #f2f1ed; }
+.linguaplay-gloss-en { max-width: 14ch; font-size: 12px; color: #c2bec8; text-align: center; overflow-wrap: anywhere; }
+.linguaplay-badge { display: inline-block; margin: 0 4px 4px 0; padding: 2px 6px; border: 1px solid #45434c; border-radius: 4px; color: #d6c9f3; font-size: 12px; }
+.linguaplay-shimmer { min-height: 36px; background: #22252a; border-radius: 6px; }
+.lp-ai-error { padding: 10px 0; font-size: 13px; }
+#lp-ai-error-text { color: #ffb4ba; }
 
-.linguaplay-btn {
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition: all 0.2s;
-  margin-bottom: 8px;
-}
+/* Subtitle discovery uses the same compact panel and native controls. */
+#linguaplay-subtitle-panel { position: absolute; top: 24px; right: 16px; bottom: 84px; width: min(380px,calc(100% - 32px)); max-height: none; z-index: 10003; }
+#linguaplay-subtitle-panel label { display: block; font-size: 13px; margin: 10px 0 5px; color: #d4d0da; }
+#linguaplay-subtitle-panel :is(input:not([type="checkbox"]), select) { width: 100%; }
+#linguaplay-subtitle-panel .lp-source-row { display: flex; gap: 6px; align-items: end; margin: 8px 0; }
+#linguaplay-subtitle-panel .lp-source-row > label { flex: 1; min-width: 0; margin: 0; }
+#linguaplay-subtitle-panel .lp-source-row > button { flex: none; }
+#lp-jimaku-offset { flex: 1; width: 0 !important; font-variant-numeric: tabular-nums; }
+#lp-jimaku-results { max-height: 240px; overflow-y: auto; }
+#linguaplay-subtitle-panel .lp-source-result { display: block; text-align: left; width: 100%; padding: 10px; margin: 4px 0; }
+.lp-source-result strong { display: block; font-size: 13px; font-weight: 500; white-space: normal; overflow-wrap: anywhere; }
+.lp-source-result span { display: block; font-size: 12px; color: #c2bec8; margin-top: 3px; white-space: normal; overflow-wrap: anywhere; }
+#linguaplay-subtitle-panel .lp-source-result[aria-pressed="true"] { border-color: #d6c9f3; background: #2e2939; }
+#lp-jimaku-preview { font: 14px/1.8 "Noto Sans CJK JP",sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px 0; border-top: 1px solid #36393f; }
+#lp-jimaku-preview:empty { display: none; }
+#lp-jimaku-apply { width: 100%; margin-top: 8px; }
+.lp-source-timing, .lp-caption-settings { border-top: 1px solid #36393f; margin-top: 16px; padding-top: 4px; }
+#linguaplay-subtitle-panel .lp-check { display: flex; gap: 8px; align-items: center; }
+#linguaplay-subtitle-panel input[type="checkbox"] { min-height: 0; accent-color: #c4b5fd; }
+.lp-opacity-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.lp-opacity-label output { font-size: 12px; font-variant-numeric: tabular-nums; }
+#linguaplay-subtitle-panel input[type="range"] { padding: 0; border: 0; background: transparent; cursor: pointer; accent-color: #c4b5fd; }
+#linguaplay-lyrics-modal.hidden { display: none !important; }
+#linguaplay-lyrics-modal { position: fixed; inset: 0; z-index: 2147483647; background: #000c; display: flex; align-items: center; justify-content: center; }
 
-.linguaplay-btn-primary {
-  background: linear-gradient(135deg, #7c3aed, #a78bfa);
-  color: white;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+@media (max-width: 760px) {
+  #linguaplay-yt-tokens-overlay { left: 2%; right: 2%; }
+  #linguaplay-yt-drawer.in-player { top: auto; left: 10px; right: 10px; width: auto; bottom: 80px; max-height: min(40%,320px); }
+  #linguaplay-yt-tokens-overlay[data-study-open="true"] { bottom: calc(min(40%,320px) + 88px); }
+  #linguaplay-yt-drawer.floating-fallback { top: auto; right: 10px; left: 10px; bottom: 10px; width: auto; max-height: 60vh; }
+  #linguaplay-subtitle-panel { top: auto; bottom: 80px; right: 10px; left: 10px; width: auto; max-height: min(55%,440px); }
+  #linguaplay-yt-tokens-overlay[data-source-open="true"] { bottom: calc(min(55%,440px) + 88px); }
 }
-
-.linguaplay-btn-primary:hover {
-  filter: brightness(1.1);
+@media (prefers-reduced-motion: reduce) {
+  .linguaplay-yt-token { transition: none; }
+  .linguaplay-yt-token:active { transform: none; }
 }
-
-.linguaplay-btn-secondary {
-  background: rgba(30, 27, 46, 0.85);
-  border: 1px solid rgba(167, 139, 250, 0.2);
-  color: #cbd5e1;
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  #linguaplay-yt-tokens-overlay[data-transparent] #linguaplay-caption-surface { background: #10121c; border-color: #ffffff80; backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
-
-.linguaplay-btn-secondary:hover {
-  background: rgba(167, 139, 250, 0.2);
-  color: white;
-}
-
-.linguaplay-shimmer {
-  background: linear-gradient(90deg, rgba(167, 139, 250, 0.06) 25%, rgba(167, 139, 250, 0.18) 50%, rgba(167, 139, 250, 0.06) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 6px;
-  height: 40px;
-  margin-bottom: 8px;
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-/* ── Sensei Chatbot UI ── */
-#lp-chat-messages {
-  overflow-anchor: none;
-}
-
-#lp-chat-send-btn:disabled,
-.lp-chat-chip:disabled {
-  opacity: 0.55;
-  cursor: wait;
-}
-
-.lp-chat-chip {
-  background: rgba(167, 139, 250, 0.12);
-  border: 1px solid rgba(167, 139, 250, 0.25);
-  color: #cbd5e1;
-  font-size: 10px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-  font-family: inherit;
-}
-
-.lp-chat-chip:hover {
-  background: rgba(124, 58, 237, 0.4);
-  color: white;
-  border-color: #a78bfa;
-}
-
-.lp-chat-msg-user {
-  align-self: flex-end;
-  background: rgba(124, 58, 237, 0.4);
-  color: #f8fafc;
-  padding: 6px 10px;
-  border-radius: 10px 10px 2px 10px;
-  max-width: 85%;
-  line-height: 1.4;
-  border: 1px solid rgba(167, 139, 250, 0.3);
-  font-size: 11.5px;
-}
-
-.lp-chat-msg-sensei {
-  align-self: flex-start;
-  background: rgba(30, 27, 75, 0.65);
-  color: #e2e8f0;
-  padding: 8px 11px;
-  border-radius: 10px 10px 10px 2px;
-  max-width: 92%;
-  line-height: 1.45;
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  font-size: 12px;
-}
-
-/* ── Sensei Chatbot Markdown Tables & Rich Formatting ── */
-.lp-chat-table-wrapper {
-  overflow-x: auto;
-  margin: 8px 0;
-  border-radius: 8px;
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  background: rgba(15, 23, 42, 0.75);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  -webkit-overflow-scrolling: touch;
-}
-
-.lp-chat-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11.5px;
-  line-height: 1.45;
-  text-align: left;
-}
-
-.lp-chat-table thead {
-  background: rgba(124, 58, 237, 0.25);
-  border-bottom: 1px solid rgba(139, 92, 246, 0.35);
-}
-
-.lp-chat-table th {
-  padding: 6px 10px;
-  color: #c4b5fd;
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-}
-
-.lp-chat-table tbody tr {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  transition: background 0.15s ease;
-}
-
-.lp-chat-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.lp-chat-table tbody tr:hover {
-  background: rgba(139, 92, 246, 0.12);
-}
-
-.lp-chat-table td {
-  padding: 6px 10px;
-  color: #f1f5f9;
-  font-weight: 500;
-  vertical-align: middle;
-}
-
-.lp-chat-inline-code {
-  background: rgba(0, 0, 0, 0.35);
-  padding: 1px 4px;
-  border-radius: 4px;
-  font-family: monospace;
-  color: #fda4af;
-  font-size: 0.92em;
-}
-
-.lp-chat-bullet {
-  margin: 3px 0;
-  padding-left: 2px;
-  line-height: 1.4;
-}
-
-/* ── Lyrics Manager Modal ── */
-#linguaplay-lyrics-modal.hidden {
-  display: none !important;
-}
-
-#linguaplay-lyrics-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.78);
-  z-index: 999999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(4px);
-}
-/* 9Router connection errors in the grammar drawer. */
-#linguaplay-yt-drawer .lp-ai-error {
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  border-radius: 8px;
-  padding: 12px;
-  color: #e2e8f0;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-#linguaplay-yt-drawer .lp-ai-error p {
-  margin: 0 0 8px;
-}
-
-#linguaplay-yt-drawer #lp-ai-error-text {
-  color: #f87171;
-}
-
-#linguaplay-yt-drawer .lp-ai-error button {
-  border: 1px solid #a78bfa;
-  border-radius: 6px;
-  padding: 6px 10px;
-  background: #7c3aed;
-  color: white;
-  cursor: pointer;
+@media (forced-colors: active) {
+  #linguaplay-yt-tokens-overlay[data-transparent] #linguaplay-caption-surface { background: Canvas; color: CanvasText; border-color: CanvasText; box-shadow: none; text-shadow: none; backdrop-filter: none; }
+  .linguaplay-yt-token, .linguaplay-token-reading, #linguaplay-caption-english { color: CanvasText; text-shadow: none; }
 }

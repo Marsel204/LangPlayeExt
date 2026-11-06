@@ -390,7 +390,7 @@ console.log('✅ Test 7: Subtitle Parsing & Sync: PASSED');
 const manifestPath = path.join(__dirname, 'manifest.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 assert.strictEqual(manifest.manifest_version, 3);
-assert.strictEqual(manifest.name, 'LinguaPlay for YouTube');
+assert.strictEqual(manifest.name, 'LinguaPlay — Japanese Video Learning');
 assert.ok(manifest.options_ui && manifest.options_ui.page === 'options.html', 'Manifest must declare options_ui.page');
 assert.strictEqual(manifest.options_ui.open_in_tab, true, 'options_ui.open_in_tab must be true');
 const webRes = manifest.web_accessible_resources?.[0]?.resources || [];
