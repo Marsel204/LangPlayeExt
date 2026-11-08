@@ -158,7 +158,7 @@ async function removeOwnedLyrics(vid) {
 
 // Use the same saved endpoint, permissions and credentials for all AI calls.
 async function call9RouterAi(messages, isJson = false) {
-  const config = await chrome.storage.local.get(['linguaplay_9router_url', 'linguaplay_9router_key', 'linguaplay_9router_model']);
+  const config = await chrome.storage.local.get(['linguaplay_9router_url', 'linguaplay_9router_key', 'linguaplay_9router_model', 'linguaplay_9router_effort', 'linguaplay_9router_token_budget']);
   const endpoint = new URL((config.linguaplay_9router_url || 'http://127.0.0.1:20128/v1').trim());
   if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
     throw new Error('9Router must be an HTTP or HTTPS URL without embedded credentials');
@@ -183,6 +183,8 @@ async function call9RouterAi(messages, isJson = false) {
       model,
       messages,
       stream: false,
+      reasoning_effort: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(config.linguaplay_9router_effort) ? config.linguaplay_9router_effort : undefined,
+      max_completion_tokens: Number.isInteger(config.linguaplay_9router_token_budget) && config.linguaplay_9router_token_budget >= 512 && config.linguaplay_9router_token_budget <= 16384 ? config.linguaplay_9router_token_budget : undefined,
       response_format: isJson ? { type: 'json_object' } : undefined
     }),
     signal: AbortSignal.timeout(30000)
@@ -191,6 +193,7 @@ async function call9RouterAi(messages, isJson = false) {
   if (!response.ok) {
     throw new Error(data.error?.message || `9Router returned status ${response.status}`);
   }
+  if (data.choices?.[0]?.finish_reason === 'length') throw new Error('AI reached the response token budget. Raise the token budget or lower reasoning effort in Settings, then retry.');
   const content = data.choices?.[0]?.message?.content;
   if (typeof content !== 'string' || !content.trim()) throw new Error('Empty response from 9Router');
   return content;

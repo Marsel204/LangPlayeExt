@@ -1,7 +1,7 @@
 // Run with: node tests/browser_custom_ai.mjs (requires Chromium).
 // Uses a disposable browser profile and a local mock API; never calls a model.
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +12,7 @@ import { checkNativeStartup } from './browser_native_startup_checks.mjs';
 import { checkJapaneseParsing } from './browser_japanese_parsing_checks.mjs';
 import { checkRouterStartup } from './browser_router_startup_checks.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const sentenceExplanation = JSON.parse(await readFile(path.join(root, 'tests/fixtures/sentence-explanation.json'), 'utf8'));
 const browserBinary = process.env.CHROMIUM_PATH || 'chromium';
 const profile = await mkdtemp(path.join(tmpdir(), 'linguaplay-browser-'));
 const requests = [];
@@ -37,7 +38,7 @@ const server = http.createServer((req, res) => {
     if (req.url === '/v1/chat/completions' && JSON.parse(body).messages.some(message => message.content.includes('word_by_word'))) {
       setTimeout(() => {
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ word_by_word: [{ word: '猫', reading: 'ねこ', romaji: 'neko', meaning: 'cat' }] }) } }] }));
+        res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(sentenceExplanation) } }] }));
       }, 5200);
       return;
     }
@@ -160,9 +161,17 @@ try {
     picker.dispatchEvent(new Event('change', { bubbles: true }));
   `);
   assert.equal(await evaluate('document.getElementById("9router-model").value'), 'study-combo');
+  await evaluate(`
+    document.getElementById('9router-effort').value = 'medium';
+    document.getElementById('9router-effort').dispatchEvent(new Event('change', {bubbles:true}));
+    document.getElementById('9router-token-budget').value = '1024';
+    document.getElementById('9router-token-budget').dispatchEvent(new Event('input', {bubbles:true}));
+  `);
   await evaluate(`document.getElementById('test-9router-btn').click();`);
   await waitForRouterControl('test-9router-btn');
   assert.match(await evaluate('document.getElementById("9router-status-text").textContent'), /is working with study-combo/);
+  assert.equal(JSON.parse(requests.at(-1).body).reasoning_effort, 'medium');
+  assert.equal(JSON.parse(requests.at(-1).body).max_completion_tokens, 1024);
   const settingsSaved = await evaluate(`new Promise((resolve, reject) => {
     const timer = setTimeout(() => { chrome.storage.onChanged.removeListener(changed); reject(new Error('9Router settings were not saved')); }, 5000);
     function changed(changes) {
@@ -176,6 +185,7 @@ try {
   const routerConfig = await evaluate('chrome.storage.local.get(["linguaplay_9router_url", "linguaplay_9router_model"])');
   assert.equal(routerConfig.linguaplay_9router_url, `http://127.0.0.1:${port}/v1`);
   assert.equal(routerConfig.linguaplay_9router_model, 'study-combo');
+  assert.deepEqual(await evaluate('chrome.storage.local.get(["linguaplay_9router_effort","linguaplay_9router_token_budget"])'), {linguaplay_9router_effort:'medium',linguaplay_9router_token_budget:1024});
   await evaluate(`
     document.getElementById('reading-mode').value = 'romaji';
     document.getElementById('reading-mode').dispatchEvent(new Event('change', { bubbles: true }));
@@ -201,6 +211,8 @@ try {
   assert.equal(routerRequest.authorization, 'Bearer router-test-key');
   assert.equal(JSON.parse(routerRequest.body).model, 'study-combo');
   assert.equal(JSON.parse(routerRequest.body).response_format.type, 'json_object');
+  assert.equal(JSON.parse(routerRequest.body).reasoning_effort, 'medium');
+  assert.equal(JSON.parse(routerRequest.body).max_completion_tokens, 1024);
   for (const [route, expected] of [['anki-valid', 'AnkiConnect is active'], ['anki-invalid', 'Invalid AnkiConnect API key']]) {
     await evaluate(`
       document.getElementById('ankiconnect-url').value = 'http://127.0.0.1:${port}/${route}';
@@ -236,15 +248,17 @@ try {
       await rpc('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] }, sessionId);
       for (const width of [1440, 900, 420]) {
         await rpc('Emulation.setDeviceMetricsOverride', { width, height: 1100, deviceScaleFactor: 1, mobile: false }, sessionId);
-        await evaluate(`document.getElementById('ai-settings').scrollIntoView({ behavior: 'instant' });`);
+        await evaluate(`document.getElementById('9router-effort').scrollIntoView({ behavior: 'instant', block: 'center' });`);
         await evaluate(`new Promise(resolve => setTimeout(resolve, 220))`);
         assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `Settings overflow at ${width}px in ${theme} mode`);
+        assert.equal(await evaluate('document.getElementById("9router-token-budget").getBoundingClientRect().height'),42);
         const { data } = await rpc('Page.captureScreenshot', { format: 'png' }, sessionId);
         await writeFile(path.join(process.env.OPTIONS_SCREENSHOT_DIR, `9router-options-${width}-${theme}.png`), Buffer.from(data, 'base64'));
       }
     }
     await rpc('Emulation.clearDeviceMetricsOverride', {}, sessionId);
     await rpc('Emulation.setEmulatedMedia', { features: [] }, sessionId);
+    await evaluate('window.scrollTo(0,0)');
   }
   const routerStartup = await checkRouterStartup({root, profile, evaluate, rpc, sessionId});
   const nativeStartup = await checkNativeStartup({ root, profile, extensionOrigin, evaluate });
@@ -252,6 +266,8 @@ try {
   const analysis = requests.find(request => request.url === '/v1/chat/completions' && JSON.parse(request.body).messages.some(message => message.content.includes('word_by_word')));
   assert.ok(analysis, 'A grammar breakdown must reach 9Router');
   assert.equal(JSON.parse(analysis.body).model, 'study-combo');
+  assert.equal(JSON.parse(analysis.body).reasoning_effort, 'medium');
+  assert.equal(JSON.parse(analysis.body).max_completion_tokens, 1024);
   const japaneseParsing = process.env.PARSER_SERVER_DIR ? await checkJapaneseParsing({root,evaluate,backend:process.env.PARSER_SERVER_DIR}) : {skipped:'Set PARSER_SERVER_DIR to test a real Sudachi backend'};
   console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, routerModelDiscovery: true, routerProviderSearch: true, routerProviderFiltering: true, routerSettingsSaved: settingsSaved, routerWorkerRequest: routerAnswer.success, origins: requests.map(request => request.origin || '(none)'), routerStartup, nativeStartup, subtitleVisibility, japaneseParsing }));
 } finally {

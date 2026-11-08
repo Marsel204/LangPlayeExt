@@ -174,7 +174,7 @@
 #linguaplay-yt-drawer, #linguaplay-subtitle-panel {
   position: relative; z-index: 90; pointer-events: auto;
   background: var(--lp-panel); border: 1px solid var(--lp-line); border-radius: 8px;
-  max-height: min(72vh,760px); overflow: auto; padding: 0 12px 12px; min-width: 0;
+  max-height: min(72vh,760px); overflow: auto; overscroll-behavior: contain; padding: 0 12px 12px; min-width: 0;
   box-shadow: 0 8px 24px #0004; scrollbar-width: thin; scrollbar-color: #59535f #17191c; isolation: isolate;
 }
 #linguaplay-yt-drawer { width: 100%; margin-bottom: 16px; }
@@ -188,8 +188,9 @@
   border-bottom: 1px solid #36393f; position: sticky; top: 0; z-index: 2;
 }
 .lp-header-actions { display: flex; gap: 6px; }
-#linguaplay-yt-drawer #lp-active-word { font: 500 30px/1.45 "Noto Sans CJK JP","Noto Sans JP",sans-serif; margin: 8px 0 0; overflow-wrap: anywhere; color: #f2f1ed; }
-#lp-active-romaji { color: #d6c9f3; margin-top: 0 !important; }
+#linguaplay-yt-drawer #lp-active-word { font: 500 30px/1.45 "Noto Sans CJK JP","Noto Sans JP",sans-serif; margin: 0; overflow-wrap: anywhere; color: #f2f1ed; }
+#lp-active-romaji { color: #d6c9f3; font: 400 12px/1.3 system-ui,sans-serif; margin: 8px 0 2px; overflow-wrap: anywhere; }
+#lp-active-romaji:empty { display: none; }
 #lp-active-pos { color: #c2bec8; font-size: 12px; }
 #lp-active-pos:empty, #lp-study-source:empty { display: none; }
 #lp-active-def { font-size: 15px; line-height: 1.45; margin: 8px 0; }
@@ -204,7 +205,10 @@
 #lp-sentence-en { font-size: 13px; line-height: 1.5; margin: 6px 0 0; }
 #lp-translation-retry { margin-top: 10px; }
 .lp-study-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-.lp-study-actions .linguaplay-btn { flex: 1; }
+#linguaplay-yt-drawer .lp-study-actions .linguaplay-btn {
+  flex: 0 0 auto; max-width: 100%; min-height: 32px;
+  padding: 6px 10px; font: 500 13px/1.35 system-ui,sans-serif;
+}
 #linguaplay-yt-drawer label { display: block; color: #d4d0da; font-size: 13px; margin: 10px 0 5px; }
 #linguaplay-yt-drawer .lp-question-row { display: flex; gap: 6px; align-items: center; }
 #linguaplay-yt-drawer #lp-chat-input { flex: 1; width: 0; font-size: 13px; }
@@ -215,8 +219,21 @@
 .lp-study-footer p { margin: 4px 0 0; }
 #lp-chat-messages { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin: 10px 0; padding-right: 4px; }
 #lp-chat-messages:empty, .lp-chat-chips-row { display: none; }
-#lp-ai-results { font-size: 13px; line-height: 1.55; }
+#lp-ai-results { font-size: 13px; line-height: 1.55; scroll-margin-top: 56px; }
+#lp-ai-results:focus { outline: none; }
 #lp-ai-results:not(:empty) { border-top: 1px solid #36393f; margin: 10px 0; padding-top: 10px; }
+.lp-sentence-explanation { overflow-wrap: anywhere; }
+.lp-sentence-explanation section + section { margin-top: 12px; }
+.lp-sentence-explanation h3 { margin: 0 0 6px; color: #f2f1ed; font: 600 14px/1.4 system-ui,sans-serif; }
+#lp-ai-results .lp-sentence-explanation p { margin: 6px 0; line-height: 1.5; }
+.lp-sentence-explanation .lp-explanation-meaning { font-size: 15px; }
+.lp-sentence-explanation .lp-explanation-note, .lp-sentence-explanation .lp-explanation-provider { color: #c2bec8; font-size: 12px; }
+.lp-explanation-grammar { margin: 0; padding-left: 20px; }
+.lp-explanation-grammar li { margin: 8px 0; line-height: 1.6; }
+.lp-explanation-jp { ruby-position: over; ruby-align: center; margin-inline: 2px; line-height: 1.7; color: #f2f1ed; }
+.lp-explanation-words { margin-top: 12px; padding-top: 8px; border-top: 1px solid #36393f; }
+.lp-explanation-words summary { color: #d6c9f3; cursor: pointer; padding: 4px 0; }
+.lp-explanation-words summary:focus-visible { outline: 2px solid #d6c9f3; outline-offset: 3px; }
 .lp-chat-msg-user { align-self: flex-end; background: #2e2939; padding: 8px 10px; border-radius: 6px; max-width: 92%; overflow-wrap: anywhere; font-size: 13px; }
 .lp-chat-msg-assistant { align-self: flex-start; padding: 8px 0; max-width: 100%; overflow-wrap: anywhere; font-size: 13px; line-height: 1.55; }
 .lp-chat-table-wrapper { overflow-x: auto; margin: 8px 0; border: 1px solid #45434c; border-radius: 6px; }
@@ -226,10 +243,10 @@
 .lp-chat-inline-code { background: #22252a; color: #ffd1dc; padding: 1px 4px; border-radius: 3px; font-family: monospace; }
 .lp-chat-bullet { margin: 4px 0; }
 .linguaplay-gloss-container { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-.linguaplay-gloss-card { display: inline-flex; flex-direction: column; align-items: center; padding: 4px; max-width: 100%; }
+.linguaplay-gloss-card { display: inline-flex; flex-direction: column; align-items: center; padding: 10px 4px 4px; max-width: 100%; }
 .linguaplay-gloss-card.is-target { border-bottom: 1px solid #d6c9f3; }
-.linguaplay-gloss-reading { font-size: 12px; color: #d6c9f3; }
-.linguaplay-gloss-jp { font-size: 16px; color: #f2f1ed; }
+.linguaplay-gloss-reading { font: 400 11px/1.2 system-ui,sans-serif; color: #d6c9f3; white-space: nowrap; }
+.linguaplay-gloss-jp { font-size: 16px; line-height: 1.6; color: #f2f1ed; ruby-position: over; ruby-align: center; }
 .linguaplay-gloss-en { max-width: 14ch; font-size: 12px; color: #c2bec8; text-align: center; overflow-wrap: anywhere; }
 .linguaplay-badge { display: inline-block; margin: 0 4px 4px 0; padding: 2px 6px; border: 1px solid #45434c; border-radius: 4px; color: #d6c9f3; font-size: 12px; }
 .linguaplay-shimmer { min-height: 36px; background: #22252a; border-radius: 6px; }
