@@ -10,7 +10,7 @@ const videoData = (await readFile(path.join(root, 'tests/fixtures/video.webm')))
 const profile = await mkdtemp(path.join(tmpdir(), 'langplay-video-sites-'));
 const captureDir = path.join(root, '.impeccable/review/player');
 const browser = spawn(process.env.CHROMIUM_PATH || 'chromium', ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-background-networking', '--disable-dev-shm-usage', '--window-size=1280,900', '--remote-debugging-port=0', '--user-data-dir=' + profile, '--load-extension=' + root, 'about:blank'], {stdio: ['ignore','ignore','pipe']});
-const calls = [], errors = [], pending = new Map();
+const calls = [], errors = [], pending = new Map(), contexts = new Map();
 let ws, nextId = 0;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(fn, name) {
@@ -45,6 +45,11 @@ try {
     if (message.id) {
       const p=pending.get(message.id); if(!p)return; pending.delete(message.id); clearTimeout(p.timer);
       message.error ? p.reject(Error(JSON.stringify(message.error))) : p.resolve(message.result); return;
+    }
+    if (message.method === 'Runtime.executionContextsCleared') contexts.delete(message.sessionId);
+    if (message.method === 'Runtime.executionContextCreated') {
+      const entries = contexts.get(message.sessionId) || [];
+      entries.push(message.params.context); contexts.set(message.sessionId, entries);
     }
     if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.text);
     if (message.method !== 'Fetch.requestPaused') return;
@@ -283,6 +288,28 @@ try {
   await click('linguaplay-sub-status');
   assert.equal(await run('document.getElementById("lp-watch-mode").value'),'auto','A song override does not leak into another video');
   assert.equal(await run('document.getElementById("lp-episode-sources").hidden'),false);
+  // Chrome retains the document's original sender.url after YouTube pushState.
+  // Exercise runtime.sendMessage from the real content-script world, rather
+  // than constructing a sender that already has the current watch URL.
+  contexts.delete(page);
+  await rpc('Page.navigate',{url:'https://www.youtube.com/'},page);
+  const extensionOrigin = `chrome-extension://${new URL(worker.url).hostname}`;
+  const contentContext = await until(()=>(contexts.get(page)||[]).find(context=>context.origin===extensionOrigin),'YouTube content script world');
+  async function requestSentenceMeaning() {
+    const result = await rpc('Runtime.evaluate',{
+      expression:'chrome.runtime.sendMessage({action:"TRANSLATE_JAPANESE",text:"世界は綺麗だった。"})',
+      contextId:contentContext.id,awaitPromise:true,returnByValue:true
+    },page);
+    assert.equal(result.exceptionDetails,undefined);
+    return result.result.value;
+  }
+  assert.equal((await requestSentenceMeaning()).success,false,'YouTube home is not a watch page');
+  await run('history.pushState({},"","/watch?v=fixture")');
+  assert.deepEqual(await requestSentenceMeaning(),{success:true,translation:'The world was beautiful.'});
+  await run('history.pushState({},"","/results?search_query=Eve")');
+  assert.equal((await requestSentenceMeaning()).success,false,'Leaving the watch page revokes subtitle access');
+  await run('history.pushState({},"","/watch?v=next-fixture")');
+  assert.equal((await requestSentenceMeaning()).success,true,'A second watch navigation still translates');
   assert.equal(calls.some(c=>c.url.includes('/chat/completions')),false,'caption and dictionary requests never invoke generative AI');
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({browser:(await rpc('Browser.getVersion')).product,sites:6,jimakuSearch:true,episodeFiles:true,previewPreservesSource:true,assImport:true,sentenceMeaning:true,alignedReadings:true,pauseCloseResume:true,delay:true,opacity:true,subtitleSize:true,sizeKeyboard:true,sizePersistence:true,subtitlePosition:true,positionBounds:true,positionKeyboard:true,positionReset:true,positionPersistence:true,watchModes:true,modePersistence:true,songWorkflow:true,modeIsolation:true,fullscreen:true,narrow:true,navigationCleanup:true,captures:captureDir}));

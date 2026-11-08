@@ -3,6 +3,43 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {create, flush, response} = require('./perf/lib/shipped');
 
+test('sentence meaning works after navigating from YouTube home or search to a video', async () => {
+  for (const originalPath of ['/', '/results?search_query=Eve']) {
+    const h = await create();
+    const result = await h.worker.request({action: 'TRANSLATE_JAPANESE', text: '世界は綺麗'}, {
+      id: 'fixture-extension',
+      url: 'https://www.youtube.com' + originalPath,
+      frameId: 0,
+      tab: {url: 'https://www.youtube.com/watch?v=video'}
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.translation, 'translation');
+  }
+});
+
+test('a current watch tab cannot authorize an untrusted document or subframe', async () => {
+  const h = await create();
+  const original = {id: 'fixture-extension', url: 'https://www.youtube.com/', frameId: 0, tab: {url: 'https://www.youtube.com/watch?v=video'}};
+  for (const changes of [
+    {id: 'another-extension'},
+    {url: 'https://untrusted.example/'},
+    {url: 'http://www.youtube.com/'},
+    {frameId: 1},
+    {frameId: undefined},
+    {tab: {url: 'https://www.youtube.com/results?search_query=Eve'}},
+    {tab: {url: 'https://www.youtube.com.attacker.example/watch?v=video'}},
+    {tab: {url: 'http://www.youtube.com/watch?v=video'}},
+    {tab: {url: 'https://m.youtube.com/watch?v=video'}},
+    {tab: {url: 'invalid URL'}},
+    {url: 'https://www.youtube.com/watch?v=old', tab: {url: 'https://www.youtube.com/'}}
+  ]) {
+    const result = await h.worker.request({action: 'TRANSLATE_JAPANESE', text: '世界は綺麗'}, {...original, ...changes});
+    assert.equal(result.success, false);
+    assert.match(result.error, /Untrusted subtitle request/);
+  }
+  assert.equal(h.calls.length, 0);
+});
+
 test('a Google rate limit falls back to the saved AI model and displays the sentence meaning', async () => {
   const sentence = '誰かが作り上げた私の自画像なんかで微笑みはしない';
   const meaning = 'I will not smile at a self-portrait of me that someone else created.';

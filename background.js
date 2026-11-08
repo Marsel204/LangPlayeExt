@@ -19,9 +19,16 @@ function isTrustedExtensionSender(sender) {
   if (sender.id !== chrome.runtime.id) return false;
   try {
     const url = new URL(sender.url || sender.origin);
-    return (url.protocol === 'chrome-extension:' && url.hostname === chrome.runtime.id && url.pathname === '/options.html') ||
-      (url.protocol === 'https:' && videoSiteHosts.some(host => url.hostname === host || url.hostname.endsWith('.' + host)) &&
-        (!/(^|\.)youtube\.com$/.test(url.hostname) || url.pathname === '/watch'));
+    if (url.protocol === 'chrome-extension:' && url.hostname === chrome.runtime.id && url.pathname === '/options.html') return true;
+    if (url.protocol !== 'https:' || !videoSiteHosts.some(host => url.hostname === host || url.hostname.endsWith('.' + host))) return false;
+    if (!/(^|\.)youtube\.com$/.test(url.hostname)) return true;
+    // Chrome keeps sender.url at the document's initial URL during YouTube SPA
+    // navigation. Its top-level tab URL reflects the current watch page.
+    if (sender.frameId === 0 && sender.tab?.url) {
+      const current = new URL(sender.tab.url);
+      return current.origin === url.origin && current.pathname === '/watch';
+    }
+    return url.pathname === '/watch';
   } catch { return false; }
 }
 
