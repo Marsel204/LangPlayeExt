@@ -211,6 +211,8 @@ Controls and status boxes use gently rounded corners; navigation is slightly sof
 
 **Connection feedback.** Inline live regions describe loading, discovered models, tested success, and failure. A loaded list is discovery evidence; only a nonempty AI reply earns a working AI message. Parser success requires valid parser data. Anki success requires a valid API result (integer version 6 or newer) without an API error. Colors support these written states. Long error messages wrap within the available width.
 
+**Linux login startup.** An open, ruled group below the AI connection status offers Enable login startup, Check startup, and Turn off login startup. It appears on Linux and manages only the saved local router at port 20128. Missing or older helpers expose a Download Linux setup action with a one-time terminal command. The downloaded script includes the current extension ID and shipped helper files. Status distinguishes login enablement, the running service, and an occupied port; disabling login startup leaves a running router alone. Actions use the existing secondary/text buttons and live-region tokens, remain independent of Save Settings and parser startup, and wrap on narrow screens.
+
 **The Observed State Rule.** Say what the completed operation proved, retain actionable failure text, and keep connection tests distinct from saved configuration.
 
 **Setup guide.** A native disclosure keeps detailed setup and troubleshooting available after the main groups. Code examples use wrapping monospace blocks, strong field references, and normal links.

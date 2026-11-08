@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { checkSubtitleVisibility } from './browser_subtitle_visibility_checks.mjs';
 import { checkNativeStartup } from './browser_native_startup_checks.mjs';
 import { checkJapaneseParsing } from './browser_japanese_parsing_checks.mjs';
+import { checkRouterStartup } from './browser_router_startup_checks.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const browserBinary = process.env.CHROMIUM_PATH || 'chromium';
 const profile = await mkdtemp(path.join(tmpdir(), 'linguaplay-browser-'));
@@ -245,13 +246,14 @@ try {
     await rpc('Emulation.clearDeviceMetricsOverride', {}, sessionId);
     await rpc('Emulation.setEmulatedMedia', { features: [] }, sessionId);
   }
+  const routerStartup = await checkRouterStartup({root, profile, evaluate, rpc, sessionId});
   const nativeStartup = await checkNativeStartup({ root, profile, extensionOrigin, evaluate });
   const subtitleVisibility = await checkSubtitleVisibility({ root, evaluate, rpc, sessionId, routerUrl: `http://127.0.0.1:${port}` });
   const analysis = requests.find(request => request.url === '/v1/chat/completions' && JSON.parse(request.body).messages.some(message => message.content.includes('word_by_word')));
   assert.ok(analysis, 'A grammar breakdown must reach 9Router');
   assert.equal(JSON.parse(analysis.body).model, 'study-combo');
   const japaneseParsing = process.env.PARSER_SERVER_DIR ? await checkJapaneseParsing({root,evaluate,backend:process.env.PARSER_SERVER_DIR}) : {skipped:'Set PARSER_SERVER_DIR to test a real Sudachi backend'};
-  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, routerModelDiscovery: true, routerProviderSearch: true, routerProviderFiltering: true, routerSettingsSaved: settingsSaved, routerWorkerRequest: routerAnswer.success, origins: requests.map(request => request.origin || '(none)'), nativeStartup, subtitleVisibility, japaneseParsing }));
+  console.log(JSON.stringify({ extensionLoaded: true, localHostPermission: permission, routerModelDiscovery: true, routerProviderSearch: true, routerProviderFiltering: true, routerSettingsSaved: settingsSaved, routerWorkerRequest: routerAnswer.success, origins: requests.map(request => request.origin || '(none)'), routerStartup, nativeStartup, subtitleVisibility, japaneseParsing }));
 } finally {
   ws?.close();
   browser.kill('SIGTERM');

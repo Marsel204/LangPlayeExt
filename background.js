@@ -13,6 +13,7 @@ chrome.action.onClicked.addListener(() => {
 const serverStarts = new Map();
 const serverStartFailures = new Map();
 const parserRequests = new Map();
+let routerStartupOperations = Promise.resolve();
 const videoSiteHosts = ['youtube.com', 'netflix.com', 'primevideo.com', 'disneyplus.com', 'hulu.com', 'crunchyroll.com', 'vimeo.com'];
 
 function isTrustedExtensionSender(sender) {
@@ -333,6 +334,31 @@ async function downloadJimaku(request) {
 
 // Innertube Android VR Caption Extraction Bridge in Background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  const startupActions = {GET_9ROUTER_STARTUP: 'router_startup_status', ENABLE_9ROUTER_STARTUP: 'enable_router_startup', DISABLE_9ROUTER_STARTUP: 'disable_router_startup'};
+  if (Object.prototype.hasOwnProperty.call(startupActions, request.action)) {
+    if (!isTrustedExtensionSender(sender) || !sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/options.html`) || Object.keys(request).length !== 1) {
+      sendResponse({success: false, error: 'Only extension Settings can manage 9Router startup'});
+      return false;
+    }
+    const work = routerStartupOperations.then(async () => {
+      const config = await chrome.storage.local.get(['linguaplay_9router_url']);
+      const url = new URL(config.linguaplay_9router_url || 'http://127.0.0.1:20128/v1');
+      if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname) || url.port !== '20128' || url.username || url.password) {
+        throw new Error('Login startup manages local 9Router at http://127.0.0.1:20128/v1. Save that address to use this control.');
+      }
+      return new Promise(resolve => {
+        chrome.runtime.sendNativeMessage('com.linguaplay.server', {action: startupActions[request.action]}, result => {
+          const error = chrome.runtime.lastError;
+          if (error || /Invalid startup request/.test(result?.error || '')) {
+            resolve({success: false, setupRequired: true, error: 'Install or update the Linux helper using Download Linux setup, then check startup again.'});
+          } else resolve(result || {success: false, error: 'The Linux helper did not respond'});
+        });
+      });
+    });
+    routerStartupOperations = work.catch(() => {});
+    work.then(sendResponse, error => sendResponse({success: false, error: error.message}));
+    return true;
+  }
   if (['TRANSLATE_JAPANESE', 'JIMAKU_SEARCH', 'JIMAKU_FILES', 'JIMAKU_DOWNLOAD'].includes(request.action)) {
     if (!isTrustedExtensionSender(sender)) { sendResponse({success: false, error: 'Untrusted subtitle request'}); return false; }
     const work = request.action === 'TRANSLATE_JAPANESE' ? translateJapanese(request) : request.action === 'JIMAKU_DOWNLOAD' ? downloadJimaku(request) : fetchJimaku(request);

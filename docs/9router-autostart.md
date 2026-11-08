@@ -1,6 +1,24 @@
 # Start 9Router automatically
 
-9Router must be running for LinguaPlay's AI features. Configure startup once on each computer, then keep the same API URL and router key in the extension. The extension does not install or start 9Router itself.
+9Router must be running for LinguaPlay's AI features. Configure startup once on each computer, then keep the same API URL and router key in the extension. Install Node.js and 9Router first; the Linux Settings controls can then start the installed router and enable it at login.
+
+## Linux / Omarchy: set up from LangPlay Settings
+
+1. Install Node.js and 9Router (`npm install -g 9router`), connect a provider, and check that your local router works.
+2. Open **LangPlay Settings → AI tutor → Start 9Router at login**. Use and save the local API URL, `http://127.0.0.1:20128/v1`. These controls manage port 20128 on this computer, independently of the Japanese parser.
+3. If **Download Linux setup** appears, click it and run the downloaded script once:
+
+   ```bash
+   bash ~/Downloads/langplay-9router-setup.sh
+   ```
+
+   Use the actual download path if your browser saved it elsewhere. The script contains the helper code shipped with the extension and its extension ID for this device. It registers the helper for Chrome/Chromium, preserves any existing parser setup, creates the 9Router user service if needed, and enables login startup. It needs no administrator access and does not download Node.js or 9Router. A browser extension cannot run the script directly.
+
+4. Return to Settings and click **Check startup**. With an existing, current helper, **Enable login startup** does the setup directly. **Turn off login startup** disables future login launches while leaving a running router alone.
+
+The service starts now and at future logins. If port 20128 is already in use, setup leaves that process alone and enables the service for your next login. Existing `9router.service` files are reused without rewriting them. New services bind to `127.0.0.1`, keep using `~/.9router`, and restart on failure. If an old helper is installed, download and run the setup again to update it.
+
+Use one startup method: turn off 9Router's tray auto-start if you choose the service. The helper supports Linux desktops with a systemd user session, including Omarchy. For another Chromium-based browser with a custom user-data directory, register it using `native/install_host.py --router-only --extension-id YOUR_ID --user-data-dir /path/to/browser-data`.
 
 ## Use 9Router's tray startup
 
@@ -13,7 +31,7 @@ This is the simplest option on a desktop where 9Router's tray icon is available:
 
 9Router provides startup entries for Windows, macOS, and Linux desktops; Linux tray support requires a graphical session. See its [tray menu](https://github.com/decolua/9router/blob/master/cli/src/cli/tray/tray.js) and [startup implementation](https://github.com/decolua/9router/blob/master/cli/src/cli/tray/autostart.js). If the tray is unavailable on a Linux desktop with systemd, use the service below.
 
-Choose one startup method. If a service already manages 9Router, use that service's controls instead of enabling a second startup entry.
+Choose one startup method. If a service already manages 9Router, use the Linux Settings controls or that service's commands instead of enabling a second startup entry.
 
 ## Linux alternative: a systemd user service
 
@@ -98,3 +116,9 @@ This user service starts when your user session starts. It does not require a te
 If you move Node, switch Node version managers, or change the global npm prefix, update the paths in `9router.service`, then run `systemctl --user daemon-reload` and restart the service. After updating 9Router, confirm the bundled `custom-server.js` path still exists. Do not launch a second manual instance while the service is running.
 
 The user-session startup target and restart policy follow [systemd's user-unit documentation](https://www.freedesktop.org/software/systemd/man/latest/systemd.special.html#Special%20User%20Units) and [service restart documentation](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#Restart=). For connection errors or OpenCode runtime issues, return to [settings troubleshooting](settings.md#troubleshooting).
+
+## Verification
+
+The startup feature is self-reviewed. `node --test tests/test_*.js` passes 203 tests, including the Settings controls, sender/local-endpoint restrictions, missing/older helpers, and execution of the downloaded script and native protocol in a temporary Linux home with a fake `systemctl`. `python3 tests/test_native_host.py` passes 8 tests; `python3 tests/test_router_autostart.py` passes 7 tests for service creation/reuse, occupied ports, read-only status, disabling without stopping, missing installations, errors, and real `systemd-analyze --user verify` validation.
+
+All 15 exhaustive suites and all four Chromium integrations pass. The Settings browser check downloads the actual script, checks its extension ID and bundled files, exercises enable/check/disable and busy states with native-action fixtures, and checks desktop/mobile layouts in both themes. Local captures are under `.impeccable/review/router-startup`. The design detector reports no anti-patterns; its existing typography advisories remain. Generator correspondence, syntax and whitespace checks pass. Tests do not enable, disable or restart the real machine's router service, and an actual logout/login on another device has not been exercised.

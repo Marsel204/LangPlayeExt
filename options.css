@@ -149,6 +149,8 @@ input:disabled, select:disabled { color: var(--muted); cursor: default; }
 .danger { color: var(--status-error); }
 .optional-tool { min-width: 0; margin-top: 30px; padding: 0; border: 0; }
 .optional-tool legend { width: 100%; padding: 24px 0 0; border-top: 1px solid var(--line); font-size: 15px; font-weight: 550; }
+.router-startup-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+#router-setup-instruction pre { margin: 10px 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; }
 .optional-label { display: inline-block; margin-left: 8px; color: var(--muted); font-size: 12px; font-weight: 400; }
 .tool-description { margin: 10px 0 20px; color: var(--muted); font-size: 13px; line-height: 1.65; }
 .check-row { display: flex; gap: 11px; align-items: flex-start; margin: 20px 0 0; font-size: 13px; cursor: pointer; }

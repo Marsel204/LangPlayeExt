@@ -87,6 +87,22 @@
             <p class="help-text">Choosing a provider only filters the list. Select a model to change this value, or enter a model ID or combo manually.</p>
           </div>
           <p id="9router-status-text" class="connection-status" role="status" aria-live="polite">Models load automatically. Choose a provider to browse its models, or enter your model ID or combo name.</p>
+          <fieldset class="optional-tool" id="router-startup" hidden>
+            <legend>Start 9Router at login <span class="optional-label">Linux / Omarchy</span></legend>
+            <p class="tool-description">Keep your local AI router running in the background, without opening a terminal each time.</p>
+            <div class="router-startup-actions">
+              <button id="enable-router-startup" class="btn-secondary" type="button" disabled>Enable login startup</button>
+              <button id="check-router-startup" class="btn-secondary" type="button">Check startup</button>
+              <button id="disable-router-startup" class="btn-text" type="button" hidden>Turn off login startup</button>
+              <button id="download-router-setup" class="btn-secondary" type="button" hidden>Download Linux setup</button>
+            </div>
+            <p id="router-startup-status" class="help-text" role="status" aria-live="polite">Checking login startup…</p>
+            <div id="router-setup-instruction" class="help-text" hidden>
+              <p>Install Node.js and 9Router first. Run the downloaded script once in a terminal:</p>
+              <pre><code>bash ~/Downloads/langplay-9router-setup.sh</code></pre>
+              <p>If your browser saved it elsewhere, use that file's path. The script installs this extension's Linux helper and enables login startup. It does not need administrator access.</p>
+            </div>
+          </fieldset>
         </div>
       </section>
 
@@ -197,6 +213,7 @@
         <p>Open or refresh a YouTube video with Japanese captions, click a word, and try <strong>Ask Sensei</strong> or <strong>Sensei Chat</strong>.</p>
 
         <h3>Start 9Router automatically</h3>
+        <p>On <strong>Linux / Omarchy</strong>, use <strong>AI tutor → Start 9Router at login</strong>. If the Linux helper is missing, choose <strong>Download Linux setup</strong>, run the downloaded script once, then click <strong>Check startup</strong>. After that, enable or turn off login startup directly in Settings. Install Node.js and 9Router before running the setup.</p>
         <p>In 9Router, choose <strong>Hide to Tray (Background)</strong> if shown. Open its tray menu and choose <strong>Enable Auto-start</strong> to launch it when you log in. Tray support depends on your desktop. If you already use a login service, keep that as your startup method.</p>
         <p>The extension needs 9Router running for AI. <strong>Start parser server when a video plays</strong> controls the separate Japanese parser.</p>
 
@@ -228,5 +245,6 @@
   <div id="save-toast" class="toast" role="status" aria-live="polite">Settings saved successfully.</div>
   <script src="js/card-export.js"></script>
   <script src="options.js"></script>
+  <script src="js/router-startup.js"></script>
 </body>
 </html>
