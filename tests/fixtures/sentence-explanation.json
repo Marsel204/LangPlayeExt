@@ -1,0 +1,29 @@
+{
+  "contextual_meaning": "touch each other",
+  "reading": "ふれあえば",
+  "romaji": "fureaeba",
+  "sentence_translation": {
+    "jp": "触れ合えば指先が熱くて",
+    "en": "When we touch, our fingertips are hot, and…"
+  },
+  "meaning_note": "People depend on context; て leaves this thought unfinished.",
+  "phrase_breakdown": [
+    {"phrase": "触れ合えば", "reading": "ふれあえば", "romaji": "fureaeba", "explanation": "触れ合う means ‘touch each other.’ ば makes it ‘if/when.’"},
+    {"phrase": "指先が", "reading": "ゆびさきが", "romaji": "yubisaki ga", "explanation": "が marks fingertips as what the adjective describes."},
+    {"phrase": "熱くて", "reading": "あつくて", "romaji": "atsukute", "explanation": "The connecting form of 熱い, ‘hot,’ linking to what follows."}
+  ],
+  "main_takeaway": "触れ合えば sets the condition; 指先が熱くて describes what happens under it.",
+  "japanese_readings": [
+    {"word": "触れ合う", "reading": "ふれあう", "romaji": "fureau"},
+    {"word": "ば", "reading": "ば", "romaji": "ba"},
+    {"word": "が", "reading": "が", "romaji": "ga"},
+    {"word": "熱い", "reading": "あつい", "romaji": "atsui"},
+    {"word": "て", "reading": "て", "romaji": "te"}
+  ],
+  "word_by_word": [
+    {"word": "触れ合えば", "reading": "ふれあえば", "romaji": "fureaeba", "meaning": "if/when we touch", "is_target": true},
+    {"word": "指先", "reading": "ゆびさき", "romaji": "yubisaki", "meaning": "fingertips"},
+    {"word": "が", "reading": "が", "romaji": "ga", "meaning": "subject marker"},
+    {"word": "熱くて", "reading": "あつくて", "romaji": "atsukute", "meaning": "hot, and…"}
+  ]
+}

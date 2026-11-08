@@ -86,6 +86,25 @@
             </div>
             <p class="help-text">Choosing a provider only filters the list. Select a model to change this value, or enter a model ID or combo manually.</p>
           </div>
+          <div class="field">
+            <label for="9router-effort">Reasoning effort</label>
+            <select id="9router-effort" aria-describedby="9router-effort-help">
+              <option value="">Default</option>
+              <option value="none">None</option>
+              <option value="minimal">Minimal</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="xhigh">Extra high</option>
+              <option value="max">Max</option>
+            </select>
+            <p class="help-text" id="9router-effort-help">Lower effort favors faster replies; higher effort allows more reasoning. Supported levels depend on the model. Default uses the model or router setting. Test 9Router to check your choice, then save.</p>
+          </div>
+          <div class="field">
+            <label for="9router-token-budget">Response token budget</label>
+            <input type="number" id="9router-token-budget" min="512" max="16384" step="1" placeholder="Model default" aria-describedby="9router-token-budget-help">
+            <p class="help-text" id="9router-token-budget-help">Optional cap per AI reply, including reasoning where supported. Blank keeps the model default. Explanations stay brief to fit the study panel. If a reply hits this limit, raise the budget or lower effort.</p>
+          </div>
           <p id="9router-status-text" class="connection-status" role="status" aria-live="polite">Models load automatically. Choose a provider to browse its models, or enter your model ID or combo name.</p>
         </div>
       </section>

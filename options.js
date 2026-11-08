@@ -153,6 +153,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const routerUrl = document.getElementById('9router-url');
   const routerKey = document.getElementById('9router-key');
   const routerModel = document.getElementById('9router-model');
+  const routerEffort = document.getElementById('9router-effort');
+  const routerTokenBudget = document.getElementById('9router-token-budget');
+  const effortLevels = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
   const routerModels = document.getElementById('9router-models');
   const routerProviderSearch = document.getElementById('9router-provider-search');
   const routerProvider = document.getElementById('9router-provider');
@@ -194,6 +197,8 @@ document.addEventListener('DOMContentLoaded', () => {
     'linguaplay_9router_url',
     'linguaplay_9router_key',
     'linguaplay_9router_model',
+    'linguaplay_9router_effort',
+    'linguaplay_9router_token_budget',
     'linguaplay_server_url',
     'linguaplay_auto_start_server',
     'linguaplay_anki_deck',
@@ -206,6 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (res.linguaplay_9router_url) routerUrl.value = res.linguaplay_9router_url;
     if (res.linguaplay_9router_key) routerKey.value = res.linguaplay_9router_key;
     if (res.linguaplay_9router_model) routerModel.value = res.linguaplay_9router_model;
+    routerEffort.value = effortLevels.includes(res.linguaplay_9router_effort) ? res.linguaplay_9router_effort : '';
+    routerTokenBudget.value = Number.isInteger(res.linguaplay_9router_token_budget) && res.linguaplay_9router_token_budget >= 512 && res.linguaplay_9router_token_budget <= 16384 ? String(res.linguaplay_9router_token_budget) : '';
     if (res.linguaplay_server_url) serverUrl.value = res.linguaplay_server_url;
     autoStartServer.checked = res.linguaplay_auto_start_server !== false;
     if (res.linguaplay_anki_deck) ankiDeck.value = res.linguaplay_anki_deck;
@@ -224,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function formState() {
-    return JSON.stringify([routerUrl.value.trim(), routerKey.value.trim(), routerModel.value.trim(),
+    return JSON.stringify([routerUrl.value.trim(), routerKey.value.trim(), routerModel.value.trim(), routerEffort.value, routerTokenBudget.value.trim(),
       serverUrl.value.trim(), autoStartServer.checked, ankiDeck.value.trim(), ankiConnectUrl.value.trim(), readingMode.value,
       jimakuKey.value.trim(), sentenceMeaning.checked]);
   }
@@ -295,6 +302,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 2. Save settings
+  function getTokenBudget() {
+    if (!routerTokenBudget.value.trim()) return null;
+    const value = Number(routerTokenBudget.value);
+    if (!Number.isInteger(value) || value < 512 || value > 16384) throw new Error('Response token budget must be a whole number from 512 to 16384.');
+    return value;
+  }
+
   saveSettingsBtn.addEventListener('click', async () => {
     if (isSaving) return;
     isSaving = true;
@@ -308,6 +322,8 @@ document.addEventListener('DOMContentLoaded', () => {
         linguaplay_9router_url: endpoint.href,
         linguaplay_9router_key: routerKey.value.trim(),
         linguaplay_9router_model: routerModel.value.trim(),
+        linguaplay_9router_effort: effortLevels.includes(routerEffort.value) ? routerEffort.value : '',
+        linguaplay_9router_token_budget: getTokenBudget(),
         linguaplay_server_url: serverUrl.value.trim() || 'http://127.0.0.1:8000',
         linguaplay_auto_start_server: autoStartServer.checked,
         linguaplay_anki_deck: ankiDeck.value.trim() || 'LinguaPlay',
@@ -494,6 +510,14 @@ document.addEventListener('DOMContentLoaded', () => {
     modelChanged();
   });
   routerModel.addEventListener('input', modelChanged);
+  function aiPreferenceChanged() {
+    if (activeRouterCheck && !activeRouterCheck.loadModels) cancelRouterCheck();
+    routerStatusText.textContent = 'AI preferences changed. Test 9Router, then click Save Settings.';
+    routerStatusText.style.color = 'var(--muted)';
+    formChanged();
+  }
+  routerEffort.addEventListener('change', aiPreferenceChanged);
+  routerTokenBudget.addEventListener('input', aiPreferenceChanged);
   for (const field of [routerUrl, routerKey]) {
     field.addEventListener('input', () => {
       cancelRouterCheck();
@@ -516,6 +540,8 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const endpoint = getRouterEndpoint();
       const model = routerModel.value.trim();
+      const effort = effortLevels.includes(routerEffort.value) ? routerEffort.value : undefined;
+      const tokenBudget = loadModels ? undefined : getTokenBudget();
       if (!loadModels && !model) throw new Error('Choose a model or enter your combo name first. Click Load Models to see available IDs.');
       if (interactive) {
         await allowEndpoint(endpoint);
@@ -537,7 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch(endpoint.href, {
         method: loadModels ? 'GET' : 'POST',
         headers,
-        ...(loadModels ? {} : { body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Respond with the word OK' }], stream: false }) }),
+        ...(loadModels ? {} : { body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Respond with the word OK' }], stream: false, reasoning_effort: effort, max_completion_tokens: tokenBudget || undefined }) }),
         signal: AbortSignal.any([request.controller.signal, AbortSignal.timeout(30000)])
       });
       const data = await response.json().catch(() => ({}));
@@ -548,6 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadModelCatalog(data.data);
         updateCatalogStatus();
       } else {
+        if (data.choices?.[0]?.finish_reason === 'length') throw new Error('AI reached the response token budget. Raise the budget or lower reasoning effort, then retry.');
         const content = data.choices?.[0]?.message?.content;
         if (typeof content !== 'string' || !content.trim()) throw new Error('9Router returned an empty reply. Check the model or combo in its dashboard.');
         routerStatusText.textContent = `9Router is working with ${model}. Click Save Settings to use it for Sensei.`;

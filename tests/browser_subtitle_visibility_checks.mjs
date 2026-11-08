@@ -2,7 +2,7 @@
 // Uses the production bundle in a YouTube-shaped fixture on an extension page.
 // Only caption/translation network responses and playback cues are controlled.
 import assert from 'node:assert/strict';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { checkSenseiChat } from './browser_sensei_chat_checks.mjs';
 
@@ -35,6 +35,7 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
     const style = document.createElement('style');
     style.textContent = ${JSON.stringify(css)} + 'body {margin:0;background:#171526;} main {display:flex;gap:20px;padding:20px;} #movie_player {position:relative;width:900px;height:510px;background:#252039;flex-shrink:0;} #secondary {width:360px;display:flex;flex-direction:column;color:white;} #mix-card {padding:12px;background:#302b45;border-radius:12px;margin-bottom:16px;} video {width:100%;height:100%;} .ytp-caption-window-container {position:absolute;bottom:100px;color:white;}';
     style.textContent += '.ytp-chrome-bottom {position:absolute;bottom:8px;left:12px;right:12px;height:40px;} .ytp-right-controls {float:right;height:100%;} .ytp-button {display:inline-flex;align-items:center;justify-content:center;width:40px;height:100%;border:0;background:transparent;color:white;vertical-align:top;} .ytp-autohide .ytp-chrome-bottom {opacity:0;pointer-events:none;}';
+    style.textContent += '@media(max-width:760px){main{display:block;padding:10px}#movie_player{width:100%;height:220px}#secondary{width:100%;margin-top:12px}}';
     document.head.appendChild(style);
     window.playerEvents = [];
     const player = document.getElementById('movie_player');
@@ -50,7 +51,7 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
         document.querySelector('.ytp-caption-window-container').hidden = !enabled;
       });
     };
-    ['click', 'keydown', 'keyup', 'pointerdown', 'pointerup'].forEach(name => player.addEventListener(name, () => window.playerEvents.push(name)));
+    ['click', 'keydown', 'keyup', 'pointerdown', 'pointerup', 'wheel', 'touchmove'].forEach(name => player.addEventListener(name, () => window.playerEvents.push(name)));
     window.translationResolvers = [];
     window.completeTranslation = () => window.translationResolvers.splice(0).forEach(resolve => resolve({success:true,translation:'A cat is here'}));
     window.chatRequests = [];
@@ -124,6 +125,42 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   })()`;
   const state = () => evaluate(stateExpression);
   const click = id => evaluate(`document.getElementById(${JSON.stringify(id)}).click()`);
+  async function checkStudyScrolling(inPlayer) {
+    await evaluate(`(() => {
+      document.body.style.minHeight = '2500px';
+      window.scrollTo(0, 0);
+      const drawer = document.getElementById('linguaplay-yt-drawer');
+      const filler = document.createElement('div');
+      filler.id = 'scroll-test-content';
+      filler.style.height = '1800px';
+      drawer.insertBefore(filler, drawer.querySelector('.lp-study-footer'));
+      drawer.scrollTop = 0;
+      window.playerEvents = [];
+    })()`);
+    async function wheel(deltaY) {
+      const point = await evaluate(`(() => {
+        const box = document.getElementById('linguaplay-yt-drawer').getBoundingClientRect();
+        return {x: box.left + box.width / 2, y: box.top + box.height / 2};
+      })()`);
+      await rpc('Input.dispatchMouseEvent', {type:'mouseWheel', ...point, deltaX:0, deltaY}, sessionId);
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    try {
+      await wheel(160);
+      assert.ok(await evaluate('document.getElementById("linguaplay-yt-drawer").scrollTop > 0'), 'Wheel input still scrolls the study content');
+      if (inPlayer) {
+        assert.equal(await evaluate('window.playerEvents.includes("wheel")'), false, 'Scrolling Study must not trigger the fullscreen player recommendations');
+      }
+      await evaluate('document.getElementById("linguaplay-yt-drawer").scrollTop = 100000');
+      await wheel(400);
+      assert.equal(await evaluate('window.scrollY'), 0, 'Scrolling past the end of Study must not move the YouTube page');
+      await evaluate('document.getElementById("linguaplay-yt-drawer").scrollTop = 0');
+      await wheel(-400);
+      assert.equal(await evaluate('window.scrollY'), 0, 'Scrolling above Study must stay within the panel');
+    } finally {
+      await evaluate(`document.getElementById('scroll-test-content').remove(); document.body.style.removeProperty('min-height'); window.scrollTo(0, 0);`);
+    }
+  }
   // The actual live-caption MutationObserver populates the overlay.
   await waitFor('document.getElementById("linguaplay-yt-tokens").textContent.includes("猫")');
   let current = await state();
@@ -156,8 +193,26 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
     assert.ok(Date.now() - started >= 5000);
     assert.equal(await evaluate('document.getElementById("lp-ai-results").textContent.includes("9ROUTER (study-combo) BREAKDOWN")'), true, 'A slow router analysis must reach the drawer instead of timing out');
     assert.equal(await evaluate('document.getElementById("lp-ai-results").textContent.includes("AI Analysis Notice")'), false);
+    assert.deepEqual(await evaluate('[...document.querySelectorAll("#lp-ai-results h3")].map(el => el.textContent)'), ['Meaning', 'How it works', 'Main takeaway']);
+    assert.equal(await evaluate('document.querySelector("#lp-ai-results details").open'), false, 'Vocabulary stays optional');
+    assert.equal(await evaluate('[...document.querySelectorAll("#lp-ai-results ruby")].some(el => el.firstChild.textContent === "触れ合う" && el.querySelector("rt").textContent === "fureau")'), true, 'Introduced grammar forms get romaji, too');
+    assert.equal(await evaluate('document.activeElement.id'), 'lp-ai-results', 'The completed explanation receives focus');
+    if (process.env.EXPLANATION_SCREENSHOT_DIR) {
+      await mkdir(process.env.EXPLANATION_SCREENSHOT_DIR, {recursive:true});
+      for (const width of [1440, 420]) {
+        await rpc('Emulation.setDeviceMetricsOverride', {width,height:1000,deviceScaleFactor:1,mobile:false}, sessionId);
+        await evaluate(`document.getElementById('linguaplay-yt-drawer').scrollTop = Math.max(0, document.getElementById('lp-ai-results').offsetTop - 56)`);
+        assert.equal(await evaluate('(()=>{const el=document.getElementById("lp-ai-results");return el.scrollWidth<=el.clientWidth})()'), true, `Explanation fits at ${width}px`);
+        assert.equal(await evaluate('(()=>{const box=document.getElementById("lp-ai-results").getBoundingClientRect();return box.left>=0&&box.right<=innerWidth})()'), true, `Explanation is inside the viewport at ${width}px`);
+        assert.equal(await evaluate('(()=>{const last=document.querySelector(".lp-sentence-explanation section:last-of-type").getBoundingClientRect();const footer=document.querySelector(".lp-study-footer").getBoundingClientRect();return last.bottom<=footer.top})()'), true, `Takeaway is visible without scrolling at ${width}px`);
+        const {data} = await rpc('Page.captureScreenshot', {format:'png'}, sessionId);
+        await writeFile(path.join(process.env.EXPLANATION_SCREENSHOT_DIR, `explanation-${width}.png`), Buffer.from(data,'base64'));
+      }
+      await rpc('Emulation.clearDeviceMetricsOverride', {}, sessionId);
+    }
   }
   const senseiChat = await checkSenseiChat({ evaluate });
+  await checkStudyScrolling(false);
   assert.equal(await evaluate('document.getElementById("linguaplay-yt-drawer").parentElement.id'), 'secondary', 'The drawer must use the outer sidebar, above the expanded Mix');
   assert.equal(await evaluate('document.getElementById("linguaplay-yt-drawer").getBoundingClientRect().bottom <= document.getElementById("mix-card").getBoundingClientRect().top'), true);
   const drawerTop = await evaluate('document.getElementById("linguaplay-yt-drawer").getBoundingClientRect().top');
@@ -356,6 +411,9 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   await click('linguaplay-visibility-toggle');
   assert.equal((await state()).overlay, 'flex');
   assert.equal((await state()).nativeOpacity, '0');
+  await evaluate('document.querySelector(".linguaplay-yt-token").click()');
+  await checkStudyScrolling(true);
+  await click('lp-dismiss-btn');
   await evaluate('document.exitFullscreen()');
 
   // The PR's logo toggle must work with the current native controls and

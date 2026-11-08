@@ -637,6 +637,35 @@ test('9Router uses its saved combo and key instead of message-supplied settings'
   assert.equal(body.response_format.type, 'json_object');
 });
 
+test('9Router uses the saved reasoning effort for chat and analysis and omits the model default', async () => {
+  for (const effort of ['', 'low', 'medium', 'high', 'xhigh', 'max', 'none', 'minimal', 'invalid']) {
+    const h = createBackgroundHarness({router: {linguaplay_9router_model:'study-combo', linguaplay_9router_effort:effort}});
+    for (const isJson of [false, true]) {
+      const result = await h.request({messages:[{role:'user',content:'Explain 猫'}],isJson,reasoning_effort:'ignored'});
+      assert.equal(result.success,true);
+      const body = JSON.parse(h.calls.at(-1).options.body);
+      assert.equal(body.reasoning_effort, effort && effort !== 'invalid' ? effort : undefined);
+    }
+  }
+});
+
+test('AI replies obey the saved token budget and preserve the model default when no valid cap is set', async () => {
+  for (const [saved, expected] of [[undefined,undefined],[null,undefined],[1024,1024],[4096,4096],[512,512],[16384,16384],[0,undefined],[999999,undefined],['1024',undefined]]) {
+    const h = createBackgroundHarness({router:{linguaplay_9router_model:'study-combo',linguaplay_9router_token_budget:saved}});
+    const result = await h.request({messages:[{role:'user',content:'Explain 猫'}],max_completion_tokens:999999});
+    assert.equal(result.success,true);
+    assert.equal(JSON.parse(h.calls[0].options.body).max_completion_tokens,expected);
+  }
+});
+
+test('a reply cut off by the token budget explains how to recover instead of presenting broken analysis', async () => {
+  const h=createBackgroundHarness({router:{linguaplay_9router_model:'study-combo',linguaplay_9router_token_budget:512}});
+  h.sandbox.fetch=async()=>({ok:true,json:async()=>({choices:[{finish_reason:'length',message:{content:'{"sentence_translation":'}}]})});
+  const result=await h.request({messages:[{role:'user',content:'Explain 猫'}],isJson:true});
+  assert.equal(result.success,false);
+  assert.match(result.error,/token budget.*lower reasoning effort/);
+});
+
 test('9Router normalizes a dashboard URL, allows keyless access, and uses its default port', async () => {
   for (const url of [undefined, 'http://127.0.0.1:20128/']) {
     const h = createBackgroundHarness({ router: { linguaplay_9router_url: url, linguaplay_9router_model: 'provider/model' } });
@@ -673,6 +702,63 @@ test('9Router saves and restores normalized settings with host access', async ()
   assert.equal(h.saved[0].linguaplay_9router_model, 'my-combo');
   const restored = createOptionsHarness(h.saved[0]);
   assert.equal(restored.elements.get('9router-model').value, 'my-combo');
+});
+
+test('reasoning effort is an explicit unsaved preference that saves and restores with the AI settings', async () => {
+  const h = createOptionsHarness();
+  const field = h.elements.get('9router-effort');
+  assert.ok(field, 'Settings exposes the effort selector');
+  assert.equal(field.value, '');
+  field.value = 'medium';
+  field.listeners.change();
+  assert.equal(h.elements.get('settings-save-state').textContent, 'Unsaved changes');
+  assert.equal(h.saved.length, 0);
+  await h.elements.get('save-settings-btn').listeners.click();
+  assert.equal(h.saved[0].linguaplay_9router_effort, 'medium');
+  assert.equal(createOptionsHarness(h.saved[0]).elements.get('9router-effort').value, 'medium');
+  assert.equal(createOptionsHarness({linguaplay_9router_effort:'invalid'}).elements.get('9router-effort').value, '');
+});
+
+test('Test 9Router uses unsaved reasoning effort and Default omits the override', async () => {
+  const calls = [];
+  const h = createOptionsHarness({linguaplay_9router_model:'study-combo',linguaplay_9router_effort:'low'}, {
+    fetch: async (url, options) => {
+      if (options.method === 'POST') calls.push(JSON.parse(options.body));
+      return {ok:true,json:async()=>options.method==='POST'?{choices:[{message:{content:'OK'}}]}:{data:[]}};
+    }
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  for (const effort of ['high', '']) {
+    h.elements.get('9router-effort').value = effort;
+    h.elements.get('9router-effort').listeners.change();
+    await h.elements.get('test-9router-btn').listeners.click();
+    assert.equal(calls.at(-1).reasoning_effort, effort || undefined);
+    assert.match(h.elements.get('9router-status-text').textContent,/is working/);
+    assert.equal(h.saved.length,0);
+  }
+});
+
+test('the response token budget saves, restores and is used by Test 9Router before saving', async () => {
+  const calls = [];
+  const h = createOptionsHarness({linguaplay_9router_model:'study-combo'}, {
+    fetch:async(_url,options)=>{if(options.method==='POST')calls.push(JSON.parse(options.body));return {ok:true,json:async()=>options.method==='POST'?{choices:[{message:{content:'OK'}}]}:{data:[]}};}
+  });
+  await waitForOptionsRouter(h);
+  const budget = h.elements.get('9router-token-budget');
+  assert.ok(budget);
+  assert.equal(budget.value,'');
+  budget.value='1024'; budget.listeners.input();
+  await h.elements.get('test-9router-btn').listeners.click();
+  assert.equal(calls.at(-1).max_completion_tokens,1024);
+  assert.equal(h.saved.length,0);
+  await h.elements.get('save-settings-btn').listeners.click();
+  assert.equal(h.saved[0].linguaplay_9router_token_budget,1024);
+  assert.equal(createOptionsHarness(h.saved[0]).elements.get('9router-token-budget').value,'1024');
+  budget.value='0'; budget.listeners.input();
+  const count=h.saved.length;
+  await h.elements.get('save-settings-btn').listeners.click();
+  assert.equal(h.saved.length,count);
+  assert.match(h.elements.get('9router-status-text').textContent,/512.*16384/);
 });
 
 test('9Router does not save settings when endpoint access is denied', async () => {
