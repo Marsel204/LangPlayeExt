@@ -86,8 +86,8 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   await evaluate('window.mountControls(); window.dispatchEvent(new Event("resize")); window.savedGroup = document.getElementById("linguaplay-yt-controls")');
   await evaluate('document.querySelector(".ytp-caption-segment").textContent = "猫がいる"');
 
-  async function waitFor(expression) {
-    for (let i = 0; i < 50; i++) {
+  async function waitFor(expression, attempts = 50) {
+    for (let i = 0; i < attempts; i++) {
       if (await evaluate(expression)) return;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -184,12 +184,10 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
   if (routerUrl) {
     await evaluate(`chrome.storage.local.set({linguaplay_9router_url:${JSON.stringify(routerUrl + '/v1')}})`);
     const started = Date.now();
+    await evaluate('document.getElementById("lp-ai-btn").focus()');
     await click('lp-ai-btn');
     assert.equal(await evaluate('document.getElementById("lp-ai-loading").style.display'), 'block');
-    for (let i = 0; i < 100; i++) {
-      if (await evaluate('document.getElementById("lp-ai-loading").style.display === "none"')) break;
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+    await waitFor('document.getElementById("lp-ai-loading").style.display === "none"', 100);
     assert.ok(Date.now() - started >= 5000);
     assert.equal(await evaluate('document.getElementById("lp-ai-results").textContent.includes("9ROUTER (study-combo) BREAKDOWN")'), true, 'A slow router analysis must reach the drawer instead of timing out');
     assert.equal(await evaluate('document.getElementById("lp-ai-results").textContent.includes("AI Analysis Notice")'), false);
@@ -210,6 +208,37 @@ export async function checkSubtitleVisibility({ root, evaluate, rpc, sessionId, 
       }
       await rpc('Emulation.clearDeviceMetricsOverride', {}, sessionId);
     }
+
+    await evaluate(`(() => {
+      const filler = document.createElement('div');
+      filler.id = 'analysis-scroll-content';
+      filler.style.height = '1800px';
+      document.getElementById('linguaplay-yt-drawer').appendChild(filler);
+      document.getElementById('lp-ai-btn').focus({preventScroll:true});
+      document.getElementById('linguaplay-yt-drawer').scrollTop = 0;
+    })()`);
+    try {
+      await click('lp-ai-btn');
+      assert.equal(await evaluate('document.getElementById("lp-ai-loading").style.display'), 'block');
+      await evaluate('document.getElementById("linguaplay-yt-drawer").scrollTop = 90');
+      assert.equal(await evaluate('document.getElementById("linguaplay-yt-drawer").scrollTop'), 90);
+      await waitFor('document.getElementById("lp-ai-loading").style.display === "none"', 100);
+      assert.equal(await evaluate('document.getElementById("linguaplay-yt-drawer").scrollTop'), 90, 'A delayed explanation must not override a new reading position');
+      assert.equal(await evaluate('document.activeElement.id'), 'lp-ai-btn', 'Scrolling while waiting must not move focus to the completed explanation');
+    } finally {
+      await evaluate('document.getElementById("analysis-scroll-content").remove()');
+    }
+
+    await evaluate('document.getElementById("lp-ai-btn").focus()');
+    await click('lp-ai-btn');
+    assert.equal(await evaluate('document.getElementById("lp-ai-loading").style.display'), 'block');
+    await evaluate('document.getElementById("lp-chat-input").focus({preventScroll:true})');
+    await rpc('Input.insertText', {text: 'Why is this '}, sessionId);
+    await waitFor('document.getElementById("lp-ai-loading").style.display === "none"', 100);
+    assert.equal(await evaluate('document.activeElement.id'), 'lp-chat-input', 'A delayed explanation must preserve focus while a follow-up is being typed');
+    await rpc('Input.insertText', {text: 'form?'}, sessionId);
+    assert.equal(await evaluate('document.getElementById("lp-chat-input").value'), 'Why is this form?', 'Typing continues in the original draft after the explanation arrives');
+    await evaluate('document.getElementById("lp-chat-input").value = ""');
   }
   const senseiChat = await checkSenseiChat({ evaluate });
   await checkStudyScrolling(false);

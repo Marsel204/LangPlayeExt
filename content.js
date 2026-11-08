@@ -800,6 +800,7 @@
   let drawerContextVersion = 0;
   let refreshDrawerParsing = () => {};
   let drawerContextSentence = '';
+  let drawerContextNeighbors = {previous: '', next: ''};
   let drawerActiveWord = '';
   let drawerActiveReading = {furigana: '', romaji: ''};
   let activeLiveSentence = '';
@@ -2312,6 +2313,12 @@ Respond in JSON only:
     drawerContextVersion++;
     drawerActiveWord = token.surface || '';
     drawerContextSentence = (sentenceContext || token.surface || '').trim();
+    const cueIndex = subtitleTimeline[currentSubIndex]?.text === drawerContextSentence
+      ? currentSubIndex : subtitleTimeline.findIndex(cue => cue.text === drawerContextSentence);
+    drawerContextNeighbors = cueIndex >= 0 ? {
+      previous: subtitleTimeline[cueIndex - 1]?.text || '',
+      next: subtitleTimeline[cueIndex + 1]?.text || ''
+    } : {previous: '', next: ''};
     const contextVersion = drawerContextVersion;
     const leadingWhitespace = (sentenceContext || '').length - (sentenceContext || '').trimStart().length;
     const selectedStart = Number.isInteger(token.start) ? token.start - leadingWhitespace : null;
@@ -3448,13 +3455,8 @@ Explain grammatical nuances, particle usage, verb conjugations, and sentence con
 Always provide Hiragana readings and Romaji for any Japanese words you introduce.
 Keep answers structured, concise, and focused on this sentence context.`;
 
-    function buildSenseiAnalysisPrompt(word, furigana, romaji, sentence, visibleWords = 64) {
+    function buildSenseiAnalysisPrompt(word, furigana, romaji, sentence, neighbors, visibleWords = 64) {
       const phraseLimit = visibleWords < 56 ? 2 : 3;
-      const index = subtitleTimeline[currentSubIndex]?.text === sentence ? currentSubIndex : subtitleTimeline.findIndex(cue => cue.text === sentence);
-      const neighbors = index >= 0 ? {
-        previous: subtitleTimeline[index - 1]?.text || '',
-        next: subtitleTimeline[index + 1]?.text || ''
-      } : {previous: '', next: ''};
       return `You are Sensei, an expert Japanese language and grammar teacher.
 Explain HOW THIS ENTIRE JAPANESE SENTENCE WORKS for a learner watching the video.
 Visible text budget: at most ${visibleWords} English words TOTAL across meaning, note, phrase explanations, and takeaway. This must fit the study panel.
@@ -3717,23 +3719,27 @@ Respond with ONLY valid JSON:
       const word = document.getElementById('lp-active-word').textContent;
       const {furigana, romaji} = drawerActiveReading;
       const sentence = drawerContextSentence || document.getElementById('lp-sentence-jp')?.textContent || activeLiveSentence || '';
+      const neighbors = drawerContextNeighbors;
       const loading = document.getElementById('lp-ai-loading');
       const results = document.getElementById('lp-ai-results');
       const ankiBtn = document.getElementById('lp-ai-anki-btn');
       const chatBox = document.getElementById('lp-sensei-chat-box');
       const badgeEl = document.getElementById('lp-sensei-provider-badge');
+      const explainButton = document.getElementById('lp-ai-btn');
+      const drawer = document.getElementById('linguaplay-yt-drawer');
 
       loading.style.display = 'block';
       results.style.display = 'none';
       ankiBtn.style.display = 'none';
       if (chatBox) chatBox.style.display = 'none';
+      const analysisScrollTop = drawer?.scrollTop;
 
       chrome.storage.local.get(['linguaplay_9router_model', 'linguaplay_9router_token_budget'], async (cfg) => {
         if (!isCurrent()) return;
         const responseBudget = Number.isInteger(cfg.linguaplay_9router_token_budget) && cfg.linguaplay_9router_token_budget >= 512 && cfg.linguaplay_9router_token_budget <= 16384 ? cfg.linguaplay_9router_token_budget : 2048;
         const panelHeight = document.getElementById('linguaplay-yt-drawer')?.clientHeight || 600;
         const visibleWords = Math.max(40, Math.min(80, Math.floor(responseBudget / 32), Math.floor((panelHeight - 180) / 6)));
-        const prompt = buildSenseiAnalysisPrompt(word, furigana, romaji, sentence, visibleWords);
+        const prompt = buildSenseiAnalysisPrompt(word, furigana, romaji, sentence, neighbors, visibleWords);
         const messages = [{ role: 'user', content: prompt }];
 
         try {
@@ -3745,6 +3751,9 @@ Respond with ONLY valid JSON:
           if (!isCurrent()) return;
           const json = JSON.parse(rawText.replace(/```json|```/g, '').trim());
           lastAiData = { ...json, contextVersion: analysis.contextVersion };
+          // A delayed reply must preserve the user's new focus or reading position.
+          const shouldReveal = drawer && !drawer.classList.contains('hidden') && !areSubtitlesHidden &&
+            document.activeElement === explainButton && drawer.scrollTop === analysisScrollTop;
 
           loading.style.display = 'none';
           results.style.display = 'block';
@@ -3753,9 +3762,10 @@ Respond with ONLY valid JSON:
           if (badgeEl) badgeEl.textContent = '9ROUTER';
 
           results.innerHTML = renderPedagogicalBreakdown(json, `9ROUTER (${cfg.linguaplay_9router_model || 'router'}) BREAKDOWN`);
-          results.focus({preventScroll: true});
-          const drawer = document.getElementById('linguaplay-yt-drawer');
-          if (drawer) drawer.scrollTop = Math.max(0, results.offsetTop - 56);
+          if (shouldReveal) {
+            results.focus({preventScroll: true});
+            drawer.scrollTop = Math.max(0, results.offsetTop - 56);
+          }
         } catch (err) {
           if (!isCurrent()) return;
 
@@ -3934,6 +3944,7 @@ Respond with ONLY valid JSON:
     installSubtitleTimeline([], {source: 'reset'});
     timelineIndex = null; renderedSentence = ''; activeLiveSentence = '';
     drawerContextSentence = ''; drawerActiveWord = ''; drawerActiveReading = {furigana: '', romaji: ''};
+    drawerContextNeighbors = {previous: '', next: ''};
     lastAiData = null; activeAnalysis = null;
     activeSenseiChatRequest = null; senseiChatHistory = []; refreshDrawerParsing = () => {};
     lyricsFetchAttemptedVid = null; isFetchingLyrics = false; timingOffset = 0;

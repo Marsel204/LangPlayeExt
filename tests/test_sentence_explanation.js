@@ -81,6 +81,38 @@ test('the explanation receives neighboring captions without substituting the cur
   assert.doesNotMatch(prompt, /別の字幕/);
 });
 
+test('repeated captions retain the selected occurrence’s neighbors after playback moves', async () => {
+  for (const [selectedTime, playbackTime, expected] of [
+    [2.5, 8.5, {previous: '最初の場面', next: '最初の続き'}],
+    [8.5, 6.5, {previous: '別の場面', next: '別の続き'}]
+  ]) {
+    const h = await create({linguaplay_9router_model: 'study-combo'}, {
+      fetch: async call => call.category === 'router'
+        ? response({choices: [{message: {content: JSON.stringify(explanation)}}]})
+        : response([[['translation']]])
+    });
+    h.setPlayback(h.video, [
+      {start: 0, end: 2, text: '最初の場面'},
+      {start: 2, end: 4, text: '君が笑う'},
+      {start: 4, end: 6, text: '最初の続き'},
+      {start: 6, end: 8, text: '別の場面'},
+      {start: 8, end: 10, text: '君が笑う'},
+      {start: 10, end: 12, text: '別の続き'}
+    ]);
+    h.video.currentTime = selectedTime;
+    h.onTimeUpdate();
+    h.document.querySelector('.linguaplay-yt-token').click();
+    h.video.currentTime = playbackTime;
+    h.onTimeUpdate();
+    await h.click('lp-ai-btn');
+    await h.worker.drain();
+    const prompt = JSON.parse(h.calls.find(call => call.category === 'router').options.body).messages[0].content;
+    assert.match(prompt, /Context Sentence: "君が笑う"/);
+    const neighbors = JSON.parse(prompt.match(/Neighboring captions \(may be empty\): (.*)/)[1]);
+    assert.deepEqual(neighbors, expected);
+  }
+});
+
 test('explanations get a visible text budget based on the response budget and available panel height', async () => {
   for (const [height,tokens,words,phrases] of [[600,2048,64,3],[400,2048,40,2],[600,1024,40,2]]) {
     const h = await create({linguaplay_9router_model:'study-combo',linguaplay_9router_token_budget:tokens}, {
