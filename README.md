@@ -52,6 +52,18 @@ In **言 → Subtitles → Watching**, choose a mode for the current video:
 
 Your manual choice is saved per video and restored on reload. It does not carry into another episode or song. Choosing **More → Find lyrics** also selects Song mode for that video. Mode changes clear the previous source and reject its pending results; your reading, size, position and opacity preferences stay available.
 
+### Drill a line
+
+Open **⋯** in the LinguaPlay controls, or use these keys while a video with timed subtitles plays:
+
+| Key | Action |
+|---|---|
+| **R** | Replay the current line (or the last one, between lines) |
+| **Q** | Loop the current line until you press Q again |
+| **A** | Pause when each line ends; press play to continue. The choice is remembered |
+
+The keys do nothing while you type in a field. YouTube's live captions have no timing, so the drill needs subtitles, lyrics or an imported file.
+
 ### 2. Click a word to understand the sentence
 
 Click any word in the subtitle overlay. Playback pauses and LinguaPlay opens its drawer in YouTube's sidebar.

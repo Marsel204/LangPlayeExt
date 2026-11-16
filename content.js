@@ -787,7 +787,13 @@
   let acquisitionSeq = 0;
   let sourceSeq = 0;
   let currentSubIndex = -1;
+  let lastLineIndex = -1;
   let timingOffset = 0.0;
+  // Line drill: loop the current line, or pause when each line ends.
+  let loopCurrentLine = false;
+  let autoPauseLines = false;
+  let lineBoundaryTimer = null;
+  let autoPausedIndex = -1;
   let readingMode = 'furigana';
   let currentVideoId = null;
   let lyricsFetchAttemptedVid = null;
@@ -874,7 +880,9 @@
   let renderedSentence = '';
   let subtitleRenderVersion = 0;
 
-  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled', 'linguaplay_sentence_meaning', 'linguaplay_caption_opacity', 'linguaplay_caption_size', 'linguaplay_caption_position'], (res) => {
+  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled', 'linguaplay_sentence_meaning', 'linguaplay_caption_opacity', 'linguaplay_caption_size', 'linguaplay_caption_position', 'linguaplay_auto_pause'], (res) => {
+    autoPauseLines = res.linguaplay_auto_pause === true;
+    updateLineDrillControls();
     if (res.linguaplay_reading_mode) readingMode = res.linguaplay_reading_mode;
     if (typeof res.linguaplay_panel_collapsed === 'boolean') isPanelCollapsed = res.linguaplay_panel_collapsed;
     if (typeof res.linguaplay_app_enabled === 'boolean') isAppEnabled = res.linguaplay_app_enabled;
@@ -2620,6 +2628,7 @@ Respond in JSON only:
     } catch (e) {}
 
     if (!isAppEnabled) {
+      clearLineBoundary();
       activeAnalysis = null;
       lastAiData = null;
       renderSentenceTokens('');
@@ -2834,7 +2843,9 @@ Respond in JSON only:
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
           </summary>
           <div class="linguaplay-more-actions">
-            <button type="button" id="linguaplay-repeat-btn">Repeat current line</button>
+            <button type="button" id="linguaplay-repeat-btn" title="Replay the current line (R)">Repeat current line <kbd>R</kbd></button>
+            <button type="button" id="linguaplay-loop-btn" aria-pressed="false" title="Replay the current line until turned off (Q)">Loop current line <kbd>Q</kbd></button>
+            <button type="button" id="linguaplay-autopause-btn" aria-pressed="false" title="Pause when each line ends (A)">Pause after each line <kbd>A</kbd></button>
             <button type="button" id="linguaplay-upload-sub-btn">Import subtitles…</button>
             <button type="button" id="linguaplay-fetch-lyrics-btn">Find lyrics…</button>
             <button type="button" id="linguaplay-open-settings-btn">Extension settings</button>
@@ -2994,12 +3005,10 @@ Respond in JSON only:
       } else if (activeLiveSentence) renderSentenceTokens(activeLiveSentence);
     });
 
-    document.getElementById('linguaplay-repeat-btn').addEventListener('click', () => {
-      if (currentSubIndex >= 0 && subtitleTimeline[currentSubIndex] && activeVideoEl) {
-        activeVideoEl.currentTime = subtitleTimeline[currentSubIndex].start;
-        activeVideoEl.play();
-      }
-    });
+    document.getElementById('linguaplay-repeat-btn').addEventListener('click', () => replayCurrentLine());
+    document.getElementById('linguaplay-loop-btn').addEventListener('click', () => setLineDrill({loop: !loopCurrentLine}));
+    document.getElementById('linguaplay-autopause-btn').addEventListener('click', () => setLineDrill({autoPause: !autoPauseLines}));
+    updateLineDrillControls();
 
     document.getElementById('linguaplay-upload-sub-btn').addEventListener('click', () => {
       fileInput.click();
@@ -3986,9 +3995,60 @@ Respond with ONLY valid JSON:
     }
     if (matchIdx !== currentSubIndex) {
       currentSubIndex = matchIdx;
-      if (matchIdx >= 0) { activeLiveSentence = subtitleTimeline[matchIdx].text; renderSentenceTokens(activeLiveSentence); }
+      if (matchIdx >= 0) { lastLineIndex = matchIdx; autoPausedIndex = -1; activeLiveSentence = subtitleTimeline[matchIdx].text; renderSentenceTokens(activeLiveSentence); }
       else { activeLiveSentence = ''; renderSentenceTokens(''); }
     }
+    if (loopCurrentLine || autoPauseLines || lineBoundaryTimer) armLineBoundary();
+  }
+
+  function clearLineBoundary() {
+    clearTimeout(lineBoundaryTimer);
+    lineBoundaryTimer = null;
+  }
+  // timeupdate fires only about four times a second, so a timer aimed just
+  // before the line ends pauses or loops before the next line appears.
+  function armLineBoundary() {
+    clearLineBoundary();
+    const video = activeVideoEl;
+    const index = currentSubIndex;
+    const cue = subtitleTimeline[index];
+    if (!isAppEnabled || !video || video.paused || !cue || (!loopCurrentLine && !autoPauseLines)) return;
+    if (!loopCurrentLine && autoPausedIndex === index) return;
+    const end = cue.end + timingOffset;
+    const rate = video.playbackRate > 0 ? video.playbackRate : 1;
+    lineBoundaryTimer = setTimeout(() => {
+      lineBoundaryTimer = null;
+      if (video !== activeVideoEl || subtitleTimeline[index] !== cue || video.paused) return;
+      // A seek may have moved playback before timeupdate reported it.
+      if (video.currentTime > end + 0.5) return;
+      if (video.currentTime < end - 0.25) { armLineBoundary(); return; }
+      if (loopCurrentLine) { video.currentTime = cue.start + timingOffset; return; }
+      autoPausedIndex = index;
+      video.pause();
+    }, Math.max(0, (end - video.currentTime) / rate * 1000 - 40));
+  }
+  function replayCurrentLine() {
+    const index = currentSubIndex >= 0 ? currentSubIndex : lastLineIndex;
+    const cue = subtitleTimeline[index];
+    if (!isAppEnabled || !activeVideoEl || !cue) return false;
+    autoPausedIndex = -1;
+    activeVideoEl.currentTime = cue.start + timingOffset;
+    const playing = activeVideoEl.play(); playing?.catch?.(() => {});
+    return true;
+  }
+  function updateLineDrillControls() {
+    for (const [id, on] of [['linguaplay-loop-btn', loopCurrentLine], ['linguaplay-autopause-btn', autoPauseLines]]) {
+      const button = document.getElementById(id);
+      if (button && button.getAttribute('aria-pressed') !== String(on)) button.setAttribute('aria-pressed', String(on));
+    }
+  }
+  function setLineDrill({loop = loopCurrentLine, autoPause = autoPauseLines} = {}) {
+    const autoPauseChanged = autoPause !== autoPauseLines;
+    loopCurrentLine = !!loop; autoPauseLines = !!autoPause; autoPausedIndex = -1;
+    if (autoPauseChanged) chrome.storage.local.set({linguaplay_auto_pause: autoPauseLines});
+    updateLineDrillControls();
+    showHud(loopCurrentLine ? '🔁 Looping current line' : autoPauseLines ? '⏸ Pausing after each line' : 'Line drill off');
+    if (loopCurrentLine || autoPauseLines) armLineBoundary(); else clearLineBoundary();
   }
 
   function disposeWatchContext(leaving = false) {
@@ -3996,6 +4056,7 @@ Respond with ONLY valid JSON:
     acquisition = null;
     subtitlePanelState = null; subtitleSourceName = ''; subtitleSourceKind = ''; watchMode = 'auto'; selectedTokenElement = null;
     captionTranslationFailures.clear(); clearCaptionRetry();
+    clearLineBoundary(); loopCurrentLine = false; autoPausedIndex = -1; lastLineIndex = -1; updateLineDrillControls();
     if (playerUI?.subtitlePanel) playerUI.subtitlePanel.hidden = true;
     document.getElementById('linguaplay-lyrics-modal')?.classList.add('hidden');
     const identifyButton = document.getElementById('lp-ai-identify-btn');
@@ -4146,6 +4207,9 @@ Respond with ONLY valid JSON:
   }
 
   function showOffsetHUD() {
+    showHud(`⏱️ Subtitle Offset: ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`);
+  }
+  function showHud(text) {
     let hud = document.getElementById('lp-offset-hud');
     if (!hud) {
       hud = document.createElement('div');
@@ -4153,14 +4217,23 @@ Respond with ONLY valid JSON:
       hud.style.cssText = 'position:fixed; top:70px; left:50%; transform:translateX(-50%); background:rgba(15,23,42,0.92); color:#f59e0b; border:1px solid #f59e0b; padding:8px 16px; border-radius:20px; font-size:13px; font-weight:700; z-index:9999999; pointer-events:none; transition:opacity 0.3s; font-family:monospace; box-shadow:0 4px 12px rgba(0,0,0,0.5);';
       document.body.appendChild(hud);
     }
-    hud.textContent = `⏱️ Subtitle Offset: ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+    hud.textContent = text;
     hud.style.opacity = '1';
     clearTimeout(hud._timer);
     hud._timer = setTimeout(() => { hud.style.opacity = '0'; }, 1500);
   }
 
   window.addEventListener('keydown', (e) => {
-    if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName) || e.target?.isContentEditable) return;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName) || e.target?.isContentEditable) return;
+    // R replays, Q loops and A pauses after each line. YouTube does not use these keys.
+    const drillKey = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey ? e.key : '';
+    if (['r', 'q', 'a'].includes(drillKey) && isAppEnabled && activeVideoEl && subtitleTimeline.length) {
+      e.preventDefault(); e.stopPropagation();
+      if (drillKey === 'r') replayCurrentLine();
+      else if (drillKey === 'q') setLineDrill({loop: !loopCurrentLine});
+      else setLineDrill({autoPause: !autoPauseLines});
+      return;
+    }
     if (e.key === '[' || e.key === ']') {
       const step = e.shiftKey ? 1.0 : 0.1;
       const delta = e.key === ']' ? step : -step;
