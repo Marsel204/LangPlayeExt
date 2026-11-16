@@ -156,6 +156,53 @@ async function removeOwnedLyrics(vid) {
   return {success:true};
 }
 
+// When the local 9Router is not running, ask the Linux helper to start its
+// installed service once, wait until it answers, and retry. Concurrent AI calls
+// share one start; a failed start is not retried for a minute.
+const routerStartCooldown = 60000;
+let routerStartAttempt = null;
+let routerStartFailure = null;
+function isLocalRouter(endpoint) {
+  return endpoint.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(endpoint.hostname) && endpoint.port === '20128';
+}
+function requestRouterStart() {
+  return new Promise(resolve => {
+    try {
+      chrome.runtime.sendNativeMessage('com.linguaplay.server', {action: 'start_router'}, result => {
+        const error = chrome.runtime.lastError;
+        resolve(error ? {success: false, helperMissing: true} : result || {success: false, error: 'The Linux helper did not respond'});
+      });
+    } catch { resolve({success: false, helperMissing: true}); }
+  });
+}
+async function waitForRouter(origin) {
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    try {
+      // Any HTTP answer, including 401, means the server is accepting requests.
+      await fetch(origin + '/v1/models', {signal: AbortSignal.timeout(2000), credentials: 'omit'});
+      return;
+    } catch {}
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  throw new Error('9Router was started but did not answer within 15 seconds.');
+}
+function startLocalRouter(endpoint) {
+  if (routerStartAttempt) return routerStartAttempt;
+  if (routerStartFailure && Date.now() - routerStartFailure.time < routerStartCooldown) return Promise.reject(routerStartFailure.error);
+  routerStartAttempt = requestRouterStart().then(result => {
+    if (result.helperMissing || /Invalid startup request/.test(result.error || '')) {
+      throw new Error('9Router is not running. Start it, or run Download Linux setup in Extension Settings so LangPlay can start it automatically.');
+    }
+    if (!result.success) throw new Error(`9Router is not running and could not be started: ${result.error || 'unknown error'}`);
+    return waitForRouter(endpoint.origin);
+  }).then(() => { routerStartFailure = null; }, error => {
+    routerStartFailure = {time: Date.now(), error};
+    throw error;
+  }).finally(() => { routerStartAttempt = null; });
+  return routerStartAttempt;
+}
+
 // Use the same saved endpoint, permissions and credentials for all AI calls.
 async function call9RouterAi(messages, isJson = false) {
   const config = await chrome.storage.local.get(['linguaplay_9router_url', 'linguaplay_9router_key', 'linguaplay_9router_model', 'linguaplay_9router_effort', 'linguaplay_9router_token_budget']);
@@ -176,19 +223,24 @@ async function call9RouterAi(messages, isJson = false) {
   const headers = { 'Content-Type': 'application/json' };
   const key = (config.linguaplay_9router_key || '').trim();
   if (key) headers.Authorization = `Bearer ${key}`;
-  const response = await fetch(endpoint.href, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: false,
-      reasoning_effort: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(config.linguaplay_9router_effort) ? config.linguaplay_9router_effort : undefined,
-      max_completion_tokens: Number.isInteger(config.linguaplay_9router_token_budget) && config.linguaplay_9router_token_budget >= 512 && config.linguaplay_9router_token_budget <= 16384 ? config.linguaplay_9router_token_budget : undefined,
-      response_format: isJson ? { type: 'json_object' } : undefined
-    }),
-    signal: AbortSignal.timeout(30000)
+  const body = JSON.stringify({
+    model,
+    messages,
+    stream: false,
+    reasoning_effort: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(config.linguaplay_9router_effort) ? config.linguaplay_9router_effort : undefined,
+    max_completion_tokens: Number.isInteger(config.linguaplay_9router_token_budget) && config.linguaplay_9router_token_budget >= 512 && config.linguaplay_9router_token_budget <= 16384 ? config.linguaplay_9router_token_budget : undefined,
+    response_format: isJson ? { type: 'json_object' } : undefined
   });
+  const send = () => fetch(endpoint.href, {method: 'POST', headers, body, signal: AbortSignal.timeout(30000)});
+  let response;
+  try {
+    response = await send();
+  } catch (error) {
+    // Only a refused local connection means 9Router is not running; timeouts and remote endpoints are reported as they are.
+    if (error?.name !== 'TypeError' || !isLocalRouter(endpoint)) throw error;
+    await startLocalRouter(endpoint);
+    response = await send();
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.error?.message || `9Router returned status ${response.status}`);

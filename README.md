@@ -130,7 +130,7 @@ npm install -g 9router
 4. Search **Find your provider** by name or prefix (for example, `OpenCode` or `oc`), choose your **Provider**, then select an ID from **Available Models**. Only that provider's models appear; router combos are grouped under **Combos & unprefixed models**. The catalog loads automatically when browser access is already allowed; **Load Models** refreshes it or requests access to a hosted router. Selecting a model fills **Model or Combo** with its exact ID. You can also enter a model or combo there manually.
 5. Click **Test 9Router** to send a short AI request, then **Save Settings**.
 
-Sensei Chat, grammar breakdowns, and AI song identification use only the configured 9Router model or combo. Enter the router key in extension Options; upstream credentials stay in 9Router. Keep 9Router running while using these features. On Linux / Omarchy, **Settings → AI tutor → Start 9Router at login** enables background startup. If the helper is missing, download the setup script there and run it once on that computer. See [automatic startup](docs/9router-autostart.md) for the steps and other platforms.
+Sensei Chat, grammar breakdowns, and AI song identification use only the configured 9Router model or combo. Enter the router key in extension Options; upstream credentials stay in 9Router. Keep 9Router running while using these features. On Linux / Omarchy, **Settings → AI tutor → Start 9Router at login** enables background startup. If the helper is missing, download the setup script there and run it once on that computer. Once the helper and service are installed, an AI request that finds the local 9Router stopped starts `9router.service` and retries automatically; this never enables login startup or affects a remote router. See [automatic startup](docs/9router-autostart.md) for the steps and other platforms.
 
 For optional offline **Sudachi** parsing and automatic parser startup on Linux, see the [local backend setup guide](docs/local-backend.md). The parser improves contextual readings and dictionary forms; subtitle fallback readings work without it.
 
@@ -152,7 +152,7 @@ You can also start with the offline collection and export your cards later.
 | **No extension controls** | Reload the extension in `chrome://extensions`, then refresh the YouTube watch page. |
 | **No Japanese text** | Enable Japanese captions, search with **Lyrics**, or upload a subtitle file with the folder button. Availability varies by video. |
 | **Text is out of sync** | Adjust the toolbar offset or use the Lyrics Manager's playhead sync tools. |
-| **AI isn't responding** | Test 9Router in Options. Check the router key, model or combo, URL, and that 9Router is running. |
+| **AI isn't responding** | Test 9Router in Options. Check the router key, model or combo, URL, and that 9Router is running. If the error says LangPlay cannot start 9Router, run **Download Linux setup** in Settings once to update the helper. |
 | **A reading looks wrong** | Use the updated Sudachi backend for contextual parsing. Names and ambiguous words may still need checking. |
 | **A card isn't in Anki** | Check that AnkiConnect is available. Look in the extension collection for cards saved while Anki was offline. |
 

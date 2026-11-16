@@ -105,9 +105,9 @@ def main():
         message = read_message(sys.stdin.buffer)
         if message is None:
             return
-        if isinstance(message, dict) and set(message) == {'action'} and message['action'] in {'router_startup_status', 'enable_router_startup', 'disable_router_startup'}:
-            from router_autostart import startup_status, enable_autostart, disable_autostart
-            result = {'router_startup_status': startup_status, 'enable_router_startup': lambda: enable_autostart(config.get('router_runtime_path', config.get('runtime_path'))), 'disable_router_startup': disable_autostart}[message['action']]()
+        if isinstance(message, dict) and set(message) == {'action'} and message['action'] in {'router_startup_status', 'enable_router_startup', 'disable_router_startup', 'start_router'}:
+            from router_autostart import startup_status, enable_autostart, disable_autostart, start_router
+            result = {'router_startup_status': startup_status, 'enable_router_startup': lambda: enable_autostart(config.get('router_runtime_path', config.get('runtime_path'))), 'disable_router_startup': disable_autostart, 'start_router': start_router}[message['action']]()
         elif not isinstance(message, dict) or set(message) != {'action', 'port'} or message.get('action') != 'ensure_server' or type(message.get('port')) is not int or message['port'] != config['port']:
             raise ValueError('Invalid startup request or port does not match the installed launcher')
         else:
