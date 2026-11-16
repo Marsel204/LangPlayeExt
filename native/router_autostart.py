@@ -125,6 +125,28 @@ def enable_autostart(runtime_path=None):
         return status
 
 
+def start_router():
+    """Start an installed 9router.service on demand. Never creates or enables it."""
+    state = Path.home() / '.local/state/linguaplay'
+    state.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (state / 'router-startup.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        status = startup_status()
+        if status['active']:
+            return {**status, 'started': False}
+        if not status['installed']:
+            return {**status, 'success': False, 'notInstalled': True,
+                    'error': '9Router is not set up as a service. Enable login startup in Settings, or start 9Router yourself.'}
+        if port_in_use():
+            # Another process owns the port; starting the service would only fail.
+            return {**status, 'started': False, 'portBusy': True}
+        command(['systemctl', '--user', 'start', UNIT])
+        status = startup_status()
+        if not status['active']:
+            raise RuntimeError('9Router did not stay running. Check journalctl --user -u 9router -n 50 for details.')
+        return {**status, 'started': True}
+
+
 def disable_autostart():
     # Turning off login startup leaves a currently running AI session alone.
     command(['systemctl', '--user', 'disable', UNIT])

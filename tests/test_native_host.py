@@ -64,6 +64,18 @@ class NativeHostTests(unittest.TestCase):
             self.assertFalse(self.request(message)['success'])
         self.assertFalse((self.directory / 'starts.log').exists())
 
+    def test_start_router_action_dispatches_only_the_exact_message(self):
+        # Replace the installed systemd module so the test never touches the real user session.
+        (self.directory / 'native/router_autostart.py').write_text(
+            "def startup_status(): return {'success': True, 'called': 'status'}\n"
+            "def enable_autostart(path=None): return {'success': True, 'called': 'enable'}\n"
+            "def disable_autostart(): return {'success': True, 'called': 'disable'}\n"
+            "def start_router(): return {'success': True, 'called': 'start'}\n")
+        self.assertEqual(self.request({'action': 'start_router'}), {'success': True, 'called': 'start'})
+        for message in [{'action': 'start_router', 'port': self.port}, {'action': 'start_router', 'command': 'other'}]:
+            self.assertFalse(self.request(message)['success'])
+        self.assertFalse(self.request({'action': 'start_router'}, origin='chrome-extension://other/')['success'])
+
     def test_router_only_install_preserves_parser_and_adds_this_extension(self):
         config_path = self.directory / 'native/config.json'
         previous = json.loads(config_path.read_text())

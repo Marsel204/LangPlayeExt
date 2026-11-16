@@ -109,6 +109,55 @@ class RouterStartupTests(unittest.TestCase):
             router.enable_autostart()
         self.assertFalse(self.unit.exists())
 
+    def test_start_router_starts_an_installed_stopped_service_without_enabling_it(self):
+        self.unit.parent.mkdir(parents=True)
+        self.unit.write_text('# An existing user-managed router service\n')
+        result = router.start_router()
+        self.assertTrue(result['success'])
+        self.assertTrue(result['active'])
+        self.assertTrue(result['started'])
+        self.assertFalse(result['enabled'], 'Starting on demand must not change login startup')
+        self.assertIn(['systemctl', '--user', 'start', '9router.service'], self.calls)
+        self.assertFalse(any('enable' in call for call in self.calls))
+        self.assertEqual(self.unit.read_text(), '# An existing user-managed router service\n')
+
+    def test_start_router_leaves_a_running_service_alone(self):
+        self.unit.parent.mkdir(parents=True)
+        self.unit.write_text('# service\n')
+        self.active = True
+        result = router.start_router()
+        self.assertTrue(result['success'])
+        self.assertFalse(result['started'])
+        self.assertFalse(any('start' in call for call in self.calls))
+
+    def test_start_router_never_creates_a_service(self):
+        result = router.start_router()
+        self.assertFalse(result['success'])
+        self.assertTrue(result['notInstalled'])
+        self.assertIn('Enable login startup', result['error'])
+        self.assertFalse(self.unit.exists())
+        self.assertFalse(any('start' in call for call in self.calls))
+
+    def test_start_router_does_not_compete_with_another_listener(self):
+        self.unit.parent.mkdir(parents=True)
+        self.unit.write_text('# service\n')
+        with patch.object(router, 'port_in_use', return_value=True):
+            result = router.start_router()
+        self.assertTrue(result['portBusy'])
+        self.assertFalse(any('start' in call for call in self.calls))
+
+    def test_start_router_reports_a_service_that_does_not_stay_running(self):
+        self.unit.parent.mkdir(parents=True)
+        self.unit.write_text('# service\n')
+        def failing(command, **kwargs):
+            result = self.fake_run(command, **kwargs)
+            if 'start' in command:
+                self.active = False
+            return result
+        with patch.object(router.subprocess, 'run', side_effect=failing):
+            with self.assertRaisesRegex(RuntimeError, 'did not stay running'):
+                router.start_router()
+
     def test_command_failures_and_timeouts_are_actionable(self):
         for error in [subprocess.TimeoutExpired(['systemctl'], 15), OSError('systemctl unavailable')]:
             with patch.object(router.subprocess, 'run', side_effect=error):
