@@ -94,6 +94,8 @@ Click **Quick Add to Anki** to save the selected word with its reading, meaning,
 
 Both buttons use your configured AnkiConnect URL and deck and keep a local copy. Create that deck in Anki first. The result states what completed: **Added to Anki · stored locally**, **Kept locally — Anki: …**, or a local-storage failure. An existing duplicate is reported as **Already in Anki**. Kana readings and romaji are stored separately.
 
+Anki cards also get a screenshot of the paused frame and the audio of the selected line. Saving replays that line once to record it, then returns playback to where you were. Turn either off in Settings → Anki connection. Protected video (Netflix and similar) cannot be captured, so those cards are saved as text, and YouTube live captions have no line timing, so they get a screenshot only. The local collection stores text only.
+
 Click the extension's toolbar icon to open Settings and choose **Export TSV File** to export the collection later. The export contains sentence, word, kana reading, and meaning columns, including the sentence translation when available. The TSV retains the historical `LinguaPlay Japanese Immersion` deck header.
 
 ## Jimaku on Netflix and other video sites

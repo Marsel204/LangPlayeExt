@@ -639,6 +639,11 @@ content_code = r"""/**
   let cardWords = new Set();
   let wordHighlightEnabled = true;
   let drawerStatusWord = '';
+  // Card media: a screenshot of the paused frame and the sentence audio.
+  let cardScreenshotEnabled = true;
+  let cardAudioEnabled = true;
+  let recordingCardAudio = false;
+  let drawerContextCue = null;
   let drawerActiveReading = {furigana: '', romaji: ''};
   let activeLiveSentence = '';
   let staleLiveSentence = null;
@@ -691,14 +696,14 @@ content_code = r"""/**
     };
   }
 
-  function addCardToAnki(fields) {
-    return sendOwnedMessage('ADD_ANKI_NOTE', {fields}, {timeoutError: 'Could not confirm the Anki result; please retry', acknowledgementError: 'No Anki acknowledgement'});
+  function addCardToAnki(fields, media = []) {
+    return sendOwnedMessage('ADD_ANKI_NOTE', media.length ? {fields, media} : {fields}, {timeout: media.length ? 30000 : 8000, timeoutError: 'Could not confirm the Anki result; please retry', acknowledgementError: 'No Anki acknowledgement'});
   }
 
-  async function saveCard(card, fields) {
+  async function saveCard(card, fields, media = []) {
     const [local, anki] = await Promise.all([
       sendOwnedMessage('SAVE_CARD', {card}),
-      addCardToAnki(fields)
+      addCardToAnki(fields, media)
     ]);
     const ankiStatus = anki.duplicate ? 'Already in Anki' : 'Added to Anki';
     if (local.success && anki.success) return '✓ ' + ankiStatus + ' · stored locally';
@@ -707,11 +712,105 @@ content_code = r"""/**
     return '✗ Not added: local: ' + local.error + '; Anki: ' + anki.error;
   }
 
+  function captureCardScreenshot(video) {
+    try {
+      if (!video?.videoWidth || !video.videoHeight) return '';
+      const scale = Math.min(1, 640 / video.videoWidth);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Protected (DRM) video draws as black, so an all-black sample means no usable frame.
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let lit = false;
+      for (let i = 0; i < pixels.length; i += 4 * 97) if (pixels[i] || pixels[i + 1] || pixels[i + 2]) { lit = true; break; }
+      if (!lit) return '';
+      const url = canvas.toDataURL('image/jpeg', 0.8);
+      const prefix = 'data:image/jpeg;base64,';
+      return url.startsWith(prefix) ? url.slice(prefix.length) : '';
+    } catch { return ''; } // A cross-origin frame taints the canvas.
+  }
+  function waitForEvent(target, type, timeout) {
+    return new Promise(resolve => {
+      const done = () => { clearTimeout(timer); target.removeEventListener(type, done); resolve(); };
+      const timer = setTimeout(done, timeout);
+      target.addEventListener(type, done);
+    });
+  }
+  async function blobBase64(blob) {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(binary);
+  }
+  // Replays the line once while recording the video's own audio track, then
+  // returns playback to where it was. Protected video cannot be captured.
+  async function recordCardAudio(video, cue) {
+    if (!video || !cue || recordingCardAudio || typeof video.captureStream !== 'function' || typeof MediaRecorder === 'undefined') return '';
+    const start = Math.max(0, cue.start + timingOffset - 0.15);
+    const end = cue.end + timingOffset + 0.25;
+    if (!(end > start) || end - start > 20) return '';
+    const mimeType = ['audio/webm;codecs=opus', 'audio/webm'].find(type => MediaRecorder.isTypeSupported?.(type));
+    if (!mimeType) return '';
+    const resume = {time: video.currentTime, paused: video.paused};
+    let tracks = [];
+    let recorder = null;
+    recordingCardAudio = true;
+    clearLineBoundary();
+    try {
+      tracks = video.captureStream().getAudioTracks();
+      if (!tracks.length) return '';
+      recorder = new MediaRecorder(new MediaStream(tracks), {mimeType, audioBitsPerSecond: 64000});
+      const chunks = [];
+      recorder.ondataavailable = event => { if (event.data?.size) chunks.push(event.data); };
+      const stopped = new Promise(resolve => { recorder.onstop = resolve; });
+      video.currentTime = start;
+      await waitForEvent(video, 'seeked', 3000);
+      recorder.start();
+      await video.play();
+      const rate = video.playbackRate > 0 ? video.playbackRate : 1;
+      const deadline = Date.now() + (end - start) / rate * 1000 + 3000;
+      while (!video.paused && video.currentTime < end && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
+      recorder.stop();
+      await stopped;
+      const blob = new Blob(chunks, {type: 'audio/webm'});
+      return blob.size && blob.size <= 2 * 1024 * 1024 ? await blobBase64(blob) : '';
+    } catch {
+      if (recorder?.state === 'recording') try { recorder.stop(); } catch {}
+      return '';
+    } finally {
+      for (const track of tracks) track.stop();
+      recordingCardAudio = false;
+      try {
+        video.pause();
+        video.currentTime = resume.time;
+        if (!resume.paused) video.play()?.catch?.(() => {});
+      } catch {}
+    }
+  }
+  async function cardMedia(button) {
+    const media = [];
+    const video = activeVideoEl;
+    if (cardScreenshotEnabled) {
+      const image = captureCardScreenshot(video);
+      if (image) media.push({kind: 'image', data: image});
+    }
+    if (cardAudioEnabled && drawerContextCue) {
+      button.textContent = '🎙 Recording sentence…';
+      const audio = await recordCardAudio(video, drawerContextCue);
+      if (audio) media.push({kind: 'audio', data: audio});
+    }
+    return media;
+  }
+
   // ── Load Settings ──
   let renderedSentence = '';
   let subtitleRenderVersion = 0;
 
-  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled', 'linguaplay_sentence_meaning', 'linguaplay_caption_opacity', 'linguaplay_caption_size', 'linguaplay_caption_position', 'linguaplay_auto_pause', 'linguaplay_word_status', 'linguaplay_cards', 'linguaplay_word_highlight'], (res) => {
+  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled', 'linguaplay_sentence_meaning', 'linguaplay_caption_opacity', 'linguaplay_caption_size', 'linguaplay_caption_position', 'linguaplay_auto_pause', 'linguaplay_word_status', 'linguaplay_cards', 'linguaplay_word_highlight', 'linguaplay_card_screenshot', 'linguaplay_card_audio'], (res) => {
+    cardScreenshotEnabled = res.linguaplay_card_screenshot !== false;
+    cardAudioEnabled = res.linguaplay_card_audio !== false;
     autoPauseLines = res.linguaplay_auto_pause === true;
     updateLineDrillControls();
     applyWordStatusStorage(res);
@@ -734,6 +833,8 @@ content_code = r"""/**
 
   chrome.storage.onChanged?.addListener((changes, area) => {
     if (area !== 'local') return;
+    if (changes.linguaplay_card_screenshot) cardScreenshotEnabled = changes.linguaplay_card_screenshot.newValue !== false;
+    if (changes.linguaplay_card_audio) cardAudioEnabled = changes.linguaplay_card_audio.newValue !== false;
     if (changes.linguaplay_word_status || changes.linguaplay_cards || changes.linguaplay_word_highlight) {
       applyWordStatusStorage(Object.fromEntries(Object.entries(changes).map(([key, change]) => [key, change.newValue])), Object.keys(changes));
     }
@@ -2285,6 +2386,7 @@ Respond in JSON only:
     drawerContextSentence = (sentenceContext || token.surface || '').trim();
     const cueIndex = subtitleTimeline[currentSubIndex]?.text === drawerContextSentence
       ? currentSubIndex : subtitleTimeline.findIndex(cue => cue.text === drawerContextSentence);
+    drawerContextCue = cueIndex >= 0 ? {start: subtitleTimeline[cueIndex].start, end: subtitleTimeline[cueIndex].end} : null;
     drawerContextNeighbors = cueIndex >= 0 ? {
       previous: subtitleTimeline[cueIndex - 1]?.text || '',
       next: subtitleTimeline[cueIndex + 1]?.text || ''
@@ -3426,10 +3528,14 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       const cleanSentEn = (sentEn && !sentEn.includes('Translating') && !sentEn.includes('unavailable')) ? sentEn : '';
       const btn = document.getElementById('lp-quick-anki-btn');
       const contextVersion = drawerContextVersion;
-      btn.textContent = '⏳ Adding…';
+      if (btn.disabled) return;
+      btn.disabled = true;
       const card = {word, reading: drawerActiveReading.furigana, romaji: drawerActiveReading.romaji,
         meaning: def, sentence, sentence_en: cleanSentEn, date: new Date().toISOString()};
-      const label = await saveCard(card, cardAnkiFields(card, def));
+      const media = await cardMedia(btn);
+      btn.textContent = '⏳ Adding…';
+      const label = await saveCard(card, cardAnkiFields(card, def), media);
+      btn.disabled = false;
       if (contextVersion !== drawerContextVersion) return;
       btn.textContent = label;
       setTimeout(() => {
@@ -3797,8 +3903,12 @@ Respond with ONLY valid JSON:
       };
       const btn = document.getElementById('lp-ai-anki-btn');
       const contextVersion = drawerContextVersion;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const media = await cardMedia(btn);
       btn.textContent = '⏳ Adding…';
-      const label = await saveCard(card, cardAnkiFields(card, escapeHtmlText(card.meaning)));
+      const label = await saveCard(card, cardAnkiFields(card, escapeHtmlText(card.meaning)), media);
+      btn.disabled = false;
       if (contextVersion !== drawerContextVersion) return;
       btn.textContent = label;
       setTimeout(() => {
@@ -3929,7 +4039,7 @@ Respond with ONLY valid JSON:
     const video = activeVideoEl;
     const index = currentSubIndex;
     const cue = subtitleTimeline[index];
-    if (!isAppEnabled || !video || video.paused || !cue || (!loopCurrentLine && !autoPauseLines)) return;
+    if (!isAppEnabled || !video || video.paused || !cue || recordingCardAudio || (!loopCurrentLine && !autoPauseLines)) return;
     if (!loopCurrentLine && autoPausedIndex === index) return;
     const end = cue.end + timingOffset;
     const rate = video.playbackRate > 0 ? video.playbackRate : 1;
@@ -3984,7 +4094,7 @@ Respond with ONLY valid JSON:
     timelineIndex = null; renderedSentence = ''; activeLiveSentence = '';
     drawerContextSentence = ''; drawerActiveWord = ''; drawerStatusWord = ''; drawerActiveReading = {furigana: '', romaji: ''};
     updateWordStatusControls();
-    drawerContextNeighbors = {previous: '', next: ''};
+    drawerContextNeighbors = {previous: '', next: ''}; drawerContextCue = null;
     lastAiData = null; activeAnalysis = null;
     activeSenseiChatRequest = null; senseiChatHistory = []; refreshDrawerParsing = () => {};
     lyricsFetchAttemptedVid = null; isFetchingLyrics = false; timingOffset = 0;

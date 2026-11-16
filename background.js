@@ -552,6 +552,27 @@ async function downloadJimaku(request) {
   return {success: true, text, name: request.name};
 }
 
+// Card media from the content script: at most one JPEG screenshot and one
+// WebM audio clip, as base64, each under 3 MB decoded.
+function validatedCardMedia(media) {
+  if (media === undefined) return [];
+  if (!Array.isArray(media) || media.length > 2) throw new Error('Invalid card media');
+  const kinds = new Set();
+  for (const item of media) {
+    if (!item || typeof item !== 'object' || Object.keys(item).length !== 2 || !['image', 'audio'].includes(item.kind) || kinds.has(item.kind) ||
+        typeof item.data !== 'string' || !item.data || item.data.length > 4000000 || item.data.length % 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(item.data)) {
+      throw new Error('Invalid card media');
+    }
+    kinds.add(item.kind);
+  }
+  return media;
+}
+async function removeAnkiMedia(anki, names) {
+  for (const filename of names) {
+    try { await anki('deleteMediaFile', {filename}); } catch {}
+  }
+}
+
 // Innertube Android VR Caption Extraction Bridge in Background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   const startupActions = {GET_9ROUTER_STARTUP: 'router_startup_status', ENABLE_9ROUTER_STARTUP: 'enable_router_startup', DISABLE_9ROUTER_STARTUP: 'disable_router_startup'};
@@ -671,6 +692,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             !['Front', 'Back'].every(key => typeof fields[key] === 'string' && fields[key].trim() && fields[key].length <= 64000)) {
           throw new Error('Invalid Anki note fields');
         }
+        const media = validatedCardMedia(request.media);
         const config = await chrome.storage.local.get(['linguaplay_ankiconnect_url', 'linguaplay_anki_deck']);
         let endpoint;
         try { endpoint = new URL(config.linguaplay_ankiconnect_url || 'http://127.0.0.1:8765'); }
@@ -680,23 +702,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (!await chrome.permissions.contains({origins: [origin]})) {
           throw new Error('Allow access to this endpoint by saving it in Extension Settings');
         }
-        const response = await fetch(endpoint.href, {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({action: 'addNote', version: 6, params: {note: {
+        const anki = async (action, params, timeout = 5000) => {
+          const response = await fetch(endpoint.href, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action, version: 6, params}),
+            signal: AbortSignal.timeout(timeout)
+          });
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          return response.json();
+        };
+        // Media goes in first so the note never references a missing file.
+        // The worker chooses every filename; nothing from the page reaches Anki's media folder name.
+        const stored = [];
+        let back = fields.Back;
+        try {
+          for (const item of media) {
+            const filename = `linguaplay-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${item.kind === 'image' ? 'jpg' : 'webm'}`;
+            const result = await anki('storeMediaFile', {filename, data: item.data}, 15000);
+            if (result.error) throw new Error('Anki could not store card media: ' + result.error);
+            const name = typeof result.result === 'string' && /^[\w.-]{1,128}$/.test(result.result) ? result.result : filename;
+            stored.push(name);
+            back += item.kind === 'image' ? `<br><img src="${name}">` : `<br>[sound:${name}]`;
+          }
+          const data = await anki('addNote', {note: {
             deckName: config.linguaplay_anki_deck || 'LinguaPlay', modelName: 'Basic',
-            fields: {Front: fields.Front, Back: fields.Back}, tags: ['linguaplay', 'youtube']
-          }}}),
-          signal: AbortSignal.timeout(5000)
-        });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const data = await response.json();
-        if (data.error) {
-          if (/duplicate/i.test(String(data.error))) { sendResponse({success: true, duplicate: true}); return; }
-          const error = String(data.error);
-          throw new Error(/deck.*not found/i.test(error) ? error + '; create the configured deck in Anki, then retry' : error);
+            fields: {Front: fields.Front, Back: back}, tags: ['linguaplay', 'youtube']
+          }});
+          if (data.error) {
+            if (/duplicate/i.test(String(data.error))) { await removeAnkiMedia(anki, stored); sendResponse({success: true, duplicate: true}); return; }
+            const error = String(data.error);
+            throw new Error(/deck.*not found/i.test(error) ? error + '; create the configured deck in Anki, then retry' : error);
+          }
+          if (data.result == null) throw new Error('AnkiConnect did not confirm a note');
+        } catch (error) {
+          await removeAnkiMedia(anki, stored);
+          throw error;
         }
-        if (data.result == null) throw new Error('AnkiConnect did not confirm a note');
-        sendResponse({success: true});
+        sendResponse(stored.length ? {success: true, media: stored.length} : {success: true});
       } catch (error) { sendResponse({success: false, error: error.message}); }
     })();
     return true;
