@@ -1842,8 +1842,28 @@ Respond in JSON only:
     }
   }
 
-  const captionTranslationFailures = new Set();
+  // Failed captions show Retry, then try again by themselves once the
+  // background's Google pause has had time to end.
+  const captionTranslationFailures = new Map();
   const captionTranslations = new Map();
+  const captionRetryDelay = 30000;
+  let captionRetryTimer = null;
+  let captionRetrySentence = '';
+  function clearCaptionRetry() {
+    clearTimeout(captionRetryTimer);
+    captionRetryTimer = null; captionRetrySentence = '';
+  }
+  // Only the caption on screen owns the retry timer, so a late failure for an
+  // earlier caption cannot cancel it.
+  function scheduleCaptionRetry(clean, failedAt) {
+    if (captionRetryTimer && captionRetrySentence === clean) return;
+    clearCaptionRetry();
+    captionRetrySentence = clean;
+    captionRetryTimer = setTimeout(() => {
+      captionRetryTimer = null; captionRetrySentence = '';
+      if (renderedSentence.trim() === clean) updateCaptionTranslation(renderedSentence);
+    }, Math.max(0, captionRetryDelay - (Date.now() - failedAt)));
+  }
   function updateCaptionTranslation(sentence, retry = false) {
     const line = document.getElementById('linguaplay-caption-english');
     if (!line) return;
@@ -1851,20 +1871,22 @@ Respond in JSON only:
     line.hidden = !sentenceMeaningEnabled || !clean || !isAppEnabled;
     if (line.hidden) { line.textContent = ''; return; }
     if (sentenceTranslationCache.has(clean)) { line.textContent = cachedTranslation(clean); line.title = line.textContent; return; }
-    if (retry) captionTranslationFailures.delete(clean);
+    if (retry || Date.now() - (captionTranslationFailures.get(clean) || 0) >= captionRetryDelay) captionTranslationFailures.delete(clean);
     if (captionTranslationFailures.has(clean)) {
       line.innerHTML = '<button type="button" class="lp-caption-retry">Retry sentence meaning</button>';
       line.title = sentenceTranslationErrors.get(clean) || 'Sentence translation unavailable. Try again.';
       line.querySelector('button')?.addEventListener('click', event => { event.stopPropagation(); updateCaptionTranslation(clean, true); });
+      scheduleCaptionRetry(clean, captionTranslationFailures.get(clean));
       return;
     }
+    if (captionRetrySentence === clean) clearCaptionRetry();
     line.title = '';
     line.textContent = 'Translating…';
     if (captionTranslations.has(clean) || captionTranslations.size >= 2) return;
     const request = fetchSentenceTranslation(clean).then(translation => {
       if (!translation) {
-        captionTranslationFailures.add(clean);
-        while (captionTranslationFailures.size > 64) captionTranslationFailures.delete(captionTranslationFailures.values().next().value);
+        captionTranslationFailures.set(clean, Date.now());
+        while (captionTranslationFailures.size > 64) captionTranslationFailures.delete(captionTranslationFailures.keys().next().value);
       }
     }).finally(() => {
       captionTranslations.delete(clean);
@@ -1954,7 +1976,7 @@ Respond in JSON only:
     if (!clean || clean.length > 4096) return '';
     if (sentenceTranslationCache.has(clean)) return cachedTranslation(clean);
     if (pendingSentenceTranslations.has(clean)) return pendingSentenceTranslations.get(clean);
-    if (pendingSentenceTranslations.size >= 16) return '';
+    if (pendingSentenceTranslations.size >= 16) { sentenceTranslationErrors.set(clean, 'Translation is busy. Try again.'); return ''; }
     const work = sendOwnedMessage('TRANSLATE_JAPANESE', {text: clean}, {timeout: 45000, timeoutError: 'Sentence translation timed out. Try again.'}).then(result => {
       if (!result.success) throw new Error(result.error || 'Sentence translation unavailable. Try again.');
       const translation = typeof result.translation === 'string' ? result.translation.trim() : '';
@@ -1990,11 +2012,46 @@ Respond in JSON only:
     return work;
   }
 
+  // Gloss a whole Study sentence in one worker request instead of one per word.
+  // Words already being glossed join that request instead of starting another.
+  const wordGlosses = new Map();
+  const pendingWordGlosses = new Map();
+  function lookupGlosses(words) {
+    const meanings = new Map();
+    const waits = [];
+    const missing = [];
+    const keep = word => meaning => { if (meaning) meanings.set(word, meaning); };
+    for (const word of new Set(words)) {
+      if (Object.prototype.hasOwnProperty.call(JDICT, word)) meanings.set(word, JDICT[word]);
+      else if (wordGlosses.has(word)) meanings.set(word, wordGlosses.get(word));
+      else if (pendingWordGlosses.has(word)) waits.push(pendingWordGlosses.get(word).then(keep(word)));
+      else if (word && word.length <= 64 && !/[\r\n]/.test(word) && missing.length < 40 && pendingWordGlosses.size < 200) missing.push(word);
+    }
+    if (missing.length) {
+      const batch = sendOwnedMessage('TRANSLATE_WORDS', {words: missing}, {timeout: 45000})
+        .then(result => result?.success && result.meanings && typeof result.meanings === 'object' ? result.meanings : {}, () => ({}));
+      for (const word of missing) {
+        const one = batch.then(found => {
+          const meaning = typeof found[word] === 'string' ? found[word] : '';
+          if (meaning) {
+            wordGlosses.set(word, meaning);
+            while (wordGlosses.size > 512) wordGlosses.delete(wordGlosses.keys().next().value);
+          }
+          return meaning;
+        }).finally(() => pendingWordGlosses.delete(word));
+        pendingWordGlosses.set(word, one);
+        waits.push(one.then(keep(word)));
+      }
+    }
+    return Promise.all(waits).then(() => meanings);
+  }
+
   function renderStudySentence(sentence, targetWord, version) {
     const container = document.getElementById('lp-sentence-jp');
     if (!container) return;
     const tokens = tokenize(sentence);
     container.innerHTML = '';
+    const glosses = [];
     let offset = 0;
     for (const token of tokens) {
       const start = Number.isInteger(token.start) ? token.start : sentence.indexOf(token.surface, offset);
@@ -2011,12 +2068,16 @@ Respond in JSON only:
       ruby.appendChild(reading); word.appendChild(ruby);
       const gloss = document.createElement('span'); gloss.className = 'lp-word-gloss'; gloss.textContent = 'Loading…'; word.appendChild(gloss);
       container.appendChild(word);
-      lookupWord(token.baseForm || token.surface).then(meaning => {
-        if (version !== drawerContextVersion || sentence !== drawerContextSentence) return;
+      glosses.push([token.baseForm || token.surface, gloss]);
+    }
+    if (glosses.length) lookupGlosses(glosses.map(([word]) => word)).then(meanings => {
+      if (version !== drawerContextVersion || sentence !== drawerContextSentence) return;
+      for (const [word, gloss] of glosses) {
+        const meaning = meanings.get(word) || '';
         gloss.title = meaning || 'No definition';
         gloss.textContent = meaning ? meaning.split(';')[0].slice(0, 90) : 'No definition';
-      });
-    }
+      }
+    });
     if (offset < sentence.length) { const tail = document.createElement('span'); tail.textContent = sentence.slice(offset); container.appendChild(tail); }
     const fallback = document.getElementById('lp-sentence-romaji');
     if (fallback) fallback.style.display = tokens.some(token => token.romaji) ? 'none' : 'block';
@@ -2156,7 +2217,7 @@ Respond in JSON only:
       const local = JDICT[base] || JDICT[selected.surface];
       if (local) { defEl.innerHTML = local; return; }
       defEl.textContent = 'Looking up definition…';
-      lookupWord(base).then(meaning => {
+      lookupWord(base).then(meaning => meaning || lookupGlosses([base]).then(meanings => meanings.get(base) || '')).then(meaning => {
         if (drawerContextVersion !== contextVersion || definitionBase !== base) return;
         defEl.textContent = meaning || 'No definition. Ask Sensei for help with this word.';
       });
@@ -3760,7 +3821,7 @@ Respond with ONLY valid JSON:
     if (currentVideoId) staleLiveSentence = Array.from(document.querySelectorAll('.ytp-caption-segment')).map(s => s.textContent || '').join(' ').trim();
     acquisition = null;
     subtitlePanelState = null; subtitleSourceName = ''; subtitleSourceKind = ''; watchMode = 'auto'; selectedTokenElement = null;
-    captionTranslationFailures.clear();
+    captionTranslationFailures.clear(); clearCaptionRetry();
     if (playerUI?.subtitlePanel) playerUI.subtitlePanel.hidden = true;
     document.getElementById('linguaplay-lyrics-modal')?.classList.add('hidden');
     const identifyButton = document.getElementById('lp-ai-identify-btn');

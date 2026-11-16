@@ -110,6 +110,7 @@ function createContentHarness(config = {}, parser = undefined) {
     },
     chrome: { runtime: { sendMessage(request, callback) {
       if (request.action === 'TRANSLATE_JAPANESE') { callback?.({success: true, translation: 'translation'}); return; }
+      if (request.action === 'TRANSLATE_WORDS') { callback?.({success: true, meanings: {}}); return; }
       calls.push(JSON.parse(JSON.stringify(request))); pending.push(callback);
     } }, storage: { local: {
       get: (_keys, callback) => callback(config),

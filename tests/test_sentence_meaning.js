@@ -76,11 +76,12 @@ test('rate-limited Google requests pause across sentences and dictionary lookups
   assert.equal(await h.fetchSentenceTranslation('今日は晴れ'), 'The world is beautiful.');
   const dictionary = await h.worker.request({action: 'TRANSLATE_JAPANESE', text: '綺麗', dictionary: true});
   assert.equal(dictionary.success, false);
-  assert.equal(h.calls.filter(call => call.category === 'translate').length, 1);
+  // Each client ID is tried once, then both stay paused for Retry-After.
+  assert.deepEqual(h.calls.filter(call => call.category === 'translate').map(call => new URL(call.url).searchParams.get('client')), ['dict-chrome-ex', 'gtx']);
   assert.equal(h.calls.filter(call => call.category === 'router').length, 2);
   now = 220001;
   assert.equal(await h.fetchSentenceTranslation('私は学ぶ'), 'I learn.');
-  assert.equal(h.calls.filter(call => call.category === 'translate').length, 2);
+  assert.equal(h.calls.filter(call => call.category === 'translate').length, 3);
   assert.equal(h.calls.filter(call => call.category === 'router').length, 2);
 });
 
@@ -188,4 +189,197 @@ test('when both providers fail, retry explains the connection error and can reco
   await flush();
   assert.equal(line.textContent, 'The world is beautiful.');
   assert.equal(line.title, 'The world is beautiful.');
+});
+
+const clientOf = call => new URL(call.url).searchParams.get('client');
+const googleLines = call => (new URL(call.url).searchParams.get('q') || '').split('\n');
+
+test('a rate limit on one Google client uses the next client before AI', async () => {
+  const h = await create({linguaplay_9router_model: 'study-combo'}, {
+    fetch: async call => call.category !== 'translate' ? response({choices: [{message: {content: 'AI'}}]})
+      : clientOf(call) === 'dict-chrome-ex' ? {...response({}, '', false), status: 429} : response([[['The world is beautiful.', '世界は綺麗']]])
+  });
+  assert.equal(await h.fetchSentenceTranslation('世界は綺麗'), 'The world is beautiful.');
+  assert.equal(await h.fetchSentenceTranslation('私は学ぶ'), 'The world is beautiful.');
+  // The paused client is skipped for the second sentence.
+  assert.deepEqual(h.calls.filter(call => call.category === 'translate').map(clientOf), ['dict-chrome-ex', 'gtx', 'gtx']);
+  assert.equal(h.calls.filter(call => call.category === 'router').length, 0);
+});
+
+test('Study word glosses use one Google request per sentence and are cached across requests', async () => {
+  const h = await create({}, {fetch: async call => call.category === 'translate'
+    ? response([googleLines(call).map((line, index, all) => [line === '自画像' ? 'self-portrait' : 'gloss ' + line + (index < all.length - 1 ? '\n' : ''), line + (index < all.length - 1 ? '\n' : '')])])
+    : response({}, '', false)});
+  const first = await h.worker.request({action: 'TRANSLATE_WORDS', words: ['自画像', '微笑む', '自画像']});
+  assert.deepEqual({...first.meanings}, {'自画像': 'self-portrait', '微笑む': 'gloss 微笑む'});
+  assert.equal(h.calls.filter(call => call.category === 'translate').length, 1);
+  assert.deepEqual(googleLines(h.calls[0]), ['自画像', '微笑む']);
+  const second = await h.worker.request({action: 'TRANSLATE_WORDS', words: ['微笑む']});
+  assert.equal(second.meanings['微笑む'], 'gloss 微笑む');
+  assert.equal(h.calls.filter(call => call.category === 'translate').length, 1);
+});
+
+test('Study word glosses fall back to one AI request while Google is rate limited', async () => {
+  const h = await create({linguaplay_9router_model: 'study-combo'}, {fetch: async call => call.category === 'translate'
+    ? {...response({}, '', false), status: 429}
+    : response({choices: [{message: {content: JSON.stringify({'自画像': 'self-portrait', '微笑む': 'to smile', 'extra': 'ignored'})}}]})});
+  const result = await h.worker.request({action: 'TRANSLATE_WORDS', words: ['自画像', '微笑む']});
+  assert.deepEqual({...result.meanings}, {'自画像': 'self-portrait', '微笑む': 'to smile'});
+  const ai = h.calls.filter(call => call.category === 'router');
+  assert.equal(ai.length, 1);
+  const body = JSON.parse(ai[0].options.body);
+  assert.deepEqual(body.response_format, {type: 'json_object'});
+  assert.deepEqual(JSON.parse(body.messages.at(-1).content), ['自画像', '微笑む']);
+  for (const words of [[], 'word', ['a\nb'], ['x'.repeat(65)], Array(41).fill('語')]) {
+    const invalid = await h.worker.request({action: 'TRANSLATE_WORDS', words});
+    assert.equal(invalid.success, false);
+  }
+});
+
+test('opening Study glosses the sentence with one worker request', async () => {
+  const h = await create({}, {fetch: async call => call.category === 'translate'
+    ? response([googleLines(call).map(line => ['meaning of ' + line, line])])
+    : response({}, '', false)});
+  h.select('自画像', '自画像を描く');
+  await h.worker.drain();
+  await flush();
+  const wordRequests = h.messages.filter(message => message.action === 'TRANSLATE_WORDS');
+  assert.equal(wordRequests.length, 1);
+  assert.equal(h.messages.filter(message => message.action === 'TRANSLATE_JAPANESE' && message.dictionary).length <= 1, true, 'Only the header definition may use a dictionary lookup');
+  const glosses = h.all.filter(element => element.className === 'lp-word-gloss').map(element => element.textContent);
+  assert.ok(glosses.length > 0);
+  assert.ok(glosses.every(text => text !== 'Loading…' && text !== 'No definition'), glosses.join(', '));
+});
+
+test('a queued sentence displaces word lookups instead of failing when the queue is full', async () => {
+  const pending = [];
+  const h = await create({}, {fetch: call => call.category === 'translate'
+    ? new Promise(resolve => pending.push(() => resolve(response([[['ok', googleLines(call)[0]]]]))))
+    : Promise.resolve(response({}, '', false))});
+  const words = Array.from({length: 46}, (_, i) => h.worker.request({action: 'TRANSLATE_JAPANESE', text: '語' + i, dictionary: true}));
+  await flush();
+  // Words hold at most two Google slots.
+  assert.equal(pending.length, 2);
+  const sentence = h.worker.request({action: 'TRANSLATE_JAPANESE', text: '世界は綺麗'});
+  await flush();
+  assert.equal(pending.length, 3, 'A sentence starts in a free slot while words are queued');
+  while (pending.length) { pending.shift()(); await flush(); }
+  assert.equal((await sentence).success, true);
+  const results = await Promise.all(words);
+  assert.ok(results.some(result => !result.success && /busy/.test(result.error)), 'Only overflowing word lookups are refused');
+  assert.ok(results.filter(result => result.success).length >= 44);
+});
+
+test('a failed caption meaning retries by itself after the pause', async () => {
+  let now = 1000000, online = false;
+  const h = await create({}, {fetch: async call => call.category === 'translate' && online
+    ? response([[['The world is beautiful.', '世界は綺麗']]]) : response({}, '', false)});
+  h.sandbox.Date = {now: () => now, parse: Date.parse};
+  h.renderSentenceTokens('世界は綺麗');
+  await h.worker.drain();
+  await flush();
+  const line = h.elements.get('linguaplay-caption-english');
+  assert.match(line.innerHTML, /Retry sentence meaning/);
+  const timer = h.timeouts.filter(timeout => timeout.active && timeout.ms === 30000).at(-1);
+  assert.ok(timer, 'A retry is scheduled');
+  online = true;
+  now += 30000;
+  timer.fn();
+  await h.worker.drain();
+  await flush();
+  assert.equal(line.textContent, 'The world is beautiful.');
+});
+
+test('a transient Google server error tries the next client without pausing the first', async () => {
+  let failures = 1;
+  const h = await create({}, {fetch: async call => call.category !== 'translate' ? response({}, '', false)
+    : clientOf(call) === 'dict-chrome-ex' && failures-- > 0 ? {...response({}, '', false), status: 500} : response([[['I learn.', '私は学ぶ']]])});
+  assert.equal(await h.fetchSentenceTranslation('私は学ぶ'), 'I learn.');
+  assert.equal(await h.fetchSentenceTranslation('世界は綺麗'), 'I learn.');
+  assert.deepEqual(h.calls.filter(call => call.category === 'translate').map(clientOf), ['dict-chrome-ex', 'gtx', 'dict-chrome-ex']);
+});
+
+test('an overloaded queue refuses Study glosses without starting AI requests', async () => {
+  const pending = [];
+  const h = await create({linguaplay_9router_model: 'study-combo'}, {fetch: call => call.category === 'translate'
+    ? new Promise(resolve => pending.push(() => resolve(response([[['ok', googleLines(call)[0]]]]))))
+    : Promise.resolve(response({choices: [{message: {content: '{}'}}]}))});
+  const words = Array.from({length: 46}, (_, i) => h.worker.request({action: 'TRANSLATE_JAPANESE', text: '語' + i, dictionary: true}));
+  await flush();
+  const glosses = await Promise.all(Array.from({length: 20}, (_, i) => h.worker.request({action: 'TRANSLATE_WORDS', words: ['単語' + i]})));
+  assert.ok(glosses.every(result => !result.success && /busy/.test(result.error)));
+  assert.equal(h.calls.filter(call => call.category === 'router').length, 0);
+  while (pending.length) { pending.shift()(); await flush(); }
+  await Promise.all(words);
+});
+
+test('Study gloss AI fallbacks run one at a time and share pending words across tabs', async () => {
+  const ai = [];
+  const h = await create({linguaplay_9router_model: 'study-combo'}, {fetch: call => call.category === 'translate'
+    ? Promise.resolve({...response({}, '', false), status: 429})
+    : new Promise(resolve => ai.push(() => {
+      const words = JSON.parse(JSON.parse(call.options.body).messages.at(-1).content);
+      resolve(response({choices: [{message: {content: JSON.stringify(Object.fromEntries(words.map(word => [word, 'gloss ' + word])))}}]}));
+    }))});
+  const first = h.worker.request({action: 'TRANSLATE_WORDS', words: ['自画像', '描く']});
+  const otherTab = h.worker.request({action: 'TRANSLATE_WORDS', words: ['自画像']});
+  const third = h.worker.request({action: 'TRANSLATE_WORDS', words: ['微笑む']});
+  await flush();
+  assert.equal(ai.length, 1, 'Only one gloss AI request runs at a time');
+  ai.shift()(); await flush();
+  assert.equal(ai.length, 1);
+  ai.shift()(); await flush();
+  assert.deepEqual({...(await first).meanings}, {'自画像': 'gloss 自画像', '描く': 'gloss 描く'});
+  assert.deepEqual({...(await otherTab).meanings}, {'自画像': 'gloss 自画像'});
+  assert.deepEqual({...(await third).meanings}, {'微笑む': 'gloss 微笑む'});
+  assert.equal(h.calls.filter(call => call.category === 'router').length, 2);
+});
+
+test('the Study header definition joins the pending sentence gloss request', async () => {
+  const ai = [];
+  const h = await create({linguaplay_9router_model: 'study-combo'}, {fetch: call => call.category === 'translate'
+    ? Promise.resolve({...response({}, '', false), status: 429})
+    : new Promise(resolve => ai.push({call, resolve}))});
+  const isGloss = call => /dictionary gloss/.test(call.options.body);
+  h.select('自画像', '自画像を描く');
+  for (let i = 0; i < 10; i++) await flush();
+  const wordRequests = h.messages.filter(message => message.action === 'TRANSLATE_WORDS');
+  assert.equal(wordRequests.length, 1, JSON.stringify(wordRequests));
+  // The other AI request is the sentence-meaning fallback.
+  const glossAi = ai.filter(item => isGloss(item.call));
+  assert.equal(glossAi.length, 1);
+  const words = JSON.parse(JSON.parse(glossAi[0].call.options.body).messages.at(-1).content);
+  glossAi[0].resolve(response({choices: [{message: {content: JSON.stringify(Object.fromEntries(words.map(word => [word, 'gloss ' + word])))}}]}));
+  for (let i = 0; i < 10; i++) await flush();
+  assert.equal(h.elements.get('lp-active-def').textContent, 'gloss 自画像');
+  assert.equal(h.calls.filter(call => call.category === 'router' && isGloss(call)).length, 1);
+});
+
+test('a late failure for an old caption does not cancel the displayed caption retry', async () => {
+  let now = 1000000, online = false;
+  const pending = new Map();
+  const h = await create({}, {fetch: call => {
+    if (call.category !== 'translate') return Promise.resolve(response({}, '', false));
+    const q = new URL(call.url).searchParams.get('q');
+    if (online) return Promise.resolve(response([[['meaning of ' + q, q]]]));
+    return new Promise(resolve => pending.set(q, () => resolve({...response({}, '', false), status: 403})));
+  }});
+  h.sandbox.Date = {now: () => now, parse: Date.parse};
+  h.renderSentenceTokens('世界は綺麗');
+  h.renderSentenceTokens('私は学ぶ');
+  await flush();
+  pending.get('私は学ぶ')();
+  for (let i = 0; i < 10; i++) await flush();
+  const line = h.elements.get('linguaplay-caption-english');
+  assert.match(line.innerHTML, /Retry sentence meaning/);
+  pending.get('世界は綺麗')();
+  for (let i = 0; i < 10; i++) await flush();
+  assert.match(line.innerHTML, /Retry sentence meaning/);
+  const timers = h.timeouts.filter(timeout => timeout.active && timeout.ms === 30000);
+  assert.equal(timers.length, 1, 'One retry timer, owned by the displayed caption');
+  online = true;
+  now += 30000;
+  timers[0].fn();
+  for (let i = 0; i < 10; i++) await flush();
+  assert.equal(line.textContent, 'meaning of 私は学ぶ');
 });
