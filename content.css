@@ -301,3 +301,14 @@
   #linguaplay-yt-tokens-overlay[data-transparent] #linguaplay-caption-surface { background: Canvas; color: CanvasText; border-color: CanvasText; box-shadow: none; text-shadow: none; backdrop-filter: none; }
   .linguaplay-yt-token, .linguaplay-token-reading, #linguaplay-caption-english { color: CanvasText; text-shadow: none; }
 }
+
+/* Word status: new words get a dotted amber underline, learning words a blue one. */
+.linguaplay-yt-token.lp-word-new .linguaplay-jp-text { text-decoration: underline dotted #f5b544; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.linguaplay-yt-token.lp-word-learning .linguaplay-jp-text { text-decoration: underline solid #7fb2ff; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+#lp-word-status { display: flex; gap: 6px; margin: 2px 0 8px; }
+#lp-word-status[hidden] { display: none; }
+#lp-word-status button { flex: 1; min-height: 30px; padding: 4px 8px; border: 1px solid #45434c; border-radius: 6px; background: transparent; color: inherit; font: 600 12px/1.2 system-ui, sans-serif; cursor: pointer; }
+#lp-word-status button:hover { background: #ffffff14; }
+#lp-word-status button[data-status="new"][aria-pressed="true"] { border-color: #f5b544; background: #f5b5442e; }
+#lp-word-status button[data-status="learning"][aria-pressed="true"] { border-color: #7fb2ff; background: #7fb2ff2e; }
+#lp-word-status button[data-status="known"][aria-pressed="true"] { border-color: #6fcf97; background: #6fcf972e; }

@@ -808,6 +808,11 @@
   let drawerContextSentence = '';
   let drawerContextNeighbors = {previous: '', next: ''};
   let drawerActiveWord = '';
+  // Word status: an explicit choice wins; saved cards count as learning.
+  let wordStatus = {};
+  let cardWords = new Set();
+  let wordHighlightEnabled = true;
+  let drawerStatusWord = '';
   let drawerActiveReading = {furigana: '', romaji: ''};
   let activeLiveSentence = '';
   let staleLiveSentence = null;
@@ -880,9 +885,10 @@
   let renderedSentence = '';
   let subtitleRenderVersion = 0;
 
-  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled', 'linguaplay_sentence_meaning', 'linguaplay_caption_opacity', 'linguaplay_caption_size', 'linguaplay_caption_position', 'linguaplay_auto_pause'], (res) => {
+  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled', 'linguaplay_sentence_meaning', 'linguaplay_caption_opacity', 'linguaplay_caption_size', 'linguaplay_caption_position', 'linguaplay_auto_pause', 'linguaplay_word_status', 'linguaplay_cards', 'linguaplay_word_highlight'], (res) => {
     autoPauseLines = res.linguaplay_auto_pause === true;
     updateLineDrillControls();
+    applyWordStatusStorage(res);
     if (res.linguaplay_reading_mode) readingMode = res.linguaplay_reading_mode;
     if (typeof res.linguaplay_panel_collapsed === 'boolean') isPanelCollapsed = res.linguaplay_panel_collapsed;
     if (typeof res.linguaplay_app_enabled === 'boolean') isAppEnabled = res.linguaplay_app_enabled;
@@ -902,6 +908,9 @@
 
   chrome.storage.onChanged?.addListener((changes, area) => {
     if (area !== 'local') return;
+    if (changes.linguaplay_word_status || changes.linguaplay_cards || changes.linguaplay_word_highlight) {
+      applyWordStatusStorage(Object.fromEntries(Object.entries(changes).map(([key, change]) => [key, change.newValue])), Object.keys(changes));
+    }
     if (changes.linguaplay_sentence_meaning) { sentenceMeaningEnabled = changes.linguaplay_sentence_meaning.newValue !== false; updateCaptionTranslation(renderedSentence); }
     if (changes.linguaplay_caption_opacity) {
       const value = changes.linguaplay_caption_opacity.newValue;
@@ -2077,6 +2086,65 @@ Respond in JSON only:
     captionTranslations.set(clean, request);
   }
 
+  function applyWordStatusStorage(values, keys = Object.keys(values)) {
+    if (keys.includes('linguaplay_word_status')) {
+      const stored = values.linguaplay_word_status;
+      wordStatus = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    }
+    if (keys.includes('linguaplay_cards')) {
+      cardWords = new Set((Array.isArray(values.linguaplay_cards) ? values.linguaplay_cards : []).map(card => typeof card?.word === 'string' ? card.word.trim() : '').filter(Boolean));
+    }
+    if (keys.includes('linguaplay_word_highlight')) wordHighlightEnabled = values.linguaplay_word_highlight !== false;
+    updateWordStatusControls();
+    if (renderedSentence) renderSentenceTokens(renderedSentence);
+  }
+  function statusOfWord(base, surface = base) {
+    for (const key of [base, surface]) {
+      if (key && Object.prototype.hasOwnProperty.call(wordStatus, key) && ['new', 'learning', 'known'].includes(wordStatus[key])) return wordStatus[key];
+    }
+    return cardWords.has(base) || cardWords.has(surface) ? 'learning' : 'new';
+  }
+  // Particles, auxiliaries and symbols are not vocabulary to track.
+  function isFunctionToken(token) {
+    if (typeof token.pos === 'string') return /^(助詞|助動詞|記号|補助記号|空白)/.test(token.pos);
+    const local = JDICT[token.surface];
+    return (typeof local === 'string' && local.startsWith('(')) || /^[ぁ-ゖ]$/.test(token.surface);
+  }
+  function updateWordStatusControls() {
+    const highlight = document.getElementById('linguaplay-highlight-btn');
+    if (highlight && highlight.getAttribute('aria-pressed') !== String(wordHighlightEnabled)) highlight.setAttribute('aria-pressed', String(wordHighlightEnabled));
+    const group = document.getElementById('lp-word-status');
+    if (!group) return;
+    group.hidden = !drawerStatusWord;
+    const current = drawerStatusWord ? statusOfWord(drawerStatusWord, drawerActiveWord) : '';
+    for (const status of ['new', 'learning', 'known']) {
+      const button = document.getElementById('lp-status-' + status);
+      const pressed = String(status === current);
+      if (button && button.getAttribute('aria-pressed') !== pressed) button.setAttribute('aria-pressed', pressed);
+    }
+  }
+  function setWordStatus(word, status) {
+    if (!word) return Promise.resolve({success: false});
+    // Show the choice at once; storage confirms it for every tab, and a
+    // failed write restores the previous choice.
+    const had = Object.prototype.hasOwnProperty.call(wordStatus, word);
+    const previous = wordStatus[word];
+    wordStatus = {...wordStatus, [word]: status};
+    updateWordStatusControls();
+    if (renderedSentence) renderSentenceTokens(renderedSentence);
+    return sendOwnedMessage('SET_WORD_STATUS', {word, status}).then(result => {
+      if (!result.success && wordStatus[word] === status) {
+        console.warn('[LinguaPlay] Word status:', result.error);
+        const restored = {...wordStatus};
+        if (had) restored[word] = previous; else delete restored[word];
+        wordStatus = restored;
+        updateWordStatusControls();
+        if (renderedSentence) renderSentenceTokens(renderedSentence);
+      }
+      return result;
+    });
+  }
+
   function renderSentenceTokens(sentenceText) {
     const renderVersion = ++subtitleRenderVersion;
     const videoId = currentVideoId;
@@ -2116,6 +2184,11 @@ Respond in JSON only:
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'linguaplay-yt-token';
+      if (wordHighlightEnabled && !isFunctionToken(tk)) {
+        const status = statusOfWord(tk.baseForm || tk.surface, tk.surface);
+        button.classList.add('lp-word-' + status);
+        button.dataset.status = status;
+      }
       button.dataset.word = tk.surface;
       button.dataset.romaji = tk.romaji;
       button.dataset.baseform = tk.baseForm;
@@ -2381,6 +2454,8 @@ Respond in JSON only:
     }
     drawerContextVersion++;
     drawerActiveWord = token.surface || '';
+    drawerStatusWord = (token.baseForm || token.surface || '').trim();
+    updateWordStatusControls();
     drawerContextSentence = (sentenceContext || token.surface || '').trim();
     const cueIndex = subtitleTimeline[currentSubIndex]?.text === drawerContextSentence
       ? currentSubIndex : subtitleTimeline.findIndex(cue => cue.text === drawerContextSentence);
@@ -2846,6 +2921,7 @@ Respond in JSON only:
             <button type="button" id="linguaplay-repeat-btn" title="Replay the current line (R)">Repeat current line <kbd>R</kbd></button>
             <button type="button" id="linguaplay-loop-btn" aria-pressed="false" title="Replay the current line until turned off (Q)">Loop current line <kbd>Q</kbd></button>
             <button type="button" id="linguaplay-autopause-btn" aria-pressed="false" title="Pause when each line ends (A)">Pause after each line <kbd>A</kbd></button>
+            <button type="button" id="linguaplay-highlight-btn" aria-pressed="true" title="Underline new and learning words">Highlight word status</button>
             <button type="button" id="linguaplay-upload-sub-btn">Import subtitles…</button>
             <button type="button" id="linguaplay-fetch-lyrics-btn">Find lyrics…</button>
             <button type="button" id="linguaplay-open-settings-btn">Extension settings</button>
@@ -2901,6 +2977,11 @@ Respond in JSON only:
       </div>
       <p id="lp-active-romaji"></p>
       <h2 id="lp-active-word" lang="ja"></h2>
+      <div id="lp-word-status" role="group" aria-label="Word status" hidden>
+        <button type="button" id="lp-status-new" data-status="new" aria-pressed="false">New</button>
+        <button type="button" id="lp-status-learning" data-status="learning" aria-pressed="false">Learning</button>
+        <button type="button" id="lp-status-known" data-status="known" aria-pressed="false">Known</button>
+      </div>
       <p id="lp-active-pos"></p>
       <p id="lp-active-def"></p>
       <div id="lp-view-breakdown">
@@ -3008,6 +3089,13 @@ Respond in JSON only:
     document.getElementById('linguaplay-repeat-btn').addEventListener('click', () => replayCurrentLine());
     document.getElementById('linguaplay-loop-btn').addEventListener('click', () => setLineDrill({loop: !loopCurrentLine}));
     document.getElementById('linguaplay-autopause-btn').addEventListener('click', () => setLineDrill({autoPause: !autoPauseLines}));
+    document.getElementById('linguaplay-highlight-btn').addEventListener('click', () => {
+      wordHighlightEnabled = !wordHighlightEnabled;
+      chrome.storage.local.set({linguaplay_word_highlight: wordHighlightEnabled});
+      updateWordStatusControls();
+      if (renderedSentence) renderSentenceTokens(renderedSentence);
+    });
+    updateWordStatusControls();
     updateLineDrillControls();
 
     document.getElementById('linguaplay-upload-sub-btn').addEventListener('click', () => {
@@ -3473,6 +3561,9 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       const playing = activeVideoEl.play(); playing?.catch(() => {});
     });
     document.getElementById('lp-translation-retry').addEventListener('click', () => translateStudySentence(drawerContextSentence, drawerContextVersion));
+    for (const status of ['new', 'learning', 'known']) {
+      document.getElementById('lp-status-' + status).addEventListener('click', () => setWordStatus(drawerStatusWord, status));
+    }
     ['click', 'keydown', 'keyup', 'pointerdown', 'pointerup', 'mousedown', 'mouseup'].forEach(name => drawer.addEventListener(name, event => event.stopPropagation()));
     // Keep native panel scrolling without invoking the player's recommendation gestures.
     ['wheel', 'touchmove'].forEach(name => drawer.addEventListener(name, event => event.stopPropagation(), { passive: true }));
@@ -4065,7 +4156,8 @@ Respond with ONLY valid JSON:
     subtitleRenderVersion++; drawerContextVersion++;
     installSubtitleTimeline([], {source: 'reset'});
     timelineIndex = null; renderedSentence = ''; activeLiveSentence = '';
-    drawerContextSentence = ''; drawerActiveWord = ''; drawerActiveReading = {furigana: '', romaji: ''};
+    drawerContextSentence = ''; drawerActiveWord = ''; drawerStatusWord = ''; drawerActiveReading = {furigana: '', romaji: ''};
+    updateWordStatusControls();
     drawerContextNeighbors = {previous: '', next: ''};
     lastAiData = null; activeAnalysis = null;
     activeSenseiChatRequest = null; senseiChatHistory = []; refreshDrawerParsing = () => {};

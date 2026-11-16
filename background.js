@@ -106,6 +106,25 @@ function validatedCard(value) {
   }
   return card;
 }
+// Word statuses (new / learning / known) keyed by dictionary form. Writes are
+// serialized with the other owned storage so tabs cannot overwrite each other.
+const wordStatusKey = 'linguaplay_word_status';
+const wordStatuses = ['new', 'learning', 'known'];
+async function setOwnedWordStatus(word, status) {
+  if (typeof word !== 'string' || !word.trim() || word.length > 64 || /[\r\n]/.test(word) || !wordStatuses.includes(status)) throw new Error('Invalid word status');
+  const result = await localStorageCall('get', [wordStatusKey]);
+  const stored = result[wordStatusKey];
+  if (stored !== undefined && (!stored || typeof stored !== 'object' || Array.isArray(stored))) throw new Error('Stored word statuses are invalid; they were left unchanged');
+  const next = {...(stored || {})};
+  delete next[word.trim()];
+  next[word.trim()] = status;
+  // Keep the newest 50,000 choices.
+  const keys = Object.keys(next);
+  for (const key of keys.slice(0, Math.max(0, keys.length - 50000))) delete next[key];
+  await localStorageCall('set', {[wordStatusKey]: next});
+  return {success: true, word: word.trim(), status};
+}
+
 async function saveOwnedCard(card) {
   const result = await localStorageCall('get', ['linguaplay_cards']);
   if (result.linguaplay_cards !== undefined && !Array.isArray(result.linguaplay_cards)) throw new Error('Stored card collection is invalid; it was left unchanged');
@@ -566,9 +585,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     work.then(sendResponse, error => sendResponse({success: false, error: error.message}));
     return true;
   }
-  if (['SAVE_CARD','CLEAR_CARDS','CACHE_LYRICS','REMOVE_LYRICS_CACHE'].includes(request.action)) {
+  if (['SAVE_CARD','CLEAR_CARDS','CACHE_LYRICS','REMOVE_LYRICS_CACHE','SET_WORD_STATUS'].includes(request.action)) {
     if (sender.id !== chrome.runtime.id) { sendResponse({success:false, error:'Untrusted storage request'}); return false; }
     enqueueStorage(async () => {
+      if (request.action === 'SET_WORD_STATUS') return setOwnedWordStatus(request.word, request.status);
       if (request.action === 'SAVE_CARD') return saveOwnedCard(validatedCard(request.card));
       if (request.action === 'CLEAR_CARDS') { await localStorageCall('set', {linguaplay_cards: []}); return {success:true, count:0}; }
       if (request.action === 'CACHE_LYRICS') return cacheOwnedLyrics(request.vid, request.payload);

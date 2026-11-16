@@ -52,6 +52,10 @@ In **言 → Subtitles → Watching**, choose a mode for the current video:
 
 Your manual choice is saved per video and restored on reload. It does not carry into another episode or song. Choosing **More → Find lyrics** also selects Song mode for that video. Mode changes clear the previous source and reject its pending results; your reading, size, position and opacity preferences stay available.
 
+### Track the words you know
+
+Japanese subtitles underline vocabulary by status: a dotted amber line marks **new** words and a solid blue line marks words you are **learning**. Known words and particles stay plain. In Study, choose **New**, **Learning** or **Known** under the selected word; the choice applies to its dictionary form everywhere. Words you save as cards count as learning until you choose otherwise. Turn the underlines off with **⋯ → Highlight word status**.
+
 ### Drill a line
 
 Open **⋯** in the LinguaPlay controls, or use these keys while a video with timed subtitles plays:
