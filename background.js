@@ -158,12 +158,20 @@ async function removeOwnedLyrics(vid) {
 
 // When the local 9Router is not running, ask the Linux helper to start its
 // installed service once, wait until it answers, and retry. Concurrent AI calls
-// share one start; a failed start is not retried for a minute.
+// share one start; a failed start is not retried for a minute, even after the
+// service worker restarts.
 const routerStartCooldown = 60000;
+const routerStartFailureKey = 'linguaplay_router_start_failure';
 let routerStartAttempt = null;
-let routerStartFailure = null;
 function isLocalRouter(endpoint) {
   return endpoint.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(endpoint.hostname) && endpoint.port === '20128';
+}
+async function routerAnswers(origin) {
+  try {
+    // Any HTTP answer, including 401, means the server is accepting requests.
+    await fetch(origin + '/v1/models', {signal: AbortSignal.timeout(2000), credentials: 'omit'});
+    return true;
+  } catch { return false; }
 }
 function requestRouterStart() {
   return new Promise(resolve => {
@@ -178,28 +186,38 @@ function requestRouterStart() {
 async function waitForRouter(origin) {
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
-    try {
-      // Any HTTP answer, including 401, means the server is accepting requests.
-      await fetch(origin + '/v1/models', {signal: AbortSignal.timeout(2000), credentials: 'omit'});
-      return;
-    } catch {}
+    if (await routerAnswers(origin)) return;
     await new Promise(resolve => setTimeout(resolve, 500));
   }
   throw new Error('9Router was started but did not answer within 15 seconds.');
 }
+async function recentRouterStartFailure() {
+  try {
+    const failure = (await chrome.storage.session?.get(routerStartFailureKey))?.[routerStartFailureKey];
+    return failure && Number.isFinite(failure.until) && Date.now() < failure.until && typeof failure.message === 'string' ? failure.message : null;
+  } catch { return null; }
+}
+function rememberRouterStartFailure(message) {
+  const value = message ? {[routerStartFailureKey]: {until: Date.now() + routerStartCooldown, message}} : null;
+  Promise.resolve().then(() => value ? chrome.storage.session?.set(value) : chrome.storage.session?.remove(routerStartFailureKey)).catch(() => {});
+}
 function startLocalRouter(endpoint) {
-  if (routerStartAttempt) return routerStartAttempt;
-  if (routerStartFailure && Date.now() - routerStartFailure.time < routerStartCooldown) return Promise.reject(routerStartFailure.error);
-  routerStartAttempt = requestRouterStart().then(result => {
-    if (result.helperMissing || /Invalid startup request/.test(result.error || '')) {
-      throw new Error('9Router is not running. Start it, or run Download Linux setup in Extension Settings so LangPlay can start it automatically.');
+  routerStartAttempt ||= (async () => {
+    const recent = await recentRouterStartFailure();
+    if (recent) throw new Error(recent);
+    try {
+      const result = await requestRouterStart();
+      if (result.helperMissing || /Invalid startup request/.test(result.error || '')) {
+        throw new Error('9Router is not running. Start it, or run Download Linux setup in Extension Settings so LangPlay can start it automatically.');
+      }
+      if (!result.success) throw new Error(`9Router is not running and could not be started: ${result.error || 'unknown error'}`);
+      await waitForRouter(endpoint.origin);
+      rememberRouterStartFailure(null);
+    } catch (error) {
+      rememberRouterStartFailure(error.message);
+      throw error;
     }
-    if (!result.success) throw new Error(`9Router is not running and could not be started: ${result.error || 'unknown error'}`);
-    return waitForRouter(endpoint.origin);
-  }).then(() => { routerStartFailure = null; }, error => {
-    routerStartFailure = {time: Date.now(), error};
-    throw error;
-  }).finally(() => { routerStartAttempt = null; });
+  })().finally(() => { routerStartAttempt = null; });
   return routerStartAttempt;
 }
 
@@ -236,8 +254,10 @@ async function call9RouterAi(messages, isJson = false) {
   try {
     response = await send();
   } catch (error) {
-    // Only a refused local connection means 9Router is not running; timeouts and remote endpoints are reported as they are.
-    if (error?.name !== 'TypeError' || !isLocalRouter(endpoint)) throw error;
+    // Only an unreachable local router is started. A network error from a router
+    // that still answers may mean it already accepted the request, so it is not
+    // replayed. Timeouts and remote endpoints are reported as they are.
+    if (error?.name !== 'TypeError' || !isLocalRouter(endpoint) || await routerAnswers(endpoint.origin)) throw error;
     await startLocalRouter(endpoint);
     response = await send();
   }
