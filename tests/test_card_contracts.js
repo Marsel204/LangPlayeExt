@@ -65,7 +65,10 @@ async function saveEnrichedCard(ai, {reading = {furigana: KANA, romaji: ROMAJI},
       prompt = JSON.parse(c.options.body).messages[0].content;
       return response({choices: [{message: {content: JSON.stringify(ai)}}]});
     }
-    return c.category === 'anki' ? response({result: 123, error: null}) : response([[['translation']]]);
+    if (c.category === 'anki') return response({result: 123, error: null});
+    // Google echoes each source line next to its translation.
+    const lines = c.category === 'translate' ? (new URL(c.url).searchParams.get('q') || '').split('\n') : [''];
+    return response([lines.map(line => ['translation', line])]);
   }});
   h.select(WORD, SENTENCE, reading);
   if (withoutWanakana) delete h.window.wanakana;
