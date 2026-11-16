@@ -282,6 +282,53 @@ function translationSegments(data) {
   return Array.isArray(data?.[0]) ? data[0].filter(Array.isArray) : [];
 }
 
+// Offline JMdict common-word dictionary (data/jmdict-common.json), indexed once
+// per worker lifetime. Word lookups use it before Google or AI.
+let jmdictIndex = null;
+function buildJmdictIndex(data) {
+  if (!Array.isArray(data?.entries)) throw new Error('Invalid dictionary data');
+  const index = new Map();
+  for (const entry of data.entries) {
+    if (!Array.isArray(entry) || !Array.isArray(entry[0]) || !Array.isArray(entry[1]) || !Array.isArray(entry[2])) continue;
+    const [kanji, kana, senses, usuallyKana, richness] = entry;
+    const meaning = senses.filter(sense => typeof sense === 'string').join('; ');
+    if (!meaning) continue;
+    for (const [forms, isKana] of [[kanji, false], [kana, true]]) {
+      for (const form of forms) {
+        if (typeof form !== 'string' || !form) continue;
+        const common = form.endsWith('*');
+        const key = common ? form.slice(0, -1) : form;
+        // Prefer common forms; for kana keys, prefer words usually written in kana.
+        const score = (common ? 400 : 0) + (isKana && usuallyKana ? 200 : 0) + (isKana && !kanji.length ? 100 : 0) + (Number.isInteger(richness) ? Math.min(99, richness) : 0);
+        const best = index.get(key);
+        if (!best || score > best.score) index.set(key, {score, meaning});
+      }
+    }
+  }
+  return index;
+}
+function loadJmdict() {
+  jmdictIndex ||= Promise.resolve().then(() => {
+    const url = chrome.runtime.getURL?.('data/jmdict-common.json');
+    if (!url) return new Map();
+    // A dictionary that cannot load must not hold word lookups; they fall back to Google or AI.
+    let timer;
+    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Dictionary load timed out')), 5000); });
+    return Promise.race([fetch(url).then(response => {
+      if (!response.ok) throw new Error('Dictionary unavailable');
+      return response.json();
+    }).then(buildJmdictIndex), timeout]).finally(() => clearTimeout(timer));
+  }).catch(() => new Map());
+  return jmdictIndex;
+}
+function jmdictMeaning(index, word) {
+  const hit = index.get(word) || (word.length > 2 && word.endsWith('する') ? index.get(word.slice(0, -2)) : null);
+  return hit ? hit.meaning : '';
+}
+async function lookupJmdict(word) {
+  return jmdictMeaning(await loadJmdict(), word);
+}
+
 const wordMeanings = new Map();
 function rememberWordMeaning(cache, word, meaning) {
   cache.delete(word); cache.set(word, meaning);
@@ -290,7 +337,11 @@ function rememberWordMeaning(cache, word, meaning) {
 
 async function translateJapanese(request) {
   if (typeof request.text !== 'string' || !request.text.trim() || request.text.length > (request.dictionary ? 256 : 4096)) throw new Error('Invalid Japanese text');
-  if (request.dictionary && wordMeanings.has(request.text)) return {success: true, translation: wordMeanings.get(request.text)};
+  if (request.dictionary) {
+    const local = await lookupJmdict(request.text.trim());
+    if (local) return {success: true, translation: local};
+    if (wordMeanings.has(request.text)) return {success: true, translation: wordMeanings.get(request.text)};
+  }
   const key = JSON.stringify([request.dictionary === true, request.text]);
   if (languageRequests.has(key)) return languageRequests.get(key);
   const work = scheduleTranslation(async () => {
@@ -380,7 +431,15 @@ async function translateWords(request) {
   if (!Array.isArray(request.words) || !request.words.length || request.words.length > 40) throw new Error('Invalid Japanese words');
   if (request.words.some(word => typeof word !== 'string' || !word.trim() || word.length > 64 || /[\r\n]/.test(word))) throw new Error('Invalid Japanese words');
   const words = [...new Set(request.words.map(word => word.trim()))];
-  const fresh = words.filter(word => !wordGlosses.has(word) && !pendingWordGlosses.has(word));
+  // One await, then synchronous lookups, so concurrent requests register
+  // their pending gloss batches in arrival order.
+  const index = await loadJmdict();
+  const meanings = {};
+  for (const word of words) {
+    const local = jmdictMeaning(index, word);
+    if (local) meanings[word] = local;
+  }
+  const fresh = words.filter(word => !(word in meanings) && !wordGlosses.has(word) && !pendingWordGlosses.has(word));
   if (fresh.length) {
     const batch = glossBatch(fresh);
     for (const word of fresh) {
@@ -389,9 +448,8 @@ async function translateWords(request) {
       one.catch(() => {}).finally(() => { if (pendingWordGlosses.get(word) === one) pendingWordGlosses.delete(word); });
     }
   }
-  const meanings = {};
   const errors = [];
-  await Promise.all(words.map(async word => {
+  await Promise.all(words.filter(word => !(word in meanings)).map(async word => {
     try {
       const gloss = wordGlosses.has(word) ? wordGlosses.get(word) : await pendingWordGlosses.get(word);
       if (gloss) meanings[word] = gloss;

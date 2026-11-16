@@ -62,6 +62,8 @@ Click any word in the subtitle overlay. Playback pauses and LinguaPlay opens its
 
 The drawer keeps the sentence you selected as its context, even if playback moves on. When you're ready, close the drawer and resume the video.
 
+Word meanings come from a bundled offline JMdict dictionary of about 22,000 common words, so most lookups are instant and need no network. Words it does not contain fall back to Google Translate, then to your 9Router model. The dictionary data is © the Electronic Dictionary Research and Development Group, used under CC BY-SA 4.0; see [data/JMDICT-LICENSE.md](data/JMDICT-LICENSE.md).
+
 ### 3. Ask Sensei a follow-up question
 
 Switch to **Sensei Chat** to ask about the selected sentence. Use a prompt such as **Why this particle?**, **Grammar breakdown**, **2 More examples**, or **Nuance & Politeness** — or type your own question.
