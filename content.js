@@ -2022,6 +2022,22 @@ Respond in JSON only:
   const captionTranslations = new Map();
   const captionRetryDelay = 30000;
   let captionRetryTimer = null;
+  let captionRetrySentence = '';
+  function clearCaptionRetry() {
+    clearTimeout(captionRetryTimer);
+    captionRetryTimer = null; captionRetrySentence = '';
+  }
+  // Only the caption on screen owns the retry timer, so a late failure for an
+  // earlier caption cannot cancel it.
+  function scheduleCaptionRetry(clean, failedAt) {
+    if (captionRetryTimer && captionRetrySentence === clean) return;
+    clearCaptionRetry();
+    captionRetrySentence = clean;
+    captionRetryTimer = setTimeout(() => {
+      captionRetryTimer = null; captionRetrySentence = '';
+      if (renderedSentence.trim() === clean) updateCaptionTranslation(renderedSentence);
+    }, Math.max(0, captionRetryDelay - (Date.now() - failedAt)));
+  }
   function updateCaptionTranslation(sentence, retry = false) {
     const line = document.getElementById('linguaplay-caption-english');
     if (!line) return;
@@ -2034,8 +2050,10 @@ Respond in JSON only:
       line.innerHTML = '<button type="button" class="lp-caption-retry">Retry sentence meaning</button>';
       line.title = sentenceTranslationErrors.get(clean) || 'Sentence translation unavailable. Try again.';
       line.querySelector('button')?.addEventListener('click', event => { event.stopPropagation(); updateCaptionTranslation(clean, true); });
+      scheduleCaptionRetry(clean, captionTranslationFailures.get(clean));
       return;
     }
+    if (captionRetrySentence === clean) clearCaptionRetry();
     line.title = '';
     line.textContent = 'Translating…';
     if (captionTranslations.has(clean) || captionTranslations.size >= 2) return;
@@ -2043,11 +2061,6 @@ Respond in JSON only:
       if (!translation) {
         captionTranslationFailures.set(clean, Date.now());
         while (captionTranslationFailures.size > 64) captionTranslationFailures.delete(captionTranslationFailures.keys().next().value);
-        clearTimeout(captionRetryTimer);
-        captionRetryTimer = setTimeout(() => {
-          captionRetryTimer = null;
-          if (renderedSentence.trim() === clean) updateCaptionTranslation(renderedSentence);
-        }, captionRetryDelay);
       }
     }).finally(() => {
       captionTranslations.delete(clean);
@@ -2174,26 +2187,37 @@ Respond in JSON only:
   }
 
   // Gloss a whole Study sentence in one worker request instead of one per word.
+  // Words already being glossed join that request instead of starting another.
   const wordGlosses = new Map();
+  const pendingWordGlosses = new Map();
   function lookupGlosses(words) {
     const meanings = new Map();
+    const waits = [];
     const missing = [];
+    const keep = word => meaning => { if (meaning) meanings.set(word, meaning); };
     for (const word of new Set(words)) {
       if (Object.prototype.hasOwnProperty.call(JDICT, word)) meanings.set(word, JDICT[word]);
       else if (wordGlosses.has(word)) meanings.set(word, wordGlosses.get(word));
-      else if (word && word.length <= 64 && !/[\r\n]/.test(word) && missing.length < 40) missing.push(word);
+      else if (pendingWordGlosses.has(word)) waits.push(pendingWordGlosses.get(word).then(keep(word)));
+      else if (word && word.length <= 64 && !/[\r\n]/.test(word) && missing.length < 40 && pendingWordGlosses.size < 200) missing.push(word);
     }
-    if (!missing.length) return Promise.resolve(meanings);
-    return sendOwnedMessage('TRANSLATE_WORDS', {words: missing}, {timeout: 45000}).then(result => {
+    if (missing.length) {
+      const batch = sendOwnedMessage('TRANSLATE_WORDS', {words: missing}, {timeout: 45000})
+        .then(result => result?.success && result.meanings && typeof result.meanings === 'object' ? result.meanings : {}, () => ({}));
       for (const word of missing) {
-        const meaning = typeof result?.meanings?.[word] === 'string' ? result.meanings[word] : '';
-        if (!meaning) continue;
-        meanings.set(word, meaning);
-        wordGlosses.set(word, meaning);
-        while (wordGlosses.size > 512) wordGlosses.delete(wordGlosses.keys().next().value);
+        const one = batch.then(found => {
+          const meaning = typeof found[word] === 'string' ? found[word] : '';
+          if (meaning) {
+            wordGlosses.set(word, meaning);
+            while (wordGlosses.size > 512) wordGlosses.delete(wordGlosses.keys().next().value);
+          }
+          return meaning;
+        }).finally(() => pendingWordGlosses.delete(word));
+        pendingWordGlosses.set(word, one);
+        waits.push(one.then(keep(word)));
       }
-      return meanings;
-    }, () => meanings);
+    }
+    return Promise.all(waits).then(() => meanings);
   }
 
   function renderStudySentence(sentence, targetWord, version) {
@@ -3971,7 +3995,7 @@ Respond with ONLY valid JSON:
     if (currentVideoId) staleLiveSentence = Array.from(document.querySelectorAll('.ytp-caption-segment')).map(s => s.textContent || '').join(' ').trim();
     acquisition = null;
     subtitlePanelState = null; subtitleSourceName = ''; subtitleSourceKind = ''; watchMode = 'auto'; selectedTokenElement = null;
-    captionTranslationFailures.clear();
+    captionTranslationFailures.clear(); clearCaptionRetry();
     if (playerUI?.subtitlePanel) playerUI.subtitlePanel.hidden = true;
     document.getElementById('linguaplay-lyrics-modal')?.classList.add('hidden');
     const identifyButton = document.getElementById('lp-ai-identify-btn');
