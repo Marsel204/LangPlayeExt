@@ -1175,3 +1175,16 @@ test('the 9Router worker reports an empty HTTP error response', async () => {
   assert.equal(answer.success, false);
   assert.match(answer.error, /9Router returned status 403/);
 });
+
+test('a word status chosen before parsing finishes is saved under the parsed dictionary form', async () => {
+  const { h, requests, token, tick } = parsingHarness();
+  h.handleTokenClick({ surface: '始め', baseForm: '始め', start: 0, end: 2 }, '始めた');
+  await tick();
+  h.elements.get('lp-status-known').listeners.click({ stopPropagation() {} });
+  requests.get('始めた')({ tokens: [token('始め', 'ハジメ', '始める', 0, '動詞'), token('た', 'タ', 'た', 2, '助動詞')] });
+  await tick(); await tick();
+  const writes = h.calls.filter(call => call.action === 'SET_WORD_STATUS').map(call => [call.word, call.status]);
+  assert.deepEqual(writes.at(-1), ['始める', 'known']);
+  h.elements.get('lp-status-learning').listeners.click({ stopPropagation() {} });
+  assert.deepEqual(h.calls.filter(call => call.action === 'SET_WORD_STATUS').at(-1), { action: 'SET_WORD_STATUS', word: '始める', status: 'learning' });
+});

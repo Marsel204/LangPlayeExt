@@ -88,7 +88,12 @@ async function study({config = {}, pixels = [10, 20, 30, 255], capture = true} =
   const originalAdd = video.addEventListener?.bind(video);
   video.addEventListener = (type, fn) => { if (type === 'seeked') { seeks.push(video.currentTime); queueMicrotask(fn); } else originalAdd?.(type, fn); };
   video.play = () => { video.paused = false; video.currentTime = 99; return Promise.resolve(); };
-  if (capture) video.captureStream = () => ({getAudioTracks: () => [{stop() { video.trackStopped = true; }}]});
+  // Like Chromium, captureStream yields an audio and a video track.
+  video.tracksStopped = [];
+  if (capture) video.captureStream = () => {
+    const tracks = ['audio', 'video'].map(kind => ({kind, stop() { video.tracksStopped.push(kind); }}));
+    return {getAudioTracks: () => tracks.filter(track => track.kind === 'audio'), getTracks: () => tracks};
+  };
   h.sandbox.MediaStream = class { constructor(tracks) { this.tracks = tracks; } };
   h.sandbox.MediaRecorder = class {
     static isTypeSupported(type) { return type === 'audio/webm;codecs=opus'; }
@@ -115,7 +120,7 @@ test('Save card adds a screenshot and the replayed sentence audio, then restores
   assert.deepEqual(seeks, [3.85], 'Recording starts just before the pinned line');
   assert.equal(video.currentTime, 5.2, 'Playback returns to where it was');
   assert.equal(video.paused, true, 'A paused video stays paused');
-  assert.equal(video.trackStopped, true);
+  assert.deepEqual(video.tracksStopped.sort(), ['audio', 'video'], 'Every captured track is stopped');
   assert.match(h.elements.get('lp-quick-anki-btn').textContent, /Added to Anki/);
   const note = h.calls.find(call => call.category === 'anki' && JSON.parse(call.options.body).action === 'addNote');
   assert.match(JSON.parse(note.options.body).params.note.fields.Back, /<img src="linguaplay-.*\.jpg"><br>\[sound:linguaplay-.*\.webm\]$/);
@@ -133,5 +138,40 @@ test('turned-off media, protected video and missing capture save a text-only car
     await h.worker.drain();
     assert.equal(ankiMessage(h).media, undefined, reason);
     assert.match(h.elements.get('lp-quick-anki-btn').textContent, /Added to Anki/, reason);
+  }
+});
+
+test('an unanswered addNote keeps the uploaded media, since Anki may have saved the note', async () => {
+  for (const failure of [() => { throw new TypeError('Failed to fetch'); }, () => ({ok: false, status: 502, json: async () => ({})}), () => ({ok: true, json: async () => ({result: null, error: null})})]) {
+    const worker = background(storage());
+    const calls = [];
+    worker.sandbox.fetch = async (url, options) => {
+      const body = JSON.parse(options.body);
+      calls.push(body.action);
+      if (body.action === 'addNote') return failure();
+      return {ok: true, json: async () => ({result: body.params.filename, error: null})};
+    };
+    const result = clone(await worker.request({action: 'ADD_ANKI_NOTE', fields, media: [{kind: 'image', data: IMAGE}]}));
+    assert.equal(result.success, false);
+    assert.deepEqual(calls, ['storeMediaFile', 'addNote'], 'No media is deleted after an unknown outcome');
+  }
+});
+
+test('a new selection or navigation during recording cancels the save and leaves playback alone', async () => {
+  for (const interrupt of ['select', 'navigate']) {
+    const {h, video} = await study();
+    video.play = async () => {
+      video.paused = false;
+      video.currentTime = 4.5;
+      if (interrupt === 'select') h.select('犬', '犬がいる');
+      else { h.navigate('otherVideo1'); await h.tick(); }
+    };
+    await h.click('lp-quick-anki-btn');
+    for (let i = 0; i < 10; i++) await flush();
+    await h.worker.drain();
+    assert.equal(ankiMessage(h), undefined, interrupt + ': no card is saved for the old selection');
+    assert.equal(h.messages.some(message => message.action === 'SAVE_CARD'), false, interrupt);
+    assert.equal(video.currentTime, 4.5, interrupt + ': playback is not rewound to the old position');
+    assert.deepEqual(video.tracksStopped.sort(), ['audio', 'video'], interrupt + ': capture tracks still stop');
   }
 });

@@ -715,6 +715,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // The worker chooses every filename; nothing from the page reaches Anki's media folder name.
         const stored = [];
         let back = fields.Back;
+        // Set while addNote has been sent but not answered: Anki may already have
+        // saved the note, so its media must be kept.
+        let noteOutcomeUnknown = false;
         try {
           for (const item of media) {
             const filename = `linguaplay-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${item.kind === 'image' ? 'jpg' : 'webm'}`;
@@ -724,18 +727,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             stored.push(name);
             back += item.kind === 'image' ? `<br><img src="${name}">` : `<br>[sound:${name}]`;
           }
+          noteOutcomeUnknown = true;
           const data = await anki('addNote', {note: {
             deckName: config.linguaplay_anki_deck || 'LinguaPlay', modelName: 'Basic',
             fields: {Front: fields.Front, Back: back}, tags: ['linguaplay', 'youtube']
           }});
+          noteOutcomeUnknown = false;
           if (data.error) {
             if (/duplicate/i.test(String(data.error))) { await removeAnkiMedia(anki, stored); sendResponse({success: true, duplicate: true}); return; }
             const error = String(data.error);
             throw new Error(/deck.*not found/i.test(error) ? error + '; create the configured deck in Anki, then retry' : error);
           }
-          if (data.result == null) throw new Error('AnkiConnect did not confirm a note');
+          // No error and no id is not a rejection either; keep the media.
+          if (data.result == null) { noteOutcomeUnknown = true; throw new Error('AnkiConnect did not confirm a note'); }
         } catch (error) {
-          await removeAnkiMedia(anki, stored);
+          if (!noteOutcomeUnknown) await removeAnkiMedia(anki, stored);
           throw error;
         }
         sendResponse(stored.length ? {success: true, media: stored.length} : {success: true});

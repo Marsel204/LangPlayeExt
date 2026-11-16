@@ -91,3 +91,34 @@ test('the worker validates statuses, rejects other senders and serializes writes
   assert.equal((await background(corrupt).request({action: 'SET_WORD_STATUS', word: '犬', status: 'known'}, sender)).success, false);
   assert.deepEqual(corrupt.state.linguaplay_word_status, ['broken']);
 });
+
+test('two failed choices in a row fall back to the confirmed status, not the earlier failed choice', async () => {
+  const replies = [];
+  const h = await create({}, {message: request => request.action === 'SET_WORD_STATUS' ? new Promise(resolve => replies.push(resolve)) : undefined});
+  await flush();
+  h.renderSentenceTokens('世界は綺麗');
+  h.select('綺麗', '世界は綺麗');
+  choose(h, 'learning');
+  choose(h, 'known');
+  assert.deepEqual(pressed(h), ['known']);
+  replies[0]({success: false, error: 'quota'});
+  await flush();
+  assert.deepEqual(pressed(h), ['known'], 'The newer pending choice stays visible');
+  replies[1]({success: false, error: 'quota'});
+  await flush();
+  assert.deepEqual(pressed(h), ['new']);
+  assert.equal(statusOf(h, '綺麗'), 'new');
+});
+
+test('a confirmed earlier choice survives a later failed one', async () => {
+  const replies = [];
+  const h = await create({}, {message: request => request.action === 'SET_WORD_STATUS' ? new Promise(resolve => replies.push(resolve)) : undefined});
+  await flush();
+  h.select('綺麗', '世界は綺麗');
+  choose(h, 'learning');
+  choose(h, 'known');
+  replies[0]({success: true});
+  replies[1]({success: false, error: 'quota'});
+  await flush();
+  assert.deepEqual(pressed(h), ['learning']);
+});

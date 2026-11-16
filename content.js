@@ -810,6 +810,12 @@
   let drawerActiveWord = '';
   // Word status: an explicit choice wins; saved cards count as learning.
   let wordStatus = {};
+  // Choices not yet confirmed by storage: word -> {status, seq}. They overlay
+  // wordStatus; a failed write drops only its own pending choice.
+  const pendingWordStatus = new Map();
+  let wordStatusSeq = 0;
+  // A choice made for the current Study word, re-applied if parsing changes its dictionary form.
+  let drawerStatusChoice = null;
   let cardWords = new Set();
   let wordHighlightEnabled = true;
   let drawerStatusWord = '';
@@ -817,6 +823,7 @@
   let cardScreenshotEnabled = true;
   let cardAudioEnabled = true;
   let recordingCardAudio = false;
+  let cardRecording = null;
   let drawerContextCue = null;
   let drawerActiveReading = {furigana: '', romaji: ''};
   let activeLiveSentence = '';
@@ -920,6 +927,11 @@
   }
   // Replays the line once while recording the video's own audio track, then
   // returns playback to where it was. Protected video cannot be captured.
+  // The recording belongs to one video, watch page and Study selection.
+  // Navigation or a new selection aborts it and leaves playback alone.
+  function recordingOwned(owner) {
+    return !owner.aborted && owner.video === activeVideoEl && owner.vid === currentVideoId && owner.contextVersion === drawerContextVersion;
+  }
   async function recordCardAudio(video, cue) {
     if (!video || !cue || recordingCardAudio || typeof video.captureStream !== 'function' || typeof MediaRecorder === 'undefined') return '';
     const start = Math.max(0, cue.start + timingOffset - 0.15);
@@ -928,12 +940,15 @@
     const mimeType = ['audio/webm;codecs=opus', 'audio/webm'].find(type => MediaRecorder.isTypeSupported?.(type));
     if (!mimeType) return '';
     const resume = {time: video.currentTime, paused: video.paused};
-    let tracks = [];
+    const owner = {video, vid: currentVideoId, contextVersion: drawerContextVersion, aborted: false};
+    let stream = null;
     let recorder = null;
     recordingCardAudio = true;
+    cardRecording = owner;
     clearLineBoundary();
     try {
-      tracks = video.captureStream().getAudioTracks();
+      stream = video.captureStream();
+      const tracks = stream.getAudioTracks();
       if (!tracks.length) return '';
       recorder = new MediaRecorder(new MediaStream(tracks), {mimeType, audioBitsPerSecond: 64000});
       const chunks = [];
@@ -945,22 +960,27 @@
       await video.play();
       const rate = video.playbackRate > 0 ? video.playbackRate : 1;
       const deadline = Date.now() + (end - start) / rate * 1000 + 3000;
-      while (!video.paused && video.currentTime < end && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
+      while (recordingOwned(owner) && !video.paused && video.currentTime < end && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
       recorder.stop();
       await stopped;
+      if (!recordingOwned(owner)) return '';
       const blob = new Blob(chunks, {type: 'audio/webm'});
       return blob.size && blob.size <= 2 * 1024 * 1024 ? await blobBase64(blob) : '';
     } catch {
       if (recorder?.state === 'recording') try { recorder.stop(); } catch {}
       return '';
     } finally {
-      for (const track of tracks) track.stop();
+      // captureStream also creates a video track; stop every track it made.
+      for (const track of stream?.getTracks?.() || []) track.stop();
       recordingCardAudio = false;
-      try {
-        video.pause();
-        video.currentTime = resume.time;
-        if (!resume.paused) video.play()?.catch?.(() => {});
-      } catch {}
+      if (cardRecording === owner) cardRecording = null;
+      if (recordingOwned(owner)) {
+        try {
+          video.pause();
+          video.currentTime = resume.time;
+          if (!resume.paused) video.play()?.catch?.(() => {});
+        } catch {}
+      }
     }
   }
   async function cardMedia(button) {
@@ -2201,6 +2221,7 @@ Respond in JSON only:
   }
   function statusOfWord(base, surface = base) {
     for (const key of [base, surface]) {
+      if (key && pendingWordStatus.has(key)) return pendingWordStatus.get(key).status;
       if (key && Object.prototype.hasOwnProperty.call(wordStatus, key) && ['new', 'learning', 'known'].includes(wordStatus[key])) return wordStatus[key];
     }
     return cardWords.has(base) || cardWords.has(surface) ? 'learning' : 'new';
@@ -2226,24 +2247,28 @@ Respond in JSON only:
   }
   function setWordStatus(word, status) {
     if (!word) return Promise.resolve({success: false});
-    // Show the choice at once; storage confirms it for every tab, and a
-    // failed write restores the previous choice.
-    const had = Object.prototype.hasOwnProperty.call(wordStatus, word);
-    const previous = wordStatus[word];
-    wordStatus = {...wordStatus, [word]: status};
-    updateWordStatusControls();
-    if (renderedSentence) renderSentenceTokens(renderedSentence);
+    if (word === drawerStatusWord) drawerStatusChoice = {word, status};
+    // Show the choice at once; storage confirms it for every tab.
+    const seq = ++wordStatusSeq;
+    pendingWordStatus.set(word, {status, seq});
+    const refresh = () => { updateWordStatusControls(); if (renderedSentence) renderSentenceTokens(renderedSentence); };
+    refresh();
     return sendOwnedMessage('SET_WORD_STATUS', {word, status}).then(result => {
-      if (!result.success && wordStatus[word] === status) {
-        console.warn('[LinguaPlay] Word status:', result.error);
-        const restored = {...wordStatus};
-        if (had) restored[word] = previous; else delete restored[word];
-        wordStatus = restored;
-        updateWordStatusControls();
-        if (renderedSentence) renderSentenceTokens(renderedSentence);
-      }
+      if (result.success) wordStatus = {...wordStatus, [word]: status};
+      else console.warn('[LinguaPlay] Word status:', result.error);
+      // A newer choice for this word stays pending; otherwise show the confirmed state.
+      if (pendingWordStatus.get(word)?.seq === seq) pendingWordStatus.delete(word);
+      refresh();
       return result;
     });
+  }
+  function rekeyDrawerStatus(base) {
+    if (!base || base === drawerStatusWord) return;
+    const choice = drawerStatusChoice;
+    drawerStatusWord = base;
+    drawerStatusChoice = null;
+    if (choice) setWordStatus(base, choice.status);
+    else updateWordStatusControls();
   }
 
   function renderSentenceTokens(sentenceText) {
@@ -2556,6 +2581,7 @@ Respond in JSON only:
     drawerContextVersion++;
     drawerActiveWord = token.surface || '';
     drawerStatusWord = (token.baseForm || token.surface || '').trim();
+    drawerStatusChoice = null;
     updateWordStatusControls();
     drawerContextSentence = (sentenceContext || token.surface || '').trim();
     const cueIndex = subtitleTimeline[currentSubIndex]?.text === drawerContextSentence
@@ -2598,6 +2624,7 @@ Respond in JSON only:
           posEl.textContent = selected.baseForm !== token.surface ? `(Base: ${selected.baseForm})` : '';
           posEl.style.display = selected.baseForm !== token.surface ? 'inline' : 'none';
           updateDefinition(selected);
+          rekeyDrawerStatus((selected.baseForm || selected.surface || '').trim());
         }
         const html = japaneseParser.romaji(contextSentence, token.surface);
         if (html != null) {
@@ -3707,9 +3734,11 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       const card = {word, reading: drawerActiveReading.furigana, romaji: drawerActiveReading.romaji,
         meaning: def, sentence, sentence_en: cleanSentEn, date: new Date().toISOString()};
       const media = await cardMedia(btn);
+      btn.disabled = false;
+      // Navigation or another selection during recording cancels this save.
+      if (contextVersion !== drawerContextVersion) { btn.textContent = 'Save card'; return; }
       btn.textContent = '⏳ Adding…';
       const label = await saveCard(card, cardAnkiFields(card, def), media);
-      btn.disabled = false;
       if (contextVersion !== drawerContextVersion) return;
       btn.textContent = label;
       setTimeout(() => {
@@ -4080,9 +4109,10 @@ Respond with ONLY valid JSON:
       if (btn.disabled) return;
       btn.disabled = true;
       const media = await cardMedia(btn);
+      btn.disabled = false;
+      if (contextVersion !== drawerContextVersion) { btn.textContent = 'Save enriched card'; return; }
       btn.textContent = '⏳ Adding…';
       const label = await saveCard(card, cardAnkiFields(card, escapeHtmlText(card.meaning)), media);
-      btn.disabled = false;
       if (contextVersion !== drawerContextVersion) return;
       btn.textContent = label;
       setTimeout(() => {
@@ -4219,15 +4249,18 @@ Respond with ONLY valid JSON:
     const rate = video.playbackRate > 0 ? video.playbackRate : 1;
     lineBoundaryTimer = setTimeout(() => {
       lineBoundaryTimer = null;
-      if (video !== activeVideoEl || subtitleTimeline[index] !== cue || video.paused) return;
+      if (video !== activeVideoEl || subtitleTimeline[index] !== cue || video.paused || video.seeking) return;
       // A seek may have moved playback before timeupdate reported it.
-      if (video.currentTime > end + 0.5) return;
+      if (video.currentTime > end + 0.25) return;
       if (video.currentTime < end - 0.25) { armLineBoundary(); return; }
       if (loopCurrentLine) { video.currentTime = cue.start + timingOffset; return; }
       autoPausedIndex = index;
       video.pause();
     }, Math.max(0, (end - video.currentTime) / rate * 1000 - 40));
   }
+  // A seek invalidates the timer at once; timeupdate arms a new one afterwards.
+  function onVideoSeeking() { clearLineBoundary(); }
+  function onVideoRateChange() { if (loopCurrentLine || autoPauseLines) armLineBoundary(); }
   function replayCurrentLine() {
     const index = currentSubIndex >= 0 ? currentSubIndex : lastLineIndex;
     const cue = subtitleTimeline[index];
@@ -4258,6 +4291,7 @@ Respond with ONLY valid JSON:
     subtitlePanelState = null; subtitleSourceName = ''; subtitleSourceKind = ''; watchMode = 'auto'; selectedTokenElement = null;
     captionTranslationFailures.clear(); clearCaptionRetry();
     clearLineBoundary(); loopCurrentLine = false; autoPausedIndex = -1; lastLineIndex = -1; updateLineDrillControls();
+    if (cardRecording) cardRecording.aborted = true;
     if (playerUI?.subtitlePanel) playerUI.subtitlePanel.hidden = true;
     document.getElementById('linguaplay-lyrics-modal')?.classList.add('hidden');
     const identifyButton = document.getElementById('lp-ai-identify-btn');
@@ -4266,7 +4300,7 @@ Respond with ONLY valid JSON:
     subtitleRenderVersion++; drawerContextVersion++;
     installSubtitleTimeline([], {source: 'reset'});
     timelineIndex = null; renderedSentence = ''; activeLiveSentence = '';
-    drawerContextSentence = ''; drawerActiveWord = ''; drawerStatusWord = ''; drawerActiveReading = {furigana: '', romaji: ''};
+    drawerContextSentence = ''; drawerActiveWord = ''; drawerStatusWord = ''; drawerStatusChoice = null; drawerActiveReading = {furigana: '', romaji: ''};
     updateWordStatusControls();
     drawerContextNeighbors = {previous: '', next: ''}; drawerContextCue = null;
     lastAiData = null; activeAnalysis = null;
@@ -4285,6 +4319,8 @@ Respond with ONLY valid JSON:
       if (activeVideoEl) {
         activeVideoEl.removeEventListener('timeupdate', onTimeUpdate);
         activeVideoEl.removeEventListener('playing', startServerOnPlayback);
+        activeVideoEl.removeEventListener('seeking', onVideoSeeking);
+        activeVideoEl.removeEventListener('ratechange', onVideoRateChange);
         for (const track of activeVideoEl.textTracks || []) track.oncuechange = null;
       }
       liveCaptionObserver?.disconnect(); liveCaptionObserver = null;
@@ -4334,11 +4370,15 @@ Respond with ONLY valid JSON:
       if (activeVideoEl) {
         activeVideoEl.removeEventListener('timeupdate', onTimeUpdate);
         activeVideoEl.removeEventListener('playing', startServerOnPlayback);
+        activeVideoEl.removeEventListener('seeking', onVideoSeeking);
+        activeVideoEl.removeEventListener('ratechange', onVideoRateChange);
         for (const track of activeVideoEl.textTracks || []) track.oncuechange = null;
       }
       activeVideoEl = v;
       activeVideoEl.addEventListener('timeupdate', onTimeUpdate);
       activeVideoEl.addEventListener('playing', startServerOnPlayback);
+      activeVideoEl.addEventListener('seeking', onVideoSeeking);
+      activeVideoEl.addEventListener('ratechange', onVideoRateChange);
       setupLiveCaptionHooking(); startServerOnPlayback();
     }
     const owner = acquisition;

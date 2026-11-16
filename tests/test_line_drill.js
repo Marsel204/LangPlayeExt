@@ -95,3 +95,28 @@ test('a saved auto-pause preference is restored', async () => {
   await flush();
   assert.equal(h.elements.get('linguaplay-autopause-btn').getAttribute('aria-pressed'), 'true');
 });
+
+test('a seek clears the pending boundary, so it cannot pause inside the next line', async () => {
+  const h = await create();
+  // Production attaches the video listeners when it adopts the watch page's video.
+  h.navigate('drillvideo1');
+  await h.tick();
+  h.setPlayback(h.video, CUES.map(cue => ({...cue})));
+  h.video.paused = false;
+  h.video.currentTime = 1;
+  h.onTimeUpdate();
+  h.window.dispatchEvent({type: 'keydown', key: 'a', target: {tagName: 'BODY'}, preventDefault() {}, stopPropagation() {}});
+  const boundary = () => h.timeouts.filter(timer => timer.active && String(timer.fn).includes('lineBoundaryTimer = null')).at(-1);
+  const stale = boundary();
+  assert.ok(stale);
+  h.video.currentTime = 2.2;
+  h.video.emit('seeking');
+  assert.equal(stale.active, false, 'seeking clears the timer');
+  // Even if a stale callback still runs mid-seek, it does nothing.
+  h.video.seeking = true;
+  stale.fn();
+  assert.equal(h.video.paused, false);
+  h.video.seeking = false;
+  h.onTimeUpdate();
+  assert.ok(boundary(), 'timeupdate arms the line now playing');
+});
