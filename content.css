@@ -169,6 +169,10 @@
 #linguaplay-yt-widget .linguaplay-more-actions { position: absolute; right: 0; bottom: calc(100% + 10px); width: 190px; padding: 4px; border: 1px solid #45434c; border-radius: 8px; background: #17191c; box-shadow: 0 8px 24px #0004; }
 #linguaplay-yt-widget .linguaplay-more-actions button { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 34px; padding: 6px 10px; border: 0; background: transparent; text-align: left; font-size: 12px; white-space: nowrap; }
 #linguaplay-yt-widget .linguaplay-more-actions button:hover { background: #37323f; }
+#linguaplay-yt-widget .linguaplay-more-actions { width: 230px; }
+#linguaplay-yt-widget .linguaplay-more-actions kbd { min-width: 18px; padding: 1px 5px; border: 1px solid #55525c; border-radius: 4px; color: #c9c5d0; font: 11px/1.4 ui-monospace, monospace; text-align: center; }
+#linguaplay-yt-widget .linguaplay-more-actions button[aria-pressed="true"] { background: #2b3a55; color: #dbe7ff; }
+#linguaplay-yt-widget .linguaplay-more-actions button[aria-pressed="true"]::after { content: "on"; margin-left: 6px; font-size: 11px; color: #9ec1ff; }
 
 /* Single study surface, matching the current LangPlay drawer. */
 #linguaplay-yt-drawer, #linguaplay-subtitle-panel {
@@ -297,3 +301,14 @@
   #linguaplay-yt-tokens-overlay[data-transparent] #linguaplay-caption-surface { background: Canvas; color: CanvasText; border-color: CanvasText; box-shadow: none; text-shadow: none; backdrop-filter: none; }
   .linguaplay-yt-token, .linguaplay-token-reading, #linguaplay-caption-english { color: CanvasText; text-shadow: none; }
 }
+
+/* Word status: new words get a dotted amber underline, learning words a blue one. */
+.linguaplay-yt-token.lp-word-new .linguaplay-jp-text { text-decoration: underline dotted #f5b544; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.linguaplay-yt-token.lp-word-learning .linguaplay-jp-text { text-decoration: underline solid #7fb2ff; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+#lp-word-status { display: flex; gap: 6px; margin: 2px 0 8px; }
+#lp-word-status[hidden] { display: none; }
+#lp-word-status button { flex: 1; min-height: 30px; padding: 4px 8px; border: 1px solid #45434c; border-radius: 6px; background: transparent; color: inherit; font: 600 12px/1.2 system-ui, sans-serif; cursor: pointer; }
+#lp-word-status button:hover { background: #ffffff14; }
+#lp-word-status button[data-status="new"][aria-pressed="true"] { border-color: #f5b544; background: #f5b5442e; }
+#lp-word-status button[data-status="learning"][aria-pressed="true"] { border-color: #7fb2ff; background: #7fb2ff2e; }
+#lp-word-status button[data-status="known"][aria-pressed="true"] { border-color: #6fcf97; background: #6fcf972e; }

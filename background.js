@@ -106,6 +106,25 @@ function validatedCard(value) {
   }
   return card;
 }
+// Word statuses (new / learning / known) keyed by dictionary form. Writes are
+// serialized with the other owned storage so tabs cannot overwrite each other.
+const wordStatusKey = 'linguaplay_word_status';
+const wordStatuses = ['new', 'learning', 'known'];
+async function setOwnedWordStatus(word, status) {
+  if (typeof word !== 'string' || !word.trim() || word.length > 64 || /[\r\n]/.test(word) || !wordStatuses.includes(status)) throw new Error('Invalid word status');
+  const result = await localStorageCall('get', [wordStatusKey]);
+  const stored = result[wordStatusKey];
+  if (stored !== undefined && (!stored || typeof stored !== 'object' || Array.isArray(stored))) throw new Error('Stored word statuses are invalid; they were left unchanged');
+  const next = {...(stored || {})};
+  delete next[word.trim()];
+  next[word.trim()] = status;
+  // Keep the newest 50,000 choices.
+  const keys = Object.keys(next);
+  for (const key of keys.slice(0, Math.max(0, keys.length - 50000))) delete next[key];
+  await localStorageCall('set', {[wordStatusKey]: next});
+  return {success: true, word: word.trim(), status};
+}
+
 async function saveOwnedCard(card) {
   const result = await localStorageCall('get', ['linguaplay_cards']);
   if (result.linguaplay_cards !== undefined && !Array.isArray(result.linguaplay_cards)) throw new Error('Stored card collection is invalid; it was left unchanged');
@@ -354,6 +373,53 @@ function translationSegments(data) {
   return Array.isArray(data?.[0]) ? data[0].filter(Array.isArray) : [];
 }
 
+// Offline JMdict common-word dictionary (data/jmdict-common.json), indexed once
+// per worker lifetime. Word lookups use it before Google or AI.
+let jmdictIndex = null;
+function buildJmdictIndex(data) {
+  if (!Array.isArray(data?.entries)) throw new Error('Invalid dictionary data');
+  const index = new Map();
+  for (const entry of data.entries) {
+    if (!Array.isArray(entry) || !Array.isArray(entry[0]) || !Array.isArray(entry[1]) || !Array.isArray(entry[2])) continue;
+    const [kanji, kana, senses, usuallyKana, richness] = entry;
+    const meaning = senses.filter(sense => typeof sense === 'string').join('; ');
+    if (!meaning) continue;
+    for (const [forms, isKana] of [[kanji, false], [kana, true]]) {
+      for (const form of forms) {
+        if (typeof form !== 'string' || !form) continue;
+        const common = form.endsWith('*');
+        const key = common ? form.slice(0, -1) : form;
+        // Prefer common forms; for kana keys, prefer words usually written in kana.
+        const score = (common ? 400 : 0) + (isKana && usuallyKana ? 200 : 0) + (isKana && !kanji.length ? 100 : 0) + (Number.isInteger(richness) ? Math.min(99, richness) : 0);
+        const best = index.get(key);
+        if (!best || score > best.score) index.set(key, {score, meaning});
+      }
+    }
+  }
+  return index;
+}
+function loadJmdict() {
+  jmdictIndex ||= Promise.resolve().then(() => {
+    const url = chrome.runtime.getURL?.('data/jmdict-common.json');
+    if (!url) return new Map();
+    // A dictionary that cannot load must not hold word lookups; they fall back to Google or AI.
+    let timer;
+    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Dictionary load timed out')), 5000); });
+    return Promise.race([fetch(url).then(response => {
+      if (!response.ok) throw new Error('Dictionary unavailable');
+      return response.json();
+    }).then(buildJmdictIndex), timeout]).finally(() => clearTimeout(timer));
+  }).catch(() => new Map());
+  return jmdictIndex;
+}
+function jmdictMeaning(index, word) {
+  const hit = index.get(word) || (word.length > 2 && word.endsWith('する') ? index.get(word.slice(0, -2)) : null);
+  return hit ? hit.meaning : '';
+}
+async function lookupJmdict(word) {
+  return jmdictMeaning(await loadJmdict(), word);
+}
+
 const wordMeanings = new Map();
 function rememberWordMeaning(cache, word, meaning) {
   cache.delete(word); cache.set(word, meaning);
@@ -362,7 +428,11 @@ function rememberWordMeaning(cache, word, meaning) {
 
 async function translateJapanese(request) {
   if (typeof request.text !== 'string' || !request.text.trim() || request.text.length > (request.dictionary ? 256 : 4096)) throw new Error('Invalid Japanese text');
-  if (request.dictionary && wordMeanings.has(request.text)) return {success: true, translation: wordMeanings.get(request.text)};
+  if (request.dictionary) {
+    const local = await lookupJmdict(request.text.trim());
+    if (local) return {success: true, translation: local};
+    if (wordMeanings.has(request.text)) return {success: true, translation: wordMeanings.get(request.text)};
+  }
   const key = JSON.stringify([request.dictionary === true, request.text]);
   if (languageRequests.has(key)) return languageRequests.get(key);
   const work = scheduleTranslation(async () => {
@@ -452,7 +522,15 @@ async function translateWords(request) {
   if (!Array.isArray(request.words) || !request.words.length || request.words.length > 40) throw new Error('Invalid Japanese words');
   if (request.words.some(word => typeof word !== 'string' || !word.trim() || word.length > 64 || /[\r\n]/.test(word))) throw new Error('Invalid Japanese words');
   const words = [...new Set(request.words.map(word => word.trim()))];
-  const fresh = words.filter(word => !wordGlosses.has(word) && !pendingWordGlosses.has(word));
+  // One await, then synchronous lookups, so concurrent requests register
+  // their pending gloss batches in arrival order.
+  const index = await loadJmdict();
+  const meanings = {};
+  for (const word of words) {
+    const local = jmdictMeaning(index, word);
+    if (local) meanings[word] = local;
+  }
+  const fresh = words.filter(word => !(word in meanings) && !wordGlosses.has(word) && !pendingWordGlosses.has(word));
   if (fresh.length) {
     const batch = glossBatch(fresh);
     for (const word of fresh) {
@@ -461,9 +539,8 @@ async function translateWords(request) {
       one.catch(() => {}).finally(() => { if (pendingWordGlosses.get(word) === one) pendingWordGlosses.delete(word); });
     }
   }
-  const meanings = {};
   const errors = [];
-  await Promise.all(words.map(async word => {
+  await Promise.all(words.filter(word => !(word in meanings)).map(async word => {
     try {
       const gloss = wordGlosses.has(word) ? wordGlosses.get(word) : await pendingWordGlosses.get(word);
       if (gloss) meanings[word] = gloss;
@@ -547,6 +624,27 @@ async function downloadJimaku(request) {
   return {success: true, text, name: request.name};
 }
 
+// Card media from the content script: at most one JPEG screenshot and one
+// WebM audio clip, as base64, each under 3 MB decoded.
+function validatedCardMedia(media) {
+  if (media === undefined) return [];
+  if (!Array.isArray(media) || media.length > 2) throw new Error('Invalid card media');
+  const kinds = new Set();
+  for (const item of media) {
+    if (!item || typeof item !== 'object' || Object.keys(item).length !== 2 || !['image', 'audio'].includes(item.kind) || kinds.has(item.kind) ||
+        typeof item.data !== 'string' || !item.data || item.data.length > 4000000 || item.data.length % 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(item.data)) {
+      throw new Error('Invalid card media');
+    }
+    kinds.add(item.kind);
+  }
+  return media;
+}
+async function removeAnkiMedia(anki, names) {
+  for (const filename of names) {
+    try { await anki('deleteMediaFile', {filename}); } catch {}
+  }
+}
+
 // Innertube Android VR Caption Extraction Bridge in Background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   const startupActions = {GET_9ROUTER_STARTUP: 'router_startup_status', ENABLE_9ROUTER_STARTUP: 'enable_router_startup', DISABLE_9ROUTER_STARTUP: 'disable_router_startup'};
@@ -580,9 +678,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     work.then(sendResponse, error => sendResponse({success: false, error: error.message}));
     return true;
   }
-  if (['SAVE_CARD','CLEAR_CARDS','CACHE_LYRICS','REMOVE_LYRICS_CACHE'].includes(request.action)) {
+  if (['SAVE_CARD','CLEAR_CARDS','CACHE_LYRICS','REMOVE_LYRICS_CACHE','SET_WORD_STATUS'].includes(request.action)) {
     if (sender.id !== chrome.runtime.id) { sendResponse({success:false, error:'Untrusted storage request'}); return false; }
     enqueueStorage(async () => {
+      if (request.action === 'SET_WORD_STATUS') return setOwnedWordStatus(request.word, request.status);
       if (request.action === 'SAVE_CARD') return saveOwnedCard(validatedCard(request.card));
       if (request.action === 'CLEAR_CARDS') { await localStorageCall('set', {linguaplay_cards: []}); return {success:true, count:0}; }
       if (request.action === 'CACHE_LYRICS') return cacheOwnedLyrics(request.vid, request.payload);
@@ -665,6 +764,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             !['Front', 'Back'].every(key => typeof fields[key] === 'string' && fields[key].trim() && fields[key].length <= 64000)) {
           throw new Error('Invalid Anki note fields');
         }
+        const media = validatedCardMedia(request.media);
         const config = await chrome.storage.local.get(['linguaplay_ankiconnect_url', 'linguaplay_anki_deck']);
         let endpoint;
         try { endpoint = new URL(config.linguaplay_ankiconnect_url || 'http://127.0.0.1:8765'); }
@@ -674,23 +774,49 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (!await chrome.permissions.contains({origins: [origin]})) {
           throw new Error('Allow access to this endpoint by saving it in Extension Settings');
         }
-        const response = await fetch(endpoint.href, {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({action: 'addNote', version: 6, params: {note: {
+        const anki = async (action, params, timeout = 5000) => {
+          const response = await fetch(endpoint.href, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action, version: 6, params}),
+            signal: AbortSignal.timeout(timeout)
+          });
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          return response.json();
+        };
+        // Media goes in first so the note never references a missing file.
+        // The worker chooses every filename; nothing from the page reaches Anki's media folder name.
+        const stored = [];
+        let back = fields.Back;
+        // Set while addNote has been sent but not answered: Anki may already have
+        // saved the note, so its media must be kept.
+        let noteOutcomeUnknown = false;
+        try {
+          for (const item of media) {
+            const filename = `linguaplay-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${item.kind === 'image' ? 'jpg' : 'webm'}`;
+            const result = await anki('storeMediaFile', {filename, data: item.data}, 15000);
+            if (result.error) throw new Error('Anki could not store card media: ' + result.error);
+            const name = typeof result.result === 'string' && /^[\w.-]{1,128}$/.test(result.result) ? result.result : filename;
+            stored.push(name);
+            back += item.kind === 'image' ? `<br><img src="${name}">` : `<br>[sound:${name}]`;
+          }
+          noteOutcomeUnknown = true;
+          const data = await anki('addNote', {note: {
             deckName: config.linguaplay_anki_deck || 'LinguaPlay', modelName: 'Basic',
-            fields: {Front: fields.Front, Back: fields.Back}, tags: ['linguaplay', 'youtube']
-          }}}),
-          signal: AbortSignal.timeout(5000)
-        });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const data = await response.json();
-        if (data.error) {
-          if (/duplicate/i.test(String(data.error))) { sendResponse({success: true, duplicate: true}); return; }
-          const error = String(data.error);
-          throw new Error(/deck.*not found/i.test(error) ? error + '; create the configured deck in Anki, then retry' : error);
+            fields: {Front: fields.Front, Back: back}, tags: ['linguaplay', 'youtube']
+          }});
+          noteOutcomeUnknown = false;
+          if (data.error) {
+            if (/duplicate/i.test(String(data.error))) { await removeAnkiMedia(anki, stored); sendResponse({success: true, duplicate: true}); return; }
+            const error = String(data.error);
+            throw new Error(/deck.*not found/i.test(error) ? error + '; create the configured deck in Anki, then retry' : error);
+          }
+          // No error and no id is not a rejection either; keep the media.
+          if (data.result == null) { noteOutcomeUnknown = true; throw new Error('AnkiConnect did not confirm a note'); }
+        } catch (error) {
+          if (!noteOutcomeUnknown) await removeAnkiMedia(anki, stored);
+          throw error;
         }
-        if (data.result == null) throw new Error('AnkiConnect did not confirm a note');
-        sendResponse({success: true});
+        sendResponse(stored.length ? {success: true, media: stored.length} : {success: true});
       } catch (error) { sendResponse({success: false, error: error.message}); }
     })();
     return true;

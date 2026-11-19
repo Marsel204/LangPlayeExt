@@ -613,7 +613,13 @@ content_code = r"""/**
   let acquisitionSeq = 0;
   let sourceSeq = 0;
   let currentSubIndex = -1;
+  let lastLineIndex = -1;
   let timingOffset = 0.0;
+  // Line drill: loop the current line, or pause when each line ends.
+  let loopCurrentLine = false;
+  let autoPauseLines = false;
+  let lineBoundaryTimer = null;
+  let autoPausedIndex = -1;
   let readingMode = 'furigana';
   let currentVideoId = null;
   let lyricsFetchAttemptedVid = null;
@@ -628,6 +634,23 @@ content_code = r"""/**
   let drawerContextSentence = '';
   let drawerContextNeighbors = {previous: '', next: ''};
   let drawerActiveWord = '';
+  // Word status: an explicit choice wins; saved cards count as learning.
+  let wordStatus = {};
+  // Choices not yet confirmed by storage: word -> {status, seq}. They overlay
+  // wordStatus; a failed write drops only its own pending choice.
+  const pendingWordStatus = new Map();
+  let wordStatusSeq = 0;
+  // A choice made for the current Study word, re-applied if parsing changes its dictionary form.
+  let drawerStatusChoice = null;
+  let cardWords = new Set();
+  let wordHighlightEnabled = true;
+  let drawerStatusWord = '';
+  // Card media: a screenshot of the paused frame and the sentence audio.
+  let cardScreenshotEnabled = true;
+  let cardAudioEnabled = true;
+  let recordingCardAudio = false;
+  let cardRecording = null;
+  let drawerContextCue = null;
   let drawerActiveReading = {furigana: '', romaji: ''};
   let activeLiveSentence = '';
   let staleLiveSentence = null;
@@ -680,14 +703,14 @@ content_code = r"""/**
     };
   }
 
-  function addCardToAnki(fields) {
-    return sendOwnedMessage('ADD_ANKI_NOTE', {fields}, {timeoutError: 'Could not confirm the Anki result; please retry', acknowledgementError: 'No Anki acknowledgement'});
+  function addCardToAnki(fields, media = []) {
+    return sendOwnedMessage('ADD_ANKI_NOTE', media.length ? {fields, media} : {fields}, {timeout: media.length ? 30000 : 8000, timeoutError: 'Could not confirm the Anki result; please retry', acknowledgementError: 'No Anki acknowledgement'});
   }
 
-  async function saveCard(card, fields) {
+  async function saveCard(card, fields, media = []) {
     const [local, anki] = await Promise.all([
       sendOwnedMessage('SAVE_CARD', {card}),
-      addCardToAnki(fields)
+      addCardToAnki(fields, media)
     ]);
     const ankiStatus = anki.duplicate ? 'Already in Anki' : 'Added to Anki';
     if (local.success && anki.success) return '✓ ' + ankiStatus + ' · stored locally';
@@ -696,11 +719,121 @@ content_code = r"""/**
     return '✗ Not added: local: ' + local.error + '; Anki: ' + anki.error;
   }
 
+  function captureCardScreenshot(video) {
+    try {
+      if (!video?.videoWidth || !video.videoHeight) return '';
+      const scale = Math.min(1, 640 / video.videoWidth);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Protected (DRM) video draws as black, so an all-black sample means no usable frame.
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let lit = false;
+      for (let i = 0; i < pixels.length; i += 4 * 97) if (pixels[i] || pixels[i + 1] || pixels[i + 2]) { lit = true; break; }
+      if (!lit) return '';
+      const url = canvas.toDataURL('image/jpeg', 0.8);
+      const prefix = 'data:image/jpeg;base64,';
+      return url.startsWith(prefix) ? url.slice(prefix.length) : '';
+    } catch { return ''; } // A cross-origin frame taints the canvas.
+  }
+  function waitForEvent(target, type, timeout) {
+    return new Promise(resolve => {
+      const done = () => { clearTimeout(timer); target.removeEventListener(type, done); resolve(); };
+      const timer = setTimeout(done, timeout);
+      target.addEventListener(type, done);
+    });
+  }
+  async function blobBase64(blob) {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(binary);
+  }
+  // Replays the line once while recording the video's own audio track, then
+  // returns playback to where it was. Protected video cannot be captured.
+  // The recording belongs to one video, watch page and Study selection.
+  // Navigation or a new selection aborts it and leaves playback alone.
+  function recordingOwned(owner) {
+    return !owner.aborted && owner.video === activeVideoEl && owner.vid === currentVideoId && owner.contextVersion === drawerContextVersion;
+  }
+  async function recordCardAudio(video, cue) {
+    if (!video || !cue || recordingCardAudio || typeof video.captureStream !== 'function' || typeof MediaRecorder === 'undefined') return '';
+    const start = Math.max(0, cue.start + timingOffset - 0.15);
+    const end = cue.end + timingOffset + 0.25;
+    if (!(end > start) || end - start > 20) return '';
+    const mimeType = ['audio/webm;codecs=opus', 'audio/webm'].find(type => MediaRecorder.isTypeSupported?.(type));
+    if (!mimeType) return '';
+    const resume = {time: video.currentTime, paused: video.paused};
+    const owner = {video, vid: currentVideoId, contextVersion: drawerContextVersion, aborted: false};
+    let stream = null;
+    let recorder = null;
+    recordingCardAudio = true;
+    cardRecording = owner;
+    clearLineBoundary();
+    try {
+      stream = video.captureStream();
+      const tracks = stream.getAudioTracks();
+      if (!tracks.length) return '';
+      recorder = new MediaRecorder(new MediaStream(tracks), {mimeType, audioBitsPerSecond: 64000});
+      const chunks = [];
+      recorder.ondataavailable = event => { if (event.data?.size) chunks.push(event.data); };
+      const stopped = new Promise(resolve => { recorder.onstop = resolve; });
+      video.currentTime = start;
+      await waitForEvent(video, 'seeked', 3000);
+      recorder.start();
+      await video.play();
+      const rate = video.playbackRate > 0 ? video.playbackRate : 1;
+      const deadline = Date.now() + (end - start) / rate * 1000 + 3000;
+      while (recordingOwned(owner) && !video.paused && video.currentTime < end && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
+      recorder.stop();
+      await stopped;
+      if (!recordingOwned(owner)) return '';
+      const blob = new Blob(chunks, {type: 'audio/webm'});
+      return blob.size && blob.size <= 2 * 1024 * 1024 ? await blobBase64(blob) : '';
+    } catch {
+      if (recorder?.state === 'recording') try { recorder.stop(); } catch {}
+      return '';
+    } finally {
+      // captureStream also creates a video track; stop every track it made.
+      for (const track of stream?.getTracks?.() || []) track.stop();
+      recordingCardAudio = false;
+      if (cardRecording === owner) cardRecording = null;
+      if (recordingOwned(owner)) {
+        try {
+          video.pause();
+          video.currentTime = resume.time;
+          if (!resume.paused) video.play()?.catch?.(() => {});
+        } catch {}
+      }
+    }
+  }
+  async function cardMedia(button) {
+    const media = [];
+    const video = activeVideoEl;
+    if (cardScreenshotEnabled) {
+      const image = captureCardScreenshot(video);
+      if (image) media.push({kind: 'image', data: image});
+    }
+    if (cardAudioEnabled && drawerContextCue) {
+      button.textContent = '🎙 Recording sentence…';
+      const audio = await recordCardAudio(video, drawerContextCue);
+      if (audio) media.push({kind: 'audio', data: audio});
+    }
+    return media;
+  }
+
   // ── Load Settings ──
   let renderedSentence = '';
   let subtitleRenderVersion = 0;
 
-  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled', 'linguaplay_sentence_meaning', 'linguaplay_caption_opacity', 'linguaplay_caption_size', 'linguaplay_caption_position'], (res) => {
+  chrome.storage.local.get(['linguaplay_reading_mode', 'linguaplay_panel_collapsed', 'linguaplay_app_enabled', 'linguaplay_sentence_meaning', 'linguaplay_caption_opacity', 'linguaplay_caption_size', 'linguaplay_caption_position', 'linguaplay_auto_pause', 'linguaplay_word_status', 'linguaplay_cards', 'linguaplay_word_highlight', 'linguaplay_card_screenshot', 'linguaplay_card_audio'], (res) => {
+    cardScreenshotEnabled = res.linguaplay_card_screenshot !== false;
+    cardAudioEnabled = res.linguaplay_card_audio !== false;
+    autoPauseLines = res.linguaplay_auto_pause === true;
+    updateLineDrillControls();
+    applyWordStatusStorage(res);
     if (res.linguaplay_reading_mode) readingMode = res.linguaplay_reading_mode;
     if (typeof res.linguaplay_panel_collapsed === 'boolean') isPanelCollapsed = res.linguaplay_panel_collapsed;
     if (typeof res.linguaplay_app_enabled === 'boolean') isAppEnabled = res.linguaplay_app_enabled;
@@ -720,6 +853,11 @@ content_code = r"""/**
 
   chrome.storage.onChanged?.addListener((changes, area) => {
     if (area !== 'local') return;
+    if (changes.linguaplay_card_screenshot) cardScreenshotEnabled = changes.linguaplay_card_screenshot.newValue !== false;
+    if (changes.linguaplay_card_audio) cardAudioEnabled = changes.linguaplay_card_audio.newValue !== false;
+    if (changes.linguaplay_word_status || changes.linguaplay_cards || changes.linguaplay_word_highlight) {
+      applyWordStatusStorage(Object.fromEntries(Object.entries(changes).map(([key, change]) => [key, change.newValue])), Object.keys(changes));
+    }
     if (changes.linguaplay_sentence_meaning) { sentenceMeaningEnabled = changes.linguaplay_sentence_meaning.newValue !== false; updateCaptionTranslation(renderedSentence); }
     if (changes.linguaplay_caption_opacity) {
       const value = changes.linguaplay_caption_opacity.newValue;
@@ -1895,6 +2033,70 @@ Respond in JSON only:
     captionTranslations.set(clean, request);
   }
 
+  function applyWordStatusStorage(values, keys = Object.keys(values)) {
+    if (keys.includes('linguaplay_word_status')) {
+      const stored = values.linguaplay_word_status;
+      wordStatus = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    }
+    if (keys.includes('linguaplay_cards')) {
+      cardWords = new Set((Array.isArray(values.linguaplay_cards) ? values.linguaplay_cards : []).map(card => typeof card?.word === 'string' ? card.word.trim() : '').filter(Boolean));
+    }
+    if (keys.includes('linguaplay_word_highlight')) wordHighlightEnabled = values.linguaplay_word_highlight !== false;
+    updateWordStatusControls();
+    if (renderedSentence) renderSentenceTokens(renderedSentence);
+  }
+  function statusOfWord(base, surface = base) {
+    for (const key of [base, surface]) {
+      if (key && pendingWordStatus.has(key)) return pendingWordStatus.get(key).status;
+      if (key && Object.prototype.hasOwnProperty.call(wordStatus, key) && ['new', 'learning', 'known'].includes(wordStatus[key])) return wordStatus[key];
+    }
+    return cardWords.has(base) || cardWords.has(surface) ? 'learning' : 'new';
+  }
+  // Particles, auxiliaries and symbols are not vocabulary to track.
+  function isFunctionToken(token) {
+    if (typeof token.pos === 'string') return /^(助詞|助動詞|記号|補助記号|空白)/.test(token.pos);
+    const local = JDICT[token.surface];
+    return (typeof local === 'string' && local.startsWith('(')) || /^[ぁ-ゖ]$/.test(token.surface);
+  }
+  function updateWordStatusControls() {
+    const highlight = document.getElementById('linguaplay-highlight-btn');
+    if (highlight && highlight.getAttribute('aria-pressed') !== String(wordHighlightEnabled)) highlight.setAttribute('aria-pressed', String(wordHighlightEnabled));
+    const group = document.getElementById('lp-word-status');
+    if (!group) return;
+    group.hidden = !drawerStatusWord;
+    const current = drawerStatusWord ? statusOfWord(drawerStatusWord, drawerActiveWord) : '';
+    for (const status of ['new', 'learning', 'known']) {
+      const button = document.getElementById('lp-status-' + status);
+      const pressed = String(status === current);
+      if (button && button.getAttribute('aria-pressed') !== pressed) button.setAttribute('aria-pressed', pressed);
+    }
+  }
+  function setWordStatus(word, status) {
+    if (!word) return Promise.resolve({success: false});
+    if (word === drawerStatusWord) drawerStatusChoice = {word, status};
+    // Show the choice at once; storage confirms it for every tab.
+    const seq = ++wordStatusSeq;
+    pendingWordStatus.set(word, {status, seq});
+    const refresh = () => { updateWordStatusControls(); if (renderedSentence) renderSentenceTokens(renderedSentence); };
+    refresh();
+    return sendOwnedMessage('SET_WORD_STATUS', {word, status}).then(result => {
+      if (result.success) wordStatus = {...wordStatus, [word]: status};
+      else console.warn('[LinguaPlay] Word status:', result.error);
+      // A newer choice for this word stays pending; otherwise show the confirmed state.
+      if (pendingWordStatus.get(word)?.seq === seq) pendingWordStatus.delete(word);
+      refresh();
+      return result;
+    });
+  }
+  function rekeyDrawerStatus(base) {
+    if (!base || base === drawerStatusWord) return;
+    const choice = drawerStatusChoice;
+    drawerStatusWord = base;
+    drawerStatusChoice = null;
+    if (choice) setWordStatus(base, choice.status);
+    else updateWordStatusControls();
+  }
+
   function renderSentenceTokens(sentenceText) {
     const renderVersion = ++subtitleRenderVersion;
     const videoId = currentVideoId;
@@ -1934,6 +2136,11 @@ Respond in JSON only:
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'linguaplay-yt-token';
+      if (wordHighlightEnabled && !isFunctionToken(tk)) {
+        const status = statusOfWord(tk.baseForm || tk.surface, tk.surface);
+        button.classList.add('lp-word-' + status);
+        button.dataset.status = status;
+      }
       button.dataset.word = tk.surface;
       button.dataset.romaji = tk.romaji;
       button.dataset.baseform = tk.baseForm;
@@ -2199,9 +2406,13 @@ Respond in JSON only:
     }
     drawerContextVersion++;
     drawerActiveWord = token.surface || '';
+    drawerStatusWord = (token.baseForm || token.surface || '').trim();
+    drawerStatusChoice = null;
+    updateWordStatusControls();
     drawerContextSentence = (sentenceContext || token.surface || '').trim();
     const cueIndex = subtitleTimeline[currentSubIndex]?.text === drawerContextSentence
       ? currentSubIndex : subtitleTimeline.findIndex(cue => cue.text === drawerContextSentence);
+    drawerContextCue = cueIndex >= 0 ? {start: subtitleTimeline[cueIndex].start, end: subtitleTimeline[cueIndex].end} : null;
     drawerContextNeighbors = cueIndex >= 0 ? {
       previous: subtitleTimeline[cueIndex - 1]?.text || '',
       next: subtitleTimeline[cueIndex + 1]?.text || ''
@@ -2239,6 +2450,7 @@ Respond in JSON only:
           posEl.textContent = selected.baseForm !== token.surface ? `(Base: ${selected.baseForm})` : '';
           posEl.style.display = selected.baseForm !== token.surface ? 'inline' : 'none';
           updateDefinition(selected);
+          rekeyDrawerStatus((selected.baseForm || selected.surface || '').trim());
         }
         const html = japaneseParser.romaji(contextSentence, token.surface);
         if (html != null) {
@@ -2446,6 +2658,7 @@ Respond in JSON only:
     } catch (e) {}
 
     if (!isAppEnabled) {
+      clearLineBoundary();
       activeAnalysis = null;
       lastAiData = null;
       renderSentenceTokens('');
@@ -2660,7 +2873,10 @@ Respond in JSON only:
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
           </summary>
           <div class="linguaplay-more-actions">
-            <button type="button" id="linguaplay-repeat-btn">Repeat current line</button>
+            <button type="button" id="linguaplay-repeat-btn" title="Replay the current line (R)">Repeat current line <kbd>R</kbd></button>
+            <button type="button" id="linguaplay-loop-btn" aria-pressed="false" title="Replay the current line until turned off (Q)">Loop current line <kbd>Q</kbd></button>
+            <button type="button" id="linguaplay-autopause-btn" aria-pressed="false" title="Pause when each line ends (A)">Pause after each line <kbd>A</kbd></button>
+            <button type="button" id="linguaplay-highlight-btn" aria-pressed="true" title="Underline new and learning words">Highlight word status</button>
             <button type="button" id="linguaplay-upload-sub-btn">Import subtitles…</button>
             <button type="button" id="linguaplay-fetch-lyrics-btn">Find lyrics…</button>
             <button type="button" id="linguaplay-open-settings-btn">Extension settings</button>
@@ -2716,6 +2932,11 @@ Respond in JSON only:
       </div>
       <p id="lp-active-romaji"></p>
       <h2 id="lp-active-word" lang="ja"></h2>
+      <div id="lp-word-status" role="group" aria-label="Word status" hidden>
+        <button type="button" id="lp-status-new" data-status="new" aria-pressed="false">New</button>
+        <button type="button" id="lp-status-learning" data-status="learning" aria-pressed="false">Learning</button>
+        <button type="button" id="lp-status-known" data-status="known" aria-pressed="false">Known</button>
+      </div>
       <p id="lp-active-pos"></p>
       <p id="lp-active-def"></p>
       <div id="lp-view-breakdown">
@@ -2820,12 +3041,17 @@ Respond in JSON only:
       } else if (activeLiveSentence) renderSentenceTokens(activeLiveSentence);
     });
 
-    document.getElementById('linguaplay-repeat-btn').addEventListener('click', () => {
-      if (currentSubIndex >= 0 && subtitleTimeline[currentSubIndex] && activeVideoEl) {
-        activeVideoEl.currentTime = subtitleTimeline[currentSubIndex].start;
-        activeVideoEl.play();
-      }
+    document.getElementById('linguaplay-repeat-btn').addEventListener('click', () => replayCurrentLine());
+    document.getElementById('linguaplay-loop-btn').addEventListener('click', () => setLineDrill({loop: !loopCurrentLine}));
+    document.getElementById('linguaplay-autopause-btn').addEventListener('click', () => setLineDrill({autoPause: !autoPauseLines}));
+    document.getElementById('linguaplay-highlight-btn').addEventListener('click', () => {
+      wordHighlightEnabled = !wordHighlightEnabled;
+      chrome.storage.local.set({linguaplay_word_highlight: wordHighlightEnabled});
+      updateWordStatusControls();
+      if (renderedSentence) renderSentenceTokens(renderedSentence);
     });
+    updateWordStatusControls();
+    updateLineDrillControls();
 
     document.getElementById('linguaplay-upload-sub-btn').addEventListener('click', () => {
       fileInput.click();
@@ -3290,6 +3516,9 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       const playing = activeVideoEl.play(); playing?.catch(() => {});
     });
     document.getElementById('lp-translation-retry').addEventListener('click', () => translateStudySentence(drawerContextSentence, drawerContextVersion));
+    for (const status of ['new', 'learning', 'known']) {
+      document.getElementById('lp-status-' + status).addEventListener('click', () => setWordStatus(drawerStatusWord, status));
+    }
     ['click', 'keydown', 'keyup', 'pointerdown', 'pointerup', 'mousedown', 'mouseup'].forEach(name => drawer.addEventListener(name, event => event.stopPropagation()));
     // Keep native panel scrolling without invoking the player's recommendation gestures.
     ['wheel', 'touchmove'].forEach(name => drawer.addEventListener(name, event => event.stopPropagation(), { passive: true }));
@@ -3326,10 +3555,16 @@ Timing offset set to ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`
       const cleanSentEn = (sentEn && !sentEn.includes('Translating') && !sentEn.includes('unavailable')) ? sentEn : '';
       const btn = document.getElementById('lp-quick-anki-btn');
       const contextVersion = drawerContextVersion;
-      btn.textContent = '⏳ Adding…';
+      if (btn.disabled) return;
+      btn.disabled = true;
       const card = {word, reading: drawerActiveReading.furigana, romaji: drawerActiveReading.romaji,
         meaning: def, sentence, sentence_en: cleanSentEn, date: new Date().toISOString()};
-      const label = await saveCard(card, cardAnkiFields(card, def));
+      const media = await cardMedia(btn);
+      btn.disabled = false;
+      // Navigation or another selection during recording cancels this save.
+      if (contextVersion !== drawerContextVersion) { btn.textContent = 'Save card'; return; }
+      btn.textContent = '⏳ Adding…';
+      const label = await saveCard(card, cardAnkiFields(card, def), media);
       if (contextVersion !== drawerContextVersion) return;
       btn.textContent = label;
       setTimeout(() => {
@@ -3697,8 +3932,13 @@ Respond with ONLY valid JSON:
       };
       const btn = document.getElementById('lp-ai-anki-btn');
       const contextVersion = drawerContextVersion;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const media = await cardMedia(btn);
+      btn.disabled = false;
+      if (contextVersion !== drawerContextVersion) { btn.textContent = 'Save enriched card'; return; }
       btn.textContent = '⏳ Adding…';
-      const label = await saveCard(card, cardAnkiFields(card, escapeHtmlText(card.meaning)));
+      const label = await saveCard(card, cardAnkiFields(card, escapeHtmlText(card.meaning)), media);
       if (contextVersion !== drawerContextVersion) return;
       btn.textContent = label;
       setTimeout(() => {
@@ -3812,9 +4052,63 @@ Respond with ONLY valid JSON:
     }
     if (matchIdx !== currentSubIndex) {
       currentSubIndex = matchIdx;
-      if (matchIdx >= 0) { activeLiveSentence = subtitleTimeline[matchIdx].text; renderSentenceTokens(activeLiveSentence); }
+      if (matchIdx >= 0) { lastLineIndex = matchIdx; autoPausedIndex = -1; activeLiveSentence = subtitleTimeline[matchIdx].text; renderSentenceTokens(activeLiveSentence); }
       else { activeLiveSentence = ''; renderSentenceTokens(''); }
     }
+    if (loopCurrentLine || autoPauseLines || lineBoundaryTimer) armLineBoundary();
+  }
+
+  function clearLineBoundary() {
+    clearTimeout(lineBoundaryTimer);
+    lineBoundaryTimer = null;
+  }
+  // timeupdate fires only about four times a second, so a timer aimed just
+  // before the line ends pauses or loops before the next line appears.
+  function armLineBoundary() {
+    clearLineBoundary();
+    const video = activeVideoEl;
+    const index = currentSubIndex;
+    const cue = subtitleTimeline[index];
+    if (!isAppEnabled || !video || video.paused || !cue || recordingCardAudio || (!loopCurrentLine && !autoPauseLines)) return;
+    if (!loopCurrentLine && autoPausedIndex === index) return;
+    const end = cue.end + timingOffset;
+    const rate = video.playbackRate > 0 ? video.playbackRate : 1;
+    lineBoundaryTimer = setTimeout(() => {
+      lineBoundaryTimer = null;
+      if (video !== activeVideoEl || subtitleTimeline[index] !== cue || video.paused || video.seeking) return;
+      // A seek may have moved playback before timeupdate reported it.
+      if (video.currentTime > end + 0.25) return;
+      if (video.currentTime < end - 0.25) { armLineBoundary(); return; }
+      if (loopCurrentLine) { video.currentTime = cue.start + timingOffset; return; }
+      autoPausedIndex = index;
+      video.pause();
+    }, Math.max(0, (end - video.currentTime) / rate * 1000 - 40));
+  }
+  // A seek invalidates the timer at once; timeupdate arms a new one afterwards.
+  function onVideoSeeking() { clearLineBoundary(); }
+  function onVideoRateChange() { if (loopCurrentLine || autoPauseLines) armLineBoundary(); }
+  function replayCurrentLine() {
+    const index = currentSubIndex >= 0 ? currentSubIndex : lastLineIndex;
+    const cue = subtitleTimeline[index];
+    if (!isAppEnabled || !activeVideoEl || !cue) return false;
+    autoPausedIndex = -1;
+    activeVideoEl.currentTime = cue.start + timingOffset;
+    const playing = activeVideoEl.play(); playing?.catch?.(() => {});
+    return true;
+  }
+  function updateLineDrillControls() {
+    for (const [id, on] of [['linguaplay-loop-btn', loopCurrentLine], ['linguaplay-autopause-btn', autoPauseLines]]) {
+      const button = document.getElementById(id);
+      if (button && button.getAttribute('aria-pressed') !== String(on)) button.setAttribute('aria-pressed', String(on));
+    }
+  }
+  function setLineDrill({loop = loopCurrentLine, autoPause = autoPauseLines} = {}) {
+    const autoPauseChanged = autoPause !== autoPauseLines;
+    loopCurrentLine = !!loop; autoPauseLines = !!autoPause; autoPausedIndex = -1;
+    if (autoPauseChanged) chrome.storage.local.set({linguaplay_auto_pause: autoPauseLines});
+    updateLineDrillControls();
+    showHud(loopCurrentLine ? '🔁 Looping current line' : autoPauseLines ? '⏸ Pausing after each line' : 'Line drill off');
+    if (loopCurrentLine || autoPauseLines) armLineBoundary(); else clearLineBoundary();
   }
 
   function disposeWatchContext(leaving = false) {
@@ -3822,6 +4116,8 @@ Respond with ONLY valid JSON:
     acquisition = null;
     subtitlePanelState = null; subtitleSourceName = ''; subtitleSourceKind = ''; watchMode = 'auto'; selectedTokenElement = null;
     captionTranslationFailures.clear(); clearCaptionRetry();
+    clearLineBoundary(); loopCurrentLine = false; autoPausedIndex = -1; lastLineIndex = -1; updateLineDrillControls();
+    if (cardRecording) cardRecording.aborted = true;
     if (playerUI?.subtitlePanel) playerUI.subtitlePanel.hidden = true;
     document.getElementById('linguaplay-lyrics-modal')?.classList.add('hidden');
     const identifyButton = document.getElementById('lp-ai-identify-btn');
@@ -3830,8 +4126,9 @@ Respond with ONLY valid JSON:
     subtitleRenderVersion++; drawerContextVersion++;
     installSubtitleTimeline([], {source: 'reset'});
     timelineIndex = null; renderedSentence = ''; activeLiveSentence = '';
-    drawerContextSentence = ''; drawerActiveWord = ''; drawerActiveReading = {furigana: '', romaji: ''};
-    drawerContextNeighbors = {previous: '', next: ''};
+    drawerContextSentence = ''; drawerActiveWord = ''; drawerStatusWord = ''; drawerStatusChoice = null; drawerActiveReading = {furigana: '', romaji: ''};
+    updateWordStatusControls();
+    drawerContextNeighbors = {previous: '', next: ''}; drawerContextCue = null;
     lastAiData = null; activeAnalysis = null;
     activeSenseiChatRequest = null; senseiChatHistory = []; refreshDrawerParsing = () => {};
     lyricsFetchAttemptedVid = null; isFetchingLyrics = false; timingOffset = 0;
@@ -3848,6 +4145,8 @@ Respond with ONLY valid JSON:
       if (activeVideoEl) {
         activeVideoEl.removeEventListener('timeupdate', onTimeUpdate);
         activeVideoEl.removeEventListener('playing', startServerOnPlayback);
+        activeVideoEl.removeEventListener('seeking', onVideoSeeking);
+        activeVideoEl.removeEventListener('ratechange', onVideoRateChange);
         for (const track of activeVideoEl.textTracks || []) track.oncuechange = null;
       }
       liveCaptionObserver?.disconnect(); liveCaptionObserver = null;
@@ -3897,11 +4196,15 @@ Respond with ONLY valid JSON:
       if (activeVideoEl) {
         activeVideoEl.removeEventListener('timeupdate', onTimeUpdate);
         activeVideoEl.removeEventListener('playing', startServerOnPlayback);
+        activeVideoEl.removeEventListener('seeking', onVideoSeeking);
+        activeVideoEl.removeEventListener('ratechange', onVideoRateChange);
         for (const track of activeVideoEl.textTracks || []) track.oncuechange = null;
       }
       activeVideoEl = v;
       activeVideoEl.addEventListener('timeupdate', onTimeUpdate);
       activeVideoEl.addEventListener('playing', startServerOnPlayback);
+      activeVideoEl.addEventListener('seeking', onVideoSeeking);
+      activeVideoEl.addEventListener('ratechange', onVideoRateChange);
       setupLiveCaptionHooking(); startServerOnPlayback();
     }
     const owner = acquisition;
@@ -3972,6 +4275,9 @@ Respond with ONLY valid JSON:
   }
 
   function showOffsetHUD() {
+    showHud(`⏱️ Subtitle Offset: ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`);
+  }
+  function showHud(text) {
     let hud = document.getElementById('lp-offset-hud');
     if (!hud) {
       hud = document.createElement('div');
@@ -3979,14 +4285,23 @@ Respond with ONLY valid JSON:
       hud.style.cssText = 'position:fixed; top:70px; left:50%; transform:translateX(-50%); background:rgba(15,23,42,0.92); color:#f59e0b; border:1px solid #f59e0b; padding:8px 16px; border-radius:20px; font-size:13px; font-weight:700; z-index:9999999; pointer-events:none; transition:opacity 0.3s; font-family:monospace; box-shadow:0 4px 12px rgba(0,0,0,0.5);';
       document.body.appendChild(hud);
     }
-    hud.textContent = `⏱️ Subtitle Offset: ${timingOffset >= 0 ? '+' : ''}${timingOffset.toFixed(1)}s`;
+    hud.textContent = text;
     hud.style.opacity = '1';
     clearTimeout(hud._timer);
     hud._timer = setTimeout(() => { hud.style.opacity = '0'; }, 1500);
   }
 
   window.addEventListener('keydown', (e) => {
-    if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName) || e.target?.isContentEditable) return;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName) || e.target?.isContentEditable) return;
+    // R replays, Q loops and A pauses after each line. YouTube does not use these keys.
+    const drillKey = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey ? e.key : '';
+    if (['r', 'q', 'a'].includes(drillKey) && isAppEnabled && activeVideoEl && subtitleTimeline.length) {
+      e.preventDefault(); e.stopPropagation();
+      if (drillKey === 'r') replayCurrentLine();
+      else if (drillKey === 'q') setLineDrill({loop: !loopCurrentLine});
+      else setLineDrill({autoPause: !autoPauseLines});
+      return;
+    }
     if (e.key === '[' || e.key === ']') {
       const step = e.shiftKey ? 1.0 : 0.1;
       const delta = e.key === ']' ? step : -step;

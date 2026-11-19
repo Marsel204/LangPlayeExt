@@ -52,6 +52,22 @@ In **言 → Subtitles → Watching**, choose a mode for the current video:
 
 Your manual choice is saved per video and restored on reload. It does not carry into another episode or song. Choosing **More → Find lyrics** also selects Song mode for that video. Mode changes clear the previous source and reject its pending results; your reading, size, position and opacity preferences stay available.
 
+### Track the words you know
+
+Japanese subtitles underline vocabulary by status: a dotted amber line marks **new** words and a solid blue line marks words you are **learning**. Known words and particles stay plain. In Study, choose **New**, **Learning** or **Known** under the selected word; the choice applies to its dictionary form everywhere. Words you save as cards count as learning until you choose otherwise. Turn the underlines off with **⋯ → Highlight word status**.
+
+### Drill a line
+
+Open **⋯** in the LinguaPlay controls, or use these keys while a video with timed subtitles plays:
+
+| Key | Action |
+|---|---|
+| **R** | Replay the current line (or the last one, between lines) |
+| **Q** | Loop the current line until you press Q again |
+| **A** | Pause when each line ends; press play to continue. The choice is remembered |
+
+The keys do nothing while you type in a field. YouTube's live captions have no timing, so the drill needs subtitles, lyrics or an imported file.
+
 ### 2. Click a word to understand the sentence
 
 Click any word in the subtitle overlay. Playback pauses and LinguaPlay opens its drawer in YouTube's sidebar.
@@ -61,6 +77,8 @@ Click any word in the subtitle overlay. Playback pauses and LinguaPlay opens its
 - **Breakdown & Gloss:** click **Ask Sensei (AI Grammar Tutor)** to get an AI word-by-word gloss.
 
 The drawer keeps the sentence you selected as its context, even if playback moves on. When you're ready, close the drawer and resume the video.
+
+Word meanings come from a bundled offline JMdict dictionary of about 22,000 common words, so most lookups are instant and need no network. Words it does not contain fall back to Google Translate, then to your 9Router model. The dictionary data is © the Electronic Dictionary Research and Development Group, used under CC BY-SA 4.0; see [data/JMDICT-LICENSE.md](data/JMDICT-LICENSE.md).
 
 ### 3. Ask Sensei a follow-up question
 
@@ -75,6 +93,8 @@ Sensei uses the model or combo configured in 9Router. Its answers depend on the 
 Click **Quick Add to Anki** to save the selected word with its reading, meaning, and sentence context. After an AI breakdown, **Save Enriched AI Card to Anki** saves an enriched card.
 
 Both buttons use your configured AnkiConnect URL and deck and keep a local copy. Create that deck in Anki first. The result states what completed: **Added to Anki · stored locally**, **Kept locally — Anki: …**, or a local-storage failure. An existing duplicate is reported as **Already in Anki**. Kana readings and romaji are stored separately.
+
+Anki cards also get a screenshot of the paused frame and the audio of the selected line. Saving replays that line once to record it, then returns playback to where you were. Turn either off in Settings → Anki connection. Protected video (Netflix and similar) cannot be captured, so those cards are saved as text, and YouTube live captions have no line timing, so they get a screenshot only. The local collection stores text only.
 
 Click the extension's toolbar icon to open Settings and choose **Export TSV File** to export the collection later. The export contains sentence, word, kana reading, and meaning columns, including the sentence translation when available. The TSV retains the historical `LinguaPlay Japanese Immersion` deck header.
 
