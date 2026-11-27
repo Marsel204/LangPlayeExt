@@ -634,6 +634,8 @@ content_code = r"""/**
   let drawerContextSentence = '';
   let drawerContextNeighbors = {previous: '', next: ''};
   let drawerActiveWord = '';
+  let activeGrammarHighlight = null;
+  let askSenseiQuestion = null;
   // Word status: an explicit choice wins; saved cards count as learning.
   let wordStatus = {};
   // Choices not yet confirmed by storage: word -> {status, seq}. They overlay
@@ -2267,6 +2269,8 @@ Respond in JSON only:
       if (!hasJapaneseCharacters(token.surface)) { const literal = document.createElement('span'); literal.textContent = token.surface; container.appendChild(literal); continue; }
       const word = document.createElement('span');
       word.className = 'lp-sentence-word' + (token.surface === targetWord ? ' is-target' : '');
+      word.dataset.start = String(start);
+      word.dataset.end = String(offset);
       const ruby = document.createElement('ruby');
       ruby.textContent = token.surface;
       const reading = document.createElement('rt');
@@ -2288,6 +2292,153 @@ Respond in JSON only:
     if (offset < sentence.length) { const tail = document.createElement('span'); tail.textContent = sentence.slice(offset); container.appendChild(tail); }
     const fallback = document.getElementById('lp-sentence-romaji');
     if (fallback) fallback.style.display = tokens.some(token => token.romaji) ? 'none' : 'block';
+    if (activeGrammarHighlight?.version === version) applyGrammarHighlight(activeGrammarHighlight.spans);
+  }
+
+  function getGrammarDetector() {
+    if (typeof LinguaPlayGrammar !== 'undefined' && typeof LinguaPlayGrammar?.detectGrammarPatterns === 'function') return LinguaPlayGrammar;
+    if (typeof window !== 'undefined' && typeof window.LinguaPlayGrammar?.detectGrammarPatterns === 'function') return window.LinguaPlayGrammar;
+    return null;
+  }
+
+  function applyGrammarHighlight(spans) {
+    const container = document.getElementById('lp-sentence-jp');
+    if (!container) return;
+    const words = container.querySelectorAll('.lp-sentence-word');
+    const activeSpans = Array.isArray(spans) && spans.length ? spans : null;
+    for (const wordEl of words) {
+      const start = Number(wordEl.dataset?.start);
+      const end = Number(wordEl.dataset?.end);
+      const hit = !!activeSpans && Number.isFinite(start) && Number.isFinite(end) &&
+        activeSpans.some(span => start < span.end && span.start < end);
+      wordEl.classList.toggle('is-grammar-match', hit);
+    }
+  }
+
+  function renderGrammarPatterns(sentence, version) {
+    const section = document.getElementById('lp-grammar-section');
+    const list = document.getElementById('lp-grammar-list');
+    const count = document.getElementById('lp-grammar-count');
+    activeGrammarHighlight = null;
+    applyGrammarHighlight(null);
+    if (!section || !list) return;
+
+    const detector = getGrammarDetector();
+    const matches = sentence && detector ? detector.detectGrammarPatterns(sentence) : [];
+    list.innerHTML = '';
+    if (!matches.length) {
+      section.hidden = true;
+      if (count) count.textContent = '';
+      return;
+    }
+
+    section.hidden = false;
+    if (count) count.textContent = matches.length === 1 ? '1 pattern' : `${matches.length} patterns`;
+    const busy = activeSenseiChatRequest?.contextVersion === drawerContextVersion;
+
+    const syncOpenHighlight = () => {
+      const openCard = [...list.children].find(el => el.open && el._grammarSpans);
+      activeGrammarHighlight = openCard ? {version, spans: openCard._grammarSpans} : null;
+      applyGrammarHighlight(activeGrammarHighlight?.spans || null);
+    };
+
+    for (const match of matches) {
+      const card = document.createElement('details');
+      card.className = 'lp-grammar-card';
+      card.dataset.level = match.level;
+      card.dataset.patternId = match.id;
+      card._grammarSpans = match.spans;
+
+      const summary = document.createElement('summary');
+      summary.className = 'lp-grammar-summary';
+
+      const top = document.createElement('span');
+      top.className = 'lp-grammar-top';
+      const badge = document.createElement('span');
+      badge.className = 'lp-jlpt-badge lp-jlpt-' + match.level.toLowerCase();
+      badge.textContent = match.level;
+      const patternEl = document.createElement('strong');
+      patternEl.className = 'lp-grammar-pattern';
+      patternEl.lang = 'ja';
+      patternEl.textContent = match.pattern;
+      const readingEl = document.createElement('span');
+      readingEl.className = 'lp-grammar-reading';
+      readingEl.lang = 'ja-Latn';
+      readingEl.textContent = match.reading;
+      top.appendChild(badge);
+      top.appendChild(patternEl);
+      top.appendChild(readingEl);
+
+      const meaningEl = document.createElement('span');
+      meaningEl.className = 'lp-grammar-meaning';
+      meaningEl.textContent = match.meaning;
+
+      summary.appendChild(top);
+      summary.appendChild(meaningEl);
+      card.appendChild(summary);
+
+      const body = document.createElement('div');
+      body.className = 'lp-grammar-body';
+
+      if (match.matched) {
+        const matchRow = document.createElement('div');
+        matchRow.className = 'lp-grammar-match';
+        const matchLabel = document.createElement('span');
+        matchLabel.textContent = 'In sentence: ';
+        const mark = document.createElement('mark');
+        mark.lang = 'ja';
+        mark.textContent = match.matched;
+        matchRow.appendChild(matchLabel);
+        matchRow.appendChild(mark);
+        body.appendChild(matchRow);
+      }
+
+      if (match.structure) {
+        const structRow = document.createElement('div');
+        structRow.className = 'lp-grammar-structure';
+        const label = document.createElement('strong');
+        label.textContent = 'Form: ';
+        const value = document.createElement('span');
+        value.textContent = match.structure;
+        structRow.appendChild(label);
+        structRow.appendChild(value);
+        body.appendChild(structRow);
+      }
+
+      if (match.note) {
+        const noteEl = document.createElement('p');
+        noteEl.className = 'lp-grammar-note';
+        noteEl.textContent = match.note;
+        body.appendChild(noteEl);
+      }
+
+      const askBtn = document.createElement('button');
+      askBtn.type = 'button';
+      askBtn.className = 'lp-grammar-ask-btn';
+      askBtn.textContent = 'Ask Sensei about this pattern';
+      askBtn.disabled = busy;
+      askBtn.addEventListener('click', () => {
+        if (typeof askSenseiQuestion === 'function') {
+          askSenseiQuestion(`Explain the ${match.level} grammar pattern "${match.pattern}" (${match.matched || match.pattern}) in this sentence and give one short example.`);
+        }
+      });
+      body.appendChild(askBtn);
+
+      card.appendChild(body);
+      card.addEventListener('mouseenter', () => applyGrammarHighlight(match.spans));
+      card.addEventListener('mouseleave', () => applyGrammarHighlight(activeGrammarHighlight?.spans || null));
+      card.addEventListener('focusin', () => applyGrammarHighlight(match.spans));
+      card.addEventListener('focusout', () => applyGrammarHighlight(activeGrammarHighlight?.spans || null));
+      card.addEventListener('toggle', () => {
+        if (card.open) {
+          activeGrammarHighlight = {version, spans: match.spans};
+          applyGrammarHighlight(match.spans);
+        } else {
+          syncOpenHighlight();
+        }
+      });
+      list.appendChild(card);
+    }
   }
 
   function translateStudySentence(sentence, version) {
@@ -2355,6 +2506,7 @@ Respond in JSON only:
     const sendButton = document.getElementById('lp-chat-send-btn');
     if (sendButton) sendButton.disabled = busy;
     document.querySelectorAll('.lp-chat-chip').forEach(button => { button.disabled = busy; });
+    document.querySelectorAll('.lp-grammar-ask-btn').forEach(button => { button.disabled = busy; });
     document.getElementById('lp-chat-messages')?.setAttribute('aria-busy', String(busy));
   }
 
@@ -2470,6 +2622,7 @@ Respond in JSON only:
         if (chatSentenceWrap) chatSentenceWrap.style.display = 'block';
 
         renderStudySentence(activeText, token.surface, contextVersion);
+        renderGrammarPatterns(activeText, contextVersion);
 
         if (sentRomajiEl) {
           let romajiHtml = '';
@@ -2486,6 +2639,7 @@ Respond in JSON only:
       } else {
         sentenceWrap.style.display = 'none';
         if (chatSentenceWrap) chatSentenceWrap.style.display = 'none';
+        renderGrammarPatterns('', contextVersion);
       }
     }
 
@@ -2947,6 +3101,13 @@ Respond in JSON only:
           <span id="lp-sentence-speed" hidden></span>
           <button type="button" id="lp-translation-retry" hidden>Retry translation</button>
         </div>
+        <section id="lp-grammar-section" class="lp-grammar-section" aria-label="JLPT grammar patterns" hidden>
+          <div class="lp-grammar-header">
+            <h3 class="lp-grammar-heading">Grammar patterns</h3>
+            <span id="lp-grammar-count" class="lp-muted"></span>
+          </div>
+          <div id="lp-grammar-list" class="lp-grammar-list"></div>
+        </section>
         <p id="lp-study-source" class="lp-muted"></p>
         <div class="lp-study-actions">
           <button type="button" id="lp-quick-anki-btn" class="linguaplay-btn linguaplay-btn-secondary">Save card</button>
@@ -3806,6 +3967,7 @@ Respond with ONLY valid JSON:
       })();
       return true;
     }
+    askSenseiQuestion = sendSenseiQuestion;
 
     // Attach Chatbot Chip and Send Listeners
     document.querySelectorAll('.lp-chat-chip').forEach(chip => {

@@ -51,6 +51,7 @@
         "lib/wanakana.min.js",
         "js/japanese-parser.js",
         "lib/yomitan-deinflector.js",
+        "js/grammar-patterns.js",
         "content.js"
       ],
       "css": [
