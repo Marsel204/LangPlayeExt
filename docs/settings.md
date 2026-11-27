@@ -95,6 +95,14 @@ Click **Save Settings** after changing the default. You can also switch modes fr
 
 **Stored Flashcard Collection** shows the number of cards saved in this browser's extension storage. **Export TSV File** downloads a file for later import. **Clear Cards** asks for confirmation before removing the local collection; it does not delete notes already added to Anki. Export first if you want to keep a copy.
 
+## 6. Review vocabulary and JLPT grammar progress
+
+Open **Progress** in the Settings navigation to view your **Known**, **Learning**, and **New** word counts alongside your **JLPT N5–N1** grammar log. Changes in this section save immediately and sync to open video tabs without affecting the **Save Settings** bar.
+
+- **Tracked vocabulary:** search or filter words by status, switch any word between **New**, **Learning**, and **Known**, or remove an explicit status. Words saved as flashcards count as **Learning** (`From card`) unless you explicitly override them.
+- **Progress backup:** use **Export JSON** to download your vocabulary statuses and grammar log, or **Import JSON** to merge or replace from a backup file.
+- **JLPT grammar log:** patterns detected in Study are recorded automatically with encounter counts and the latest example sentence. Filter by level (`N5`–`N1`), search by pattern or meaning, or switch between **Encountered**, **All patterns**, and **Not seen yet**.
+
 ## Troubleshooting
 
 | What you see | What to check |

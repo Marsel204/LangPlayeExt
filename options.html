@@ -19,6 +19,7 @@
         <a class="nav-link" href="#ai-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg>AI tutor</a>
         <a class="nav-link" href="#reading-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H4Zm16 0h-4a3 3 0 0 0-3 2m7-2v12h-4a3 3 0 0 0-3 2"/></svg>Reading</a>
         <a class="nav-link" href="#flashcard-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="7" width="15" height="13" rx="2"/><path d="M16 7V4a1 1 0 0 0-1-1H3v13h2m4-4h7m-7 4h4"/></svg>Flashcards</a>
+        <a class="nav-link" href="#progress-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M7 16v-5m5 5V7m5 9v-3"/></svg>Progress</a>
         <a class="nav-link" href="#setup-guide" id="nav-setup-guide"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .7-1.5 1-1.5 2m0 3h.01"/></svg>Setup guide</a>
       </nav>
       <div class="sidebar-bottom">
@@ -215,6 +216,111 @@
         </div>
       </section>
 
+      <section class="settings-section" id="progress-settings" aria-labelledby="progress-heading">
+        <div class="section-heading">
+          <h2 id="progress-heading">Progress</h2>
+          <p>Review tracked vocabulary statuses and JLPT grammar patterns spotted while watching.</p>
+          <span class="service-label">Saved locally · applies immediately</span>
+        </div>
+        <div class="section-content">
+          <div class="progress-summary" aria-label="Learning progress summary">
+            <div class="progress-stat">
+              <span class="progress-stat-label">Known</span>
+              <strong id="progress-known-count" class="progress-stat-value is-known">0</strong>
+            </div>
+            <div class="progress-stat">
+              <span class="progress-stat-label">Learning</span>
+              <strong id="progress-learning-count" class="progress-stat-value is-learning">0</strong>
+            </div>
+            <div class="progress-stat">
+              <span class="progress-stat-label">New</span>
+              <strong id="progress-new-count" class="progress-stat-value is-new">0</strong>
+            </div>
+            <div class="progress-stat">
+              <span class="progress-stat-label">JLPT patterns seen</span>
+              <strong id="progress-grammar-seen-count" class="progress-stat-value">0 / 216</strong>
+            </div>
+          </div>
+
+          <p id="progress-status-text" class="help-text progress-status" role="status" aria-live="polite">Changes here save immediately and sync to open video tabs.</p>
+
+          <div class="progress-subsection">
+            <div class="progress-subhead">
+              <div>
+                <h3>Tracked vocabulary</h3>
+                <p id="progress-word-count-note" class="help-text">0 tracked words</p>
+              </div>
+              <button id="clear-vocab-btn" class="btn-text danger" type="button" disabled>Clear Vocabulary</button>
+            </div>
+            <div class="progress-controls">
+              <div class="field">
+                <label for="progress-word-search">Search words</label>
+                <input type="search" id="progress-word-search" placeholder="Filter by Japanese word…" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="progress-word-filter">Status</label>
+                <select id="progress-word-filter">
+                  <option value="all">All statuses</option>
+                  <option value="known">Known</option>
+                  <option value="learning">Learning</option>
+                  <option value="new">New</option>
+                </select>
+              </div>
+            </div>
+            <p id="progress-word-empty" class="progress-empty">No tracked words yet. Click a word in a Japanese subtitle and choose New, Learning, or Known in Study.</p>
+            <ul id="progress-word-list" class="progress-word-list" aria-label="Tracked vocabulary list"></ul>
+            <div class="progress-more-wrap">
+              <button id="progress-word-more" class="btn-secondary" type="button" hidden>Show more</button>
+            </div>
+          </div>
+
+          <div class="progress-backup">
+            <div>
+              <h3>Progress backup</h3>
+              <p class="help-text">Export or restore your vocabulary statuses and JLPT grammar log as JSON.</p>
+            </div>
+            <div class="progress-backup-actions">
+              <button id="export-progress-btn" class="btn-secondary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg>Export JSON</button>
+              <select id="progress-import-mode" aria-label="Import mode">
+                <option value="merge">Merge on import</option>
+                <option value="replace">Replace on import</option>
+              </select>
+              <button id="import-progress-btn" class="btn-secondary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3m-4 4 4-4 4 4M4 16v5h16v-5"/></svg>Import JSON</button>
+              <input id="progress-import-file" type="file" accept="application/json,.json" hidden>
+            </div>
+          </div>
+
+          <fieldset class="optional-tool" id="progress-grammar-section">
+            <legend>JLPT grammar log <span class="optional-label">N5–N1</span></legend>
+            <div class="progress-subhead progress-grammar-head">
+              <p class="tool-description">Patterns detected automatically when you study a Japanese subtitle line.</p>
+              <button id="clear-grammar-btn" class="btn-text danger" type="button" disabled>Clear Grammar Log</button>
+            </div>
+            <div id="progress-grammar-levels" class="grammar-level-bar" role="group" aria-label="Filter grammar by JLPT level"></div>
+            <div class="progress-controls">
+              <div class="field">
+                <label for="progress-grammar-search">Search patterns</label>
+                <input type="search" id="progress-grammar-search" placeholder="Search by pattern, reading, or meaning…" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="progress-grammar-scope">Show</label>
+                <select id="progress-grammar-scope">
+                  <option value="seen">Encountered</option>
+                  <option value="all">All patterns</option>
+                  <option value="unseen">Not seen yet</option>
+                </select>
+              </div>
+            </div>
+            <p id="progress-grammar-count-note" class="help-text">0 grammar patterns shown</p>
+            <p id="progress-grammar-empty" class="progress-empty">No grammar patterns logged yet. Open Study on a Japanese subtitle line to log patterns automatically, or switch the filter to All patterns.</p>
+            <ul id="progress-grammar-list" class="progress-grammar-list" aria-label="JLPT grammar log"></ul>
+            <div class="progress-more-wrap">
+              <button id="progress-grammar-more" class="btn-secondary" type="button" hidden>Show more</button>
+            </div>
+          </fieldset>
+        </div>
+      </section>
+
     <details class="setup-guide" id="setup-guide">
       <summary>
         <h2 class="setup-guide-title">Settings setup guide
@@ -269,7 +375,9 @@
   </footer>
   <div id="save-toast" class="toast" role="status" aria-live="polite">Settings saved successfully.</div>
   <script src="js/card-export.js"></script>
+  <script src="js/grammar-patterns.js"></script>
   <script src="options.js"></script>
+  <script src="js/progress-dashboard.js"></script>
   <script src="js/router-startup.js"></script>
 </body>
 </html>

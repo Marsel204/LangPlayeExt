@@ -2489,6 +2489,38 @@ Respond in JSON only:
     }
   }
 
+  const recordedGrammarSentences = new Set();
+  const inFlightGrammarSentences = new Set();
+
+  function recordGrammarPatterns(sentence, matches) {
+    if (typeof sentence !== 'string' || !Array.isArray(matches) || !matches.length) return;
+    if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') return;
+    const cleanSentence = sentence.replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+    if (!cleanSentence) return;
+    const patternIds = [...new Set(matches.map(m => m && m.id).filter(Boolean))].slice(0, 12);
+    if (!patternIds.length) return;
+    const dedupKey = cleanSentence + '\0' + patternIds.join(',');
+    if (recordedGrammarSentences.has(dedupKey) || inFlightGrammarSentences.has(dedupKey)) return;
+    inFlightGrammarSentences.add(dedupKey);
+    try {
+      chrome.runtime.sendMessage(
+        { action: 'RECORD_GRAMMAR_SEEN', patternIds, example: cleanSentence },
+        response => {
+          inFlightGrammarSentences.delete(dedupKey);
+          const error = chrome.runtime?.lastError;
+          if (!error && response && response.success === true) {
+            recordedGrammarSentences.add(dedupKey);
+            if (recordedGrammarSentences.size > 200) {
+              recordedGrammarSentences.delete(recordedGrammarSentences.values().next().value);
+            }
+          }
+        }
+      );
+    } catch {
+      inFlightGrammarSentences.delete(dedupKey);
+    }
+  }
+
   function renderGrammarPatterns(sentence, version) {
     const section = document.getElementById('lp-grammar-section');
     const list = document.getElementById('lp-grammar-list');
@@ -2506,6 +2538,7 @@ Respond in JSON only:
       return;
     }
 
+    recordGrammarPatterns(sentence, matches);
     section.hidden = false;
     if (count) count.textContent = matches.length === 1 ? '1 pattern' : `${matches.length} patterns`;
     const busy = activeSenseiChatRequest?.contextVersion === drawerContextVersion;
