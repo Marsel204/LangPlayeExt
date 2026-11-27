@@ -205,6 +205,37 @@
 #lp-sentence-jp rt { font: 400 12px/1.2 system-ui,sans-serif; color: #d6c9f3; white-space: nowrap; }
 #lp-sentence-jp .lp-word-gloss { font: 400 12px/1.4 system-ui,sans-serif; color: #c2bec8; max-width: 14ch; white-space: normal; overflow-wrap: anywhere; text-align: center; margin-top: 2px; }
 #lp-sentence-jp .is-target ruby { color: #dfd3ff; text-decoration: underline; text-underline-offset: 4px; }
+#lp-sentence-jp .lp-sentence-word.is-grammar-match { background: #c4b5fd24; border-radius: 5px; box-shadow: inset 0 -2px 0 #c4b5fd; }
+.lp-grammar-section { border-bottom: 1px solid #36393f; padding: 8px 0 10px; margin: 4px 0 6px; }
+.lp-grammar-header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.lp-grammar-heading { margin: 0; font: 600 12px/1.3 system-ui,sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #d4d0da; }
+.lp-grammar-list { display: flex; flex-direction: column; gap: 6px; }
+.lp-grammar-card { border: 1px solid #36393f; border-radius: 6px; background: #22252a; overflow: hidden; }
+.lp-grammar-card[open] { border-color: #6b5e8f; }
+.lp-grammar-summary { position: relative; list-style: none; cursor: pointer; padding: 7px 26px 7px 10px; display: flex; flex-direction: column; gap: 2px; }
+.lp-grammar-summary::-webkit-details-marker { display: none; }
+.lp-grammar-summary::after { content: "▸"; position: absolute; right: 10px; top: 8px; font-size: 11px; color: #c2bec8; }
+.lp-grammar-card[open] > .lp-grammar-summary::after { content: "▾"; color: #d6c9f3; }
+.lp-grammar-summary:hover { background: #2b2933; }
+.lp-grammar-summary:focus-visible { outline: 2px solid #dfd3ff; outline-offset: -2px; }
+.lp-grammar-top { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+.lp-jlpt-badge { display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 1px 6px; border-radius: 4px; font: 700 10.5px/1.4 system-ui,sans-serif; letter-spacing: .03em; border: 1px solid transparent; }
+.lp-jlpt-n5 { color: #7ee2a8; background: #6fcf9722; border-color: #6fcf9755; }
+.lp-jlpt-n4 { color: #94c0ff; background: #7fb2ff22; border-color: #7fb2ff55; }
+.lp-jlpt-n3 { color: #f8c460; background: #f5b54422; border-color: #f5b54455; }
+.lp-jlpt-n2 { color: #fba47e; background: #f6936a22; border-color: #f6936a55; }
+.lp-jlpt-n1 { color: #e8b4ff; background: #e4a5ff22; border-color: #e4a5ff55; }
+.lp-grammar-pattern { font: 600 13.5px/1.35 "Noto Sans CJK JP","Noto Sans JP",sans-serif; color: #f2f1ed; }
+.lp-grammar-reading { font: 400 11.5px/1.3 system-ui,sans-serif; color: #d6c9f3; }
+.lp-grammar-meaning { font: 400 12.5px/1.4 system-ui,sans-serif; color: #c2bec8; }
+.lp-grammar-body { border-top: 1px solid #36393f; padding: 8px 10px 9px; font-size: 12.5px; line-height: 1.5; background: #1c1e23; }
+.lp-grammar-match { margin-bottom: 5px; color: #c2bec8; }
+.lp-grammar-match mark { background: #c4b5fd28; color: #f2f1ed; padding: 1px 5px; border-radius: 4px; font-family: "Noto Sans CJK JP","Noto Sans JP",sans-serif; }
+.lp-grammar-structure { color: #e5e2eb; margin-bottom: 5px; }
+.lp-grammar-structure strong { color: #d6c9f3; font-weight: 600; }
+#linguaplay-yt-drawer .lp-grammar-note { margin: 4px 0 8px; color: #c2bec8; font-size: 12px; line-height: 1.5; }
+#linguaplay-yt-drawer .lp-grammar-ask-btn { width: 100%; min-height: 30px; padding: 5px 8px; font: 500 12px/1.3 system-ui,sans-serif; color: #d6c9f3; border-color: #4c455e; background: #262330; }
+#linguaplay-yt-drawer .lp-grammar-ask-btn:hover { background: #37323f; }
 #lp-sentence-romaji { color: #d6c9f3; font-size: 14px; line-height: 1.6; margin: 8px 0; }
 #lp-sentence-en { font-size: 13px; line-height: 1.5; margin: 6px 0 0; }
 #lp-translation-retry { margin-top: 10px; }
@@ -300,6 +331,8 @@
 @media (forced-colors: active) {
   #linguaplay-yt-tokens-overlay[data-transparent] #linguaplay-caption-surface { background: Canvas; color: CanvasText; border-color: CanvasText; box-shadow: none; text-shadow: none; backdrop-filter: none; }
   .linguaplay-yt-token, .linguaplay-token-reading, #linguaplay-caption-english { color: CanvasText; text-shadow: none; }
+  .lp-jlpt-badge, .lp-grammar-card[open] { border-color: CanvasText; color: CanvasText; }
+  #lp-sentence-jp .lp-sentence-word.is-grammar-match { outline: 1px solid Highlight; }
 }
 
 /* Word status: new words get a dotted amber underline, learning words a blue one. */

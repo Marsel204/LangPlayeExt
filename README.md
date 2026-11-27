@@ -74,6 +74,7 @@ Click any word in the subtitle overlay. Playback pauses and LinguaPlay opens its
 
 - **Word and reading:** check the Japanese word, hiragana reading, romaji, and dictionary meaning.
 - **Context sentence:** see the original line, its romaji, and English translation.
+- **JLPT N5–N1 grammar patterns:** automatically detects grammar constructions in the sentence (including split patterns such as **〜しか〜ない**, **もし〜たら**, and **〜ば〜ほど**), labels each with its N5–N1 badge, meaning, and formation offline, highlights matching words in the sentence, and lets you ask Sensei about any pattern with one click.
 - **Breakdown & Gloss:** click **Ask Sensei (AI Grammar Tutor)** to get an AI word-by-word gloss.
 
 The drawer keeps the sentence you selected as its context, even if playback moves on. When you're ready, close the drawer and resume the video.
