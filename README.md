@@ -56,6 +56,8 @@ Your manual choice is saved per video and restored on reload. It does not carry 
 
 Japanese subtitles underline vocabulary by status: a dotted amber line marks **new** words and a solid blue line marks words you are **learning**. Known words and particles stay plain. In Study, choose **New**, **Learning** or **Known** under the selected word; the choice applies to its dictionary form everywhere. Words you save as cards count as learning until you choose otherwise. Turn the underlines off with **⋯ → Highlight word status**.
 
+Open **Settings → Progress** to review your **Known**, **Learning**, and **New** word counts, search or filter tracked vocabulary, update or remove statuses, and export or import a JSON backup. The same section tracks **JLPT N5–N1** grammar patterns spotted automatically whenever you study a subtitle line, with per-level progress and example sentences.
+
 ### Drill a line
 
 Open **⋯** in the LinguaPlay controls, or use these keys while a video with timed subtitles plays:

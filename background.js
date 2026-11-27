@@ -33,6 +33,14 @@ function isTrustedExtensionSender(sender) {
   } catch { return false; }
 }
 
+function isOptionsExtensionSender(sender) {
+  if (!isTrustedExtensionSender(sender)) return false;
+  try {
+    const url = new URL(sender.url || sender.origin);
+    return url.protocol === 'chrome-extension:' && url.hostname === chrome.runtime.id && url.pathname === '/options.html';
+  } catch { return false; }
+}
+
 async function ensureLocalServer() {
   const config = await chrome.storage.local.get(['linguaplay_server_url', 'linguaplay_auto_start_server']);
   if (config.linguaplay_auto_start_server === false) return { success: true, skipped: true };
@@ -106,23 +114,307 @@ function validatedCard(value) {
   }
   return card;
 }
-// Word statuses (new / learning / known) keyed by dictionary form. Writes are
-// serialized with the other owned storage so tabs cannot overwrite each other.
+// Word statuses (new / learning / known) keyed by dictionary form, plus
+// encountered JLPT grammar pattern history. Writes are serialized with the
+// other owned storage so tabs cannot overwrite each other.
 const wordStatusKey = 'linguaplay_word_status';
+const wordStatusOrderKey = 'linguaplay_word_status_order';
+const grammarSeenKey = 'linguaplay_grammar_seen';
 const wordStatuses = ['new', 'learning', 'known'];
+const maxWordStatuses = 50000;
+const maxGrammarSeen = 500;
+const forbiddenObjectKeys = new Set(['__proto__', 'constructor', 'prototype']);
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+function isArrayIndexKey(key) {
+  if (typeof key !== 'string' || !/^(?:0|[1-9]\d{0,9})$/.test(key)) return false;
+  const num = Number(key);
+  return num >= 0 && num < 0xffffffff;
+}
+function normalizeTrackedWord(word) {
+  if (typeof word !== 'string' || word.length > 64 || /[\r\n]/.test(word)) return '';
+  const clean = word.trim();
+  if (!clean || forbiddenObjectKeys.has(clean)) return '';
+  return clean;
+}
+function isValidGrammarPatternId(id) {
+  return typeof id === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(id) && !forbiddenObjectKeys.has(id);
+}
+function cleanGrammarExample(value) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+}
+function validateStoredWordStatus(stored) {
+  if (stored === undefined) return {};
+  if (!isPlainObject(stored)) throw new Error('Stored word statuses are invalid; they were left unchanged');
+  const out = {};
+  for (const key of Object.getOwnPropertyNames(stored)) {
+    const clean = normalizeTrackedWord(key);
+    const value = stored[key];
+    if (!clean || clean !== key || !wordStatuses.includes(value)) {
+      throw new Error('Stored word statuses are invalid; they were left unchanged');
+    }
+    out[key] = value;
+  }
+  return out;
+}
+function validateStoredGrammarSeen(stored) {
+  if (stored === undefined) return {};
+  if (!isPlainObject(stored)) throw new Error('Stored grammar history is invalid; it was left unchanged');
+  const out = {};
+  for (const key of Object.getOwnPropertyNames(stored)) {
+    const entry = stored[key];
+    if (!isValidGrammarPatternId(key) || !isPlainObject(entry)) {
+      throw new Error('Stored grammar history is invalid; it was left unchanged');
+    }
+    if (!Number.isInteger(entry.count) || entry.count < 1 || entry.count > 1000000) {
+      throw new Error('Stored grammar history is invalid; it was left unchanged');
+    }
+    if (entry.lastSeen !== undefined && (!Number.isSafeInteger(entry.lastSeen) || entry.lastSeen < 0)) {
+      throw new Error('Stored grammar history is invalid; it was left unchanged');
+    }
+    if (entry.example !== undefined && typeof entry.example !== 'string') {
+      throw new Error('Stored grammar history is invalid; it was left unchanged');
+    }
+    out[key] = {
+      count: entry.count,
+      lastSeen: entry.lastSeen !== undefined ? entry.lastSeen : 0,
+      example: cleanGrammarExample(entry.example)
+    };
+  }
+  return out;
+}
+function rebuildOrderedWordStatusMap(validated, orderMeta) {
+  const nonIndex = [];
+  const indexed = [];
+  const meta = isPlainObject(orderMeta) ? orderMeta : null;
+  let fallbackSeq = 0;
+  for (const [key, value] of Object.entries(validated)) {
+    if (isArrayIndexKey(key)) {
+      const m = meta && isPlainObject(meta[key]) ? meta[key] : null;
+      const pos = m && Number.isInteger(m.pos) && m.pos >= 0 ? m.pos : 0;
+      const seq = m && Number.isInteger(m.seq) && m.seq >= 0 ? m.seq : ++fallbackSeq;
+      indexed.push({ key, value, pos, seq });
+    } else {
+      nonIndex.push([key, value]);
+    }
+  }
+  indexed.sort((a, b) => a.pos - b.pos || a.seq - b.seq);
+  const ordered = new Map();
+  let idxCursor = 0;
+  for (let i = 0; i < nonIndex.length; i++) {
+    while (idxCursor < indexed.length && indexed[idxCursor].pos <= i) {
+      ordered.set(indexed[idxCursor].key, indexed[idxCursor].value);
+      idxCursor++;
+    }
+    ordered.set(nonIndex[i][0], nonIndex[i][1]);
+  }
+  while (idxCursor < indexed.length) {
+    ordered.set(indexed[idxCursor].key, indexed[idxCursor].value);
+    idxCursor++;
+  }
+  return ordered;
+}
+function serializeOrderedWordStatus(ordered) {
+  while (ordered.size > maxWordStatuses) {
+    ordered.delete(ordered.keys().next().value);
+  }
+  const map = {};
+  const orderMeta = {};
+  let nonIndexSeen = 0;
+  let seq = 0;
+  for (const [key, value] of ordered) {
+    map[key] = value;
+    if (isArrayIndexKey(key)) {
+      orderMeta[key] = { pos: nonIndexSeen, seq: ++seq };
+    } else {
+      nonIndexSeen++;
+    }
+  }
+  return { map, orderMeta, hasOrderMeta: seq > 0 };
+}
+function capGrammarMap(map) {
+  const entries = Object.entries(map);
+  if (entries.length <= maxGrammarSeen) return map;
+  entries.sort((a, b) => (Number(a[1]?.lastSeen) || 0) - (Number(b[1]?.lastSeen) || 0));
+  const keep = entries.slice(entries.length - maxGrammarSeen);
+  const out = {};
+  for (const [key, value] of keep) out[key] = value;
+  return out;
+}
+async function persistWordStatusSnapshot(ordered) {
+  const { map, orderMeta, hasOrderMeta } = serializeOrderedWordStatus(ordered);
+  if (hasOrderMeta) {
+    await localStorageCall('set', { [wordStatusKey]: map, [wordStatusOrderKey]: orderMeta });
+  } else {
+    await localStorageCall('set', { [wordStatusKey]: map });
+    await localStorageCall('remove', [wordStatusOrderKey]);
+  }
+  return map;
+}
 async function setOwnedWordStatus(word, status) {
-  if (typeof word !== 'string' || !word.trim() || word.length > 64 || /[\r\n]/.test(word) || !wordStatuses.includes(status)) throw new Error('Invalid word status');
-  const result = await localStorageCall('get', [wordStatusKey]);
-  const stored = result[wordStatusKey];
-  if (stored !== undefined && (!stored || typeof stored !== 'object' || Array.isArray(stored))) throw new Error('Stored word statuses are invalid; they were left unchanged');
-  const next = {...(stored || {})};
-  delete next[word.trim()];
-  next[word.trim()] = status;
-  // Keep the newest 50,000 choices.
-  const keys = Object.keys(next);
-  for (const key of keys.slice(0, Math.max(0, keys.length - 50000))) delete next[key];
-  await localStorageCall('set', {[wordStatusKey]: next});
-  return {success: true, word: word.trim(), status};
+  const cleanWord = normalizeTrackedWord(word);
+  if (!cleanWord || !wordStatuses.includes(status)) throw new Error('Invalid word status');
+  const result = await localStorageCall('get', [wordStatusKey, wordStatusOrderKey]);
+  const ordered = rebuildOrderedWordStatusMap(validateStoredWordStatus(result[wordStatusKey]), result[wordStatusOrderKey]);
+  ordered.delete(cleanWord);
+  ordered.set(cleanWord, status);
+  // Keep the newest 50,000 choices in insertion order (including numeric keys).
+  await persistWordStatusSnapshot(ordered);
+  return {success: true, word: cleanWord, status};
+}
+async function removeOwnedWordStatus(word) {
+  const cleanWord = normalizeTrackedWord(word);
+  if (!cleanWord) throw new Error('Invalid word');
+  const result = await localStorageCall('get', [wordStatusKey, wordStatusOrderKey]);
+  const ordered = rebuildOrderedWordStatusMap(validateStoredWordStatus(result[wordStatusKey]), result[wordStatusOrderKey]);
+  const removed = ordered.delete(cleanWord);
+  await persistWordStatusSnapshot(ordered);
+  return {success: true, word: cleanWord, removed};
+}
+async function clearOwnedWordStatus() {
+  await localStorageCall('set', {[wordStatusKey]: {}});
+  await localStorageCall('remove', [wordStatusOrderKey]);
+  return {success: true};
+}
+async function recordOwnedGrammarSeen(patternIds, example) {
+  if (!Array.isArray(patternIds) || !patternIds.length || patternIds.length > 12) throw new Error('Invalid grammar pattern list');
+  if (example !== undefined && typeof example !== 'string') throw new Error('Invalid grammar example');
+  const uniqueIds = [];
+  const seen = new Set();
+  for (const id of patternIds) {
+    if (!isValidGrammarPatternId(id)) throw new Error('Invalid grammar pattern id');
+    if (!seen.has(id)) {
+      seen.add(id);
+      uniqueIds.push(id);
+    }
+  }
+  const result = await localStorageCall('get', [grammarSeenKey]);
+  const next = validateStoredGrammarSeen(result[grammarSeenKey]);
+  const now = Date.now();
+  const cleanExample = cleanGrammarExample(example);
+  for (const id of uniqueIds) {
+    const prev = next[id] || null;
+    next[id] = {
+      count: Math.min(1000000, (prev ? prev.count : 0) + 1),
+      lastSeen: now,
+      example: cleanExample || (prev ? prev.example : '')
+    };
+  }
+  const capped = capGrammarMap(next);
+  await localStorageCall('set', {[grammarSeenKey]: capped});
+  return {success: true, recorded: uniqueIds.length};
+}
+async function clearOwnedGrammarSeen() {
+  await localStorageCall('set', {[grammarSeenKey]: {}});
+  return {success: true};
+}
+async function importOwnedProgress(data, mode = 'merge') {
+  if (mode !== 'merge' && mode !== 'replace') throw new Error('Invalid import mode');
+  if (!isPlainObject(data)) throw new Error('Backup file must be a JSON object');
+  const hasWords = Object.prototype.hasOwnProperty.call(data, 'wordStatus') && data.wordStatus !== undefined;
+  const hasGrammar = Object.prototype.hasOwnProperty.call(data, 'grammarSeen') && data.grammarSeen !== undefined;
+  if (!hasWords && !hasGrammar) throw new Error('Backup file has no vocabulary or grammar progress');
+
+  let incomingWords = null;
+  if (hasWords) {
+    if (!isPlainObject(data.wordStatus)) throw new Error('Invalid vocabulary status data in backup');
+    const keys = Object.getOwnPropertyNames(data.wordStatus);
+    if (keys.length > maxWordStatuses) throw new Error(`Backup exceeds the ${maxWordStatuses.toLocaleString()} word limit`);
+    incomingWords = {};
+    for (const rawWord of keys) {
+      const status = data.wordStatus[rawWord];
+      const cleanWord = normalizeTrackedWord(rawWord);
+      if (!cleanWord || !wordStatuses.includes(status)) throw new Error('Backup contains an invalid vocabulary entry');
+      incomingWords[cleanWord] = status;
+    }
+  }
+
+  let incomingGrammar = null;
+  if (hasGrammar) {
+    if (!isPlainObject(data.grammarSeen)) throw new Error('Invalid grammar progress data in backup');
+    const keys = Object.getOwnPropertyNames(data.grammarSeen);
+    if (keys.length > maxGrammarSeen) throw new Error(`Backup exceeds the ${maxGrammarSeen} grammar pattern limit`);
+    incomingGrammar = {};
+    for (const id of keys) {
+      const rawEntry = data.grammarSeen[id];
+      if (!isValidGrammarPatternId(id) || !isPlainObject(rawEntry)) throw new Error('Backup contains an invalid grammar entry');
+      if (!Number.isInteger(rawEntry.count) || rawEntry.count < 1 || rawEntry.count > 1000000) throw new Error('Backup contains an invalid grammar encounter count');
+      if (rawEntry.lastSeen !== undefined && (!Number.isSafeInteger(rawEntry.lastSeen) || rawEntry.lastSeen < 0)) throw new Error('Backup contains an invalid grammar timestamp');
+      if (rawEntry.example !== undefined && typeof rawEntry.example !== 'string') throw new Error('Backup contains an invalid grammar example');
+      incomingGrammar[id] = {
+        count: rawEntry.count,
+        lastSeen: rawEntry.lastSeen !== undefined ? rawEntry.lastSeen : 0,
+        example: cleanGrammarExample(rawEntry.example)
+      };
+    }
+  }
+
+  const stored = await localStorageCall('get', [wordStatusKey, wordStatusOrderKey, grammarSeenKey]);
+  const updates = {};
+  let removeOrderMeta = false;
+  let totalWords = 0;
+  let totalGrammar = 0;
+
+  if (incomingWords) {
+    if (mode === 'merge') {
+      const ordered = rebuildOrderedWordStatusMap(validateStoredWordStatus(stored[wordStatusKey]), stored[wordStatusOrderKey]);
+      for (const [word, status] of Object.entries(incomingWords)) {
+        ordered.delete(word);
+        ordered.set(word, status);
+      }
+      const { map, orderMeta, hasOrderMeta } = serializeOrderedWordStatus(ordered);
+      updates[wordStatusKey] = map;
+      if (hasOrderMeta) updates[wordStatusOrderKey] = orderMeta;
+      else removeOrderMeta = true;
+      totalWords = ordered.size;
+    } else {
+      const ordered = new Map(Object.entries(incomingWords));
+      const { map, orderMeta, hasOrderMeta } = serializeOrderedWordStatus(ordered);
+      updates[wordStatusKey] = map;
+      if (hasOrderMeta) updates[wordStatusOrderKey] = orderMeta;
+      else removeOrderMeta = true;
+      totalWords = ordered.size;
+    }
+  }
+
+  if (incomingGrammar) {
+    if (mode === 'merge') {
+      const merged = validateStoredGrammarSeen(stored[grammarSeenKey]);
+      for (const [id, inc] of Object.entries(incomingGrammar)) {
+        const prev = merged[id] || null;
+        if (!prev) {
+          merged[id] = inc;
+        } else {
+          const nextExample = inc.lastSeen > prev.lastSeen && inc.example
+            ? inc.example
+            : (prev.example || inc.example);
+          merged[id] = {
+            count: Math.min(1000000, Math.max(prev.count, inc.count)),
+            lastSeen: Math.max(prev.lastSeen, inc.lastSeen),
+            example: nextExample
+          };
+        }
+      }
+      updates[grammarSeenKey] = capGrammarMap(merged);
+      totalGrammar = Object.keys(updates[grammarSeenKey]).length;
+    } else {
+      updates[grammarSeenKey] = capGrammarMap(incomingGrammar);
+      totalGrammar = Object.keys(updates[grammarSeenKey]).length;
+    }
+  }
+
+  await localStorageCall('set', updates);
+  if (removeOrderMeta) await localStorageCall('remove', [wordStatusOrderKey]);
+  return {
+    success: true,
+    mode,
+    importedWords: incomingWords ? Object.keys(incomingWords).length : 0,
+    importedGrammar: incomingGrammar ? Object.keys(incomingGrammar).length : 0,
+    totalWords,
+    totalGrammar
+  };
 }
 
 async function saveOwnedCard(card) {
@@ -687,6 +979,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.action === 'CACHE_LYRICS') return cacheOwnedLyrics(request.vid, request.payload);
       return removeOwnedLyrics(request.vid);
     }).then(sendResponse, error => sendResponse({success:false, error:error.message}));
+    return true;
+  }
+  if (request.action === 'RECORD_GRAMMAR_SEEN') {
+    if (!isTrustedExtensionSender(sender)) { sendResponse({success: false, error: 'Untrusted progress request'}); return false; }
+    enqueueStorage(() => recordOwnedGrammarSeen(request.patternIds, request.example))
+      .then(sendResponse, error => sendResponse({success: false, error: error.message}));
+    return true;
+  }
+  if (['REMOVE_WORD_STATUS', 'CLEAR_WORD_STATUS', 'CLEAR_GRAMMAR_SEEN', 'IMPORT_PROGRESS'].includes(request.action)) {
+    if (!isOptionsExtensionSender(sender)) { sendResponse({success: false, error: 'Only extension Settings can manage saved progress'}); return false; }
+    enqueueStorage(async () => {
+      if (request.action === 'REMOVE_WORD_STATUS') return removeOwnedWordStatus(request.word);
+      if (request.action === 'CLEAR_WORD_STATUS') return clearOwnedWordStatus();
+      if (request.action === 'CLEAR_GRAMMAR_SEEN') return clearOwnedGrammarSeen();
+      return importOwnedProgress(request.data, request.mode);
+    }).then(sendResponse, error => sendResponse({success: false, error: error.message}));
     return true;
   }
   if (request.action === 'PARSE_JAPANESE') {
